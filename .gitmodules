@@ -1,0 +1,8 @@
+[submodule "workflows"]
+	path = workflows
+	url = https://github.com/m2ux/workflow-server.git
+	branch = workflows
+[submodule "history"]
+	path = history
+	url = https://github.com/m2ux/ai-metadata.git
+	branch = tradingview-mcp
