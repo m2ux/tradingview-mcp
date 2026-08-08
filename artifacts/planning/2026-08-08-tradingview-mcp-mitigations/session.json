@@ -601,10 +601,11 @@
           "requirements-elicitation",
           "research",
           "implementation-analysis",
-          "plan-prepare"
+          "plan-prepare",
+          "assumptions-review"
         ],
         "condition": "",
-        "currentActivity": "assumptions-review",
+        "currentActivity": "implement",
         "currentTechnique": "update-pr::render",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -770,10 +771,15 @@
             "resource:design-framework#design-framework-trizics-approach": "977d1b778bffb2d0",
             "resource:pr-description#link-row-forms": "2356a858c8d0ea62",
             "resource:pr-description#template-initial": "ebd113d147578b51",
+            "resource:tdd-concepts-rust": "46b25475068c178d",
             "resource:test-plan#templates": "853cd4cab9189ab1",
+            "resource:test-plan#test-plan-structure": "d3dcd3313dcc14c1",
             "resource:wp-plan": "e4af1fb3ef88d959",
-            "technique:analyse-challenge::run-loop": "8de4b58a6017b13f",
+            "technique:analyse-challenge::run-loop": "2c8b86ffce4e283b",
+            "technique:cargo-operations::test": "b11af49151631afd",
             "technique:create-test-plan": "8b83b86d87421ade",
+            "technique:dco-provenance::append-task-row": "6a8ad0cbd52009d3",
+            "technique:implement-task": "7cac170e913a15bc",
             "technique:inherited_inputs.items:9b49ddf54b6b2bc2": "9b49ddf54b6b2bc2",
             "technique:inherited_inputs.items:b4676123504f93a1": "b4676123504f93a1",
             "technique:inherited_inputs.items:c30ca5a38c8ad3b3": "c30ca5a38c8ad3b3",
@@ -781,15 +787,24 @@
             "technique:inherited_inputs:9e5c60d5cda703f1": "9e5c60d5cda703f1",
             "technique:inherited_inputs:b83c7860eeaa437e": "b83c7860eeaa437e",
             "technique:inherited_inputs:d883a03c7a892c43": "d883a03c7a892c43",
+            "technique:inherited_outputs.items:21315b9922c3d036": "21315b9922c3d036",
+            "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:98ff5ab4c0b7299c": "98ff5ab4c0b7299c",
+            "technique:manage-git::artifact-commits": "bc31c9c7eb49b902",
             "technique:manage-git::sync-branch": "3ac3a7eceffa9199",
             "technique:plan-prepare::create-todos": "3337592592383396",
             "technique:plan-prepare::plan": "ee08a4dfe9a49c72",
             "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
-            "technique:review-assumptions::collect": "a9cf0838c8f7d4d5",
-            "technique:review-assumptions::record": "c6d72aac91f0c229",
+            "technique:review-assumptions::collect": "621bcc757ef4b6f7",
+            "technique:review-assumptions::interview": "1f41387784bcb181",
+            "technique:review-assumptions::record": "95f68701d2d67f5a",
             "technique:rules:1312287948d72037": "1312287948d72037",
             "technique:rules:7ee01840785973f0": "7ee01840785973f0",
+            "technique:rules:87e59199dc0a9945": "87e59199dc0a9945",
+            "technique:rules:9793b1398dab1386": "9793b1398dab1386",
+            "technique:rules:cc2cfaa8a8411fce": "cc2cfaa8a8411fce",
             "technique:stakeholder-overview": "48edd931a2ee43a0",
+            "technique:task-completion-review": "4351c6b66c35d4c9",
             "technique:update-pr::render": "aa68cb1f410df8bc"
           }
         },
@@ -4870,17 +4885,438 @@
             },
             "timestamp": "2026-08-08T11:27:12.549Z",
             "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "assumptions_log",
+              "source": "variables_changed",
+              "value": "02-assumptions-log.md — 23 rows (incl. AR-1 null row); all validated/confirmed"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "open_assumptions",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "evaluate-open-assumptions"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "present-residual-assumptions"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "residual-assumption-batch"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "record-batch-decision"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "assumption-interview-loop"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "post-summary-jira"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "post-summary-review"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "post-summary-github"
+            },
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "implement",
+            "timestamp": "2026-08-08T11:39:10.753Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 57714,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 4881,
+              "delivery": "full",
+              "stepId": "implement-task",
+              "techniqueId": "implement-task"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "implement-task"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 3553,
+              "delivery": "full",
+              "stepId": "run-tests",
+              "techniqueId": "cargo-operations::test"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "run-tests"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 5612,
+              "delivery": "full",
+              "stepId": "commit",
+              "techniqueId": "manage-git::artifact-commits"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "commit"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 3565,
+              "delivery": "full",
+              "stepId": "log-provenance",
+              "techniqueId": "dco-provenance::append-task-row"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "log-provenance"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 6450,
+              "delivery": "full",
+              "stepId": "self-review",
+              "techniqueId": "task-completion-review"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "self-review"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 5285,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 7746,
+              "delivery": "full",
+              "stepId": "analyse-challenge-loop",
+              "techniqueId": "analyse-challenge::run-loop"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 6477,
+              "delivery": "full",
+              "stepId": "present-resolved-assumptions",
+              "techniqueId": "review-assumptions::interview"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "present-resolved-assumptions"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 4293,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 13533,
+              "delivery": "full",
+              "resourceId": "tdd-concepts-rust"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 277,
+              "delivery": "full",
+              "resourceId": "test-plan#test-plan-structure"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 2452,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 1038,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 1159,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 316,
+              "delivery": "unchanged",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-08-08T11:39:36.786Z",
+            "type": "resource_fetched"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 59,
+        "seq": 61,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786188432,
+        "ts": 1786189176,
         "variables": {
           "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
           "artifact_name": "",
@@ -4889,7 +5325,7 @@
           "assumption_decisions": [],
           "assumption_deferred": false,
           "assumption_resolved_inline": false,
-          "assumptions_log": "02-assumptions-log.md — 22 rows (DP/RE/RS/IA/PL), all validated or confirmed",
+          "assumptions_log": "02-assumptions-log.md — 23 rows (incl. AR-1 null row); all validated/confirmed",
           "attestation_option": "certify",
           "audit_confirmed": false,
           "awaiting_review": false,
