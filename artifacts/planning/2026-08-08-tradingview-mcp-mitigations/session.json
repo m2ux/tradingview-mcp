@@ -584,15 +584,20 @@
             },
             "optionId": "skip-discussion",
             "respondedAt": "2026-08-08T08:10:45.000Z"
+          },
+          "research-research-convergence": {
+            "optionId": "accept-research",
+            "respondedAt": "2026-08-08T10:18:12.000Z"
           }
         },
         "completedActivities": [
           "start-work-package",
           "design-philosophy",
-          "codebase-comprehension"
+          "codebase-comprehension",
+          "requirements-elicitation"
         ],
         "condition": "",
-        "currentActivity": "requirements-elicitation",
+        "currentActivity": "research",
         "currentTechnique": "update-pr::create-pr",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -680,6 +685,8 @@
           "wpw1-XD2I3T-02": {
             "activity_rules:148ebfb566580534": "148ebfb566580534",
             "bundle:rules:2cfa9db95a23a585": "2cfa9db95a23a585",
+            "bundle:rules:c2e375a78457293b": "c2e375a78457293b",
+            "bundle:scatter-gather": "5936e102c068c56c",
             "bundle:variable-binding": "e5b276dec214b8d1",
             "bundle:workflow-engine::activity-worker": "589271572041828e",
             "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
@@ -689,15 +696,48 @@
             "resource:assumptions-review#classification-vocabulary": "d95655f24a88f4f6",
             "resource:assumptions-review#probe-vocabulary": "be43ac5e7ec9ec36",
             "resource:deferred-items#template": "0e72353a4ff91aae",
+            "resource:knowledge-base-research": "5d870c6f4b7e46ec",
             "resource:requirements-elicitation#document-template": "e3a58bcfda3829e0",
             "resource:requirements-elicitation#question-domain-reference": "c52b343e70751252",
+            "resource:research-reconciliation#inventory-shape": "74d5ef840d12bd79",
+            "resource:web-research#planning-artifact": "95adb80cdff73118",
+            "technique:analyse-challenge::run-loop": "e459886c5b4c468b",
+            "technique:inherited_inputs.items:10de6d51665fedc6": "10de6d51665fedc6",
+            "technique:inherited_inputs.items:51e281d91da173f5": "51e281d91da173f5",
+            "technique:inherited_inputs.items:57275dd8c43794a1": "57275dd8c43794a1",
+            "technique:inherited_inputs.items:9b49ddf54b6b2bc2": "9b49ddf54b6b2bc2",
+            "technique:inherited_inputs.items:b4676123504f93a1": "b4676123504f93a1",
+            "technique:inherited_inputs.items:c30ca5a38c8ad3b3": "c30ca5a38c8ad3b3",
+            "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
+            "technique:inherited_inputs:01ad6743f09badfb": "01ad6743f09badfb",
+            "technique:inherited_inputs:9e5c60d5cda703f1": "9e5c60d5cda703f1",
+            "technique:inherited_inputs:b83c7860eeaa437e": "b83c7860eeaa437e",
+            "technique:inherited_inputs:c1187b9ec6e2fb2c": "c1187b9ec6e2fb2c",
+            "technique:inherited_inputs:d883a03c7a892c43": "d883a03c7a892c43",
+            "technique:inherited_inputs:e31da4f1367cd5be": "e31da4f1367cd5be",
+            "technique:inherited_outputs.items:21315b9922c3d036": "21315b9922c3d036",
+            "technique:inherited_outputs.items:fa4a920939d10fce": "fa4a920939d10fce",
+            "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:98ff5ab4c0b7299c": "98ff5ab4c0b7299c",
+            "technique:inherited_outputs:f0213104a587801d": "f0213104a587801d",
+            "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
             "technique:requirements-elicitation::ask-question": "49a9188eb5a3c45f",
             "technique:requirements-elicitation::create-document": "b6a2fff77b0c64c4",
             "technique:requirements-elicitation::discuss": "857bbfba4d8b23be",
             "technique:requirements-elicitation::elicit": "d3b439cb7c39d5d6",
-            "technique:review-assumptions::collect": "3ded518e37419a10",
+            "technique:research::document": "b73a8af2b29f9b35",
+            "technique:research::research": "4e2ac0a299a32593",
+            "technique:research::synthesize": "0ede49a93d831859",
+            "technique:research::triage": "236fba3b73aaa875",
+            "technique:review-assumptions::collect": "59a5ccd7276554bc",
+            "technique:review-assumptions::interview": "e4e374491fbe0837",
             "technique:review-assumptions::reconcile": "4521cc1ec4b3d994",
-            "technique:review-assumptions::record": "2ed7a25f7a119dae"
+            "technique:review-assumptions::record": "eec06a81d05792a4",
+            "technique:rules:1312287948d72037": "1312287948d72037",
+            "technique:rules:25756973044566e7": "25756973044566e7",
+            "technique:rules:7ee01840785973f0": "7ee01840785973f0",
+            "technique:rules:9b8300c9a26abf6a": "9b8300c9a26abf6a",
+            "technique:rules:b33a79fc5801d2e5": "b33a79fc5801d2e5"
           }
         },
         "history": [
@@ -3193,17 +3233,464 @@
             },
             "timestamp": "2026-08-08T09:58:00.000Z",
             "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "elicitation_complete",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "has_stakeholder_input",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "requirements",
+              "source": "variables_changed",
+              "value": "9 in-scope finding areas consolidated from the mitigation plan + DP decisions: capability-allowlist model replacing ui_evaluate; hardened gated tv_update; gate tv_launch/alert_delete/draw_clear/batch_run; untrusted-content fencing; launch safety; UI selector hardening; CI supply-chain pinning; dependency pinning/auditability; pine_check upload gate + CDP host guardrails"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "scope_boundaries",
+              "source": "variables_changed",
+              "value": "In: the 9 finding areas incl. DP-1/2/3 decisions. Out: MSIX hash-verification design, live-CDP e2e of every gate, changes to the read-only analysis surface beyond fencing"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "success_criteria",
+              "source": "variables_changed",
+              "value": "SC-1 ui_evaluate absent from agent surface; SC-2 DANGEROUS_TOOLS gated off by default; SC-3 tv_update token+allowlist+signed-tag+fail-closed; SC-4 untrusted-content fencing + instructions; SC-5 kill_existing default false + exact-path kill; SC-6 CI pinned + permissions + failing audit; SC-7 pine_check upload gate + remote-CDP guard; SC-8 full node --test suite green"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "stakeholder-discussion"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "stakeholder-transcript"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "elicit-requirements"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "domain-iteration"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "create-document"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "elicitation-complete"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "assumption-reconciliation"
+            },
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "timestamp": "2026-08-08T10:05:57.608Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 78978,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T10:06:30.581Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 6056,
+              "delivery": "full",
+              "stepId": "research-knowledge-base",
+              "techniqueId": "research::research"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "research-knowledge-base"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 3869,
+              "delivery": "full",
+              "stepId": "synthesize",
+              "techniqueId": "research::synthesize"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "synthesize"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 7745,
+              "delivery": "full",
+              "stepId": "triage-research-candidates",
+              "techniqueId": "research::triage"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "triage-research-candidates"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 5286,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 3709,
+              "delivery": "full",
+              "stepId": "document",
+              "techniqueId": "research::document"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "document"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4296,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 7746,
+              "delivery": "full",
+              "stepId": "analyse-challenge-loop",
+              "techniqueId": "analyse-challenge::run-loop"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 6478,
+              "delivery": "full",
+              "stepId": "present-resolved-assumptions",
+              "techniqueId": "review-assumptions::interview"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "present-resolved-assumptions"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 2654,
+              "delivery": "full",
+              "resourceId": "knowledge-base-research"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1198,
+              "delivery": "full",
+              "resourceId": "web-research#planning-artifact"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1918,
+              "delivery": "full",
+              "resourceId": "research-reconciliation#inventory-shape"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 2452,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1038,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1159,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 316,
+              "delivery": "unchanged",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-08-08T10:06:30.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "research",
+            "checkpoint": "research-convergence",
+            "timestamp": "2026-08-08T10:16:13.291Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "research",
+            "checkpoint": "research-convergence",
+            "data": {
+              "optionId": "accept-research"
+            },
+            "timestamp": "2026-08-08T10:18:12.000Z",
+            "type": "checkpoint_response"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 38,
+        "seq": 43,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786183137,
+        "ts": 1786184337,
         "variables": {
           "artifact_name": "",
           "artifact_publish_ref": "",
@@ -3247,7 +3734,7 @@
           "has_debt_markers": false,
           "has_deferred_assumptions": false,
           "has_flagged_blocks": false,
-          "has_open_assumptions": true,
+          "has_open_assumptions": false,
           "has_open_questions": false,
           "has_reconcilable_research": false,
           "has_resolvable_assumptions": false,
@@ -3302,6 +3789,7 @@
           "provenance_log_path": "",
           "push_remote": "origin",
           "push_remote_url": "",
+          "requirements": "9 in-scope finding areas consolidated from the mitigation plan + DP decisions: capability-allowlist model replacing ui_evaluate; hardened gated tv_update; gate tv_launch/alert_delete/draw_clear/batch_run; untrusted-content fencing; launch safety; UI selector hardening; CI supply-chain pinning; dependency pinning/auditability; pine_check upload gate + CDP host guardrails",
           "resign_unsigned_commits_requested": false,
           "review_comments_summary": "",
           "review_mode_ambiguous": false,
@@ -3314,6 +3802,7 @@
           "reviewed_code_base_url": "",
           "run_local_validation": false,
           "safety_floor_cleared": false,
+          "scope_boundaries": "In: the 9 finding areas incl. DP-1/2/3 decisions. Out: MSIX hash-verification design, live-CDP e2e of every gate, changes to the read-only analysis surface beyond fencing",
           "skip_architecture_summary": false,
           "skip_assumption_review": false,
           "skip_optional_activities": false,
@@ -3325,6 +3814,7 @@
           "strategic_findings_summary": "",
           "strategic_fixes_selective": false,
           "submission_aborted": false,
+          "success_criteria": "SC-1 ui_evaluate absent from agent surface; SC-2 DANGEROUS_TOOLS gated off by default; SC-3 tv_update token+allowlist+signed-tag+fail-closed; SC-4 untrusted-content fencing + instructions; SC-5 kill_existing default false + exact-path kill; SC-6 CI pinned + permissions + failing audit; SC-7 pine_check upload gate + remote-CDP guard; SC-8 full node --test suite green",
           "summary_budget_overruns": [],
           "target_path": "/home/mike1/projects/dev/tradingview-mcp/.worktrees/2026-08-08-tradingview-mcp-mitigations",
           "target_repo": "m2ux/tradingview-mcp",
