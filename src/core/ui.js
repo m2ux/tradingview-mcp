@@ -10,15 +10,15 @@ export async function click({ by, value }) {
       var by = ${JSON.stringify(by)};
       var value = ${escaped};
       var el = null;
-      if (by === 'aria-label') el = document.querySelector('[aria-label="' + value.replace(/"/g, '\\\\"') + '"]');
-      else if (by === 'data-name') el = document.querySelector('[data-name="' + value.replace(/"/g, '\\\\"') + '"]');
+      if (by === 'aria-label') el = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
+      else if (by === 'data-name') el = document.querySelector('[data-name="' + CSS.escape(value) + '"]');
       else if (by === 'text') {
         var candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"]');
         for (var i = 0; i < candidates.length; i++) {
           var text = candidates[i].textContent.trim();
           if (text === value || text.toLowerCase() === value.toLowerCase()) { el = candidates[i]; break; }
         }
-      } else if (by === 'class-contains') el = document.querySelector('[class*="' + value.replace(/"/g, '\\\\"') + '"]');
+      } else if (by === 'class-contains') el = document.querySelector('[class*="' + CSS.escape(value) + '"]');
       if (!el) return { found: false };
       el.click();
       return { found: true, tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim().substring(0, 80), aria_label: el.getAttribute('aria-label') || null, data_name: el.getAttribute('data-name') || null };
@@ -206,14 +206,14 @@ export async function hover({ by, value }) {
       var value = ${JSON.stringify(value)};
       var el = null;
       if (by === 'aria-label') {
-        el = document.querySelector('[aria-label="' + value.replace(/"/g, '\\\\"') + '"]');
-        if (!el) el = document.querySelector('[aria-label*="' + value.replace(/"/g, '\\\\"') + '"]');
+        el = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
+        if (!el) el = document.querySelector('[aria-label*="' + CSS.escape(value) + '"]');
       }
-      else if (by === 'data-name') el = document.querySelector('[data-name="' + value.replace(/"/g, '\\\\"') + '"]');
+      else if (by === 'data-name') el = document.querySelector('[data-name="' + CSS.escape(value) + '"]');
       else if (by === 'text') {
         var candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"], span, div');
         for (var i = 0; i < candidates.length; i++) { var text = candidates[i].textContent.trim(); if (text === value || text.toLowerCase() === value.toLowerCase()) { el = candidates[i]; break; } }
-      } else if (by === 'class-contains') el = document.querySelector('[class*="' + value.replace(/"/g, '\\\\"') + '"]');
+      } else if (by === 'class-contains') el = document.querySelector('[class*="' + CSS.escape(value) + '"]');
       if (!el) return null;
       var rect = el.getBoundingClientRect();
       return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, tag: el.tagName.toLowerCase() };
@@ -260,6 +260,9 @@ export async function mouseClick({ x, y, button, double_click }) {
 
 export async function findElement({ query, strategy }) {
   const strat = strategy || 'text';
+  if (strat === 'css' && /[<>]|\b(?:javascript|data|vbscript)\s*:/i.test(query)) {
+    throw new Error('ui_find_element css strategy rejected the query: markup characters and script/data URL schemes are not allowed');
+  }
   const results = await evaluate(`
     (function() {
       var query = ${JSON.stringify(query)};
@@ -272,7 +275,7 @@ export async function findElement({ query, strategy }) {
           results.push({ tag: els[i].tagName.toLowerCase(), text: (els[i].textContent || '').trim().substring(0, 80), aria_label: els[i].getAttribute('aria-label') || null, data_name: els[i].getAttribute('data-name') || null, x: rect.x, y: rect.y, width: rect.width, height: rect.height, visible: els[i].offsetParent !== null });
         }
       } else if (strategy === 'aria-label') {
-        var els = document.querySelectorAll('[aria-label*="' + query.replace(/"/g, '\\\\"') + '"]');
+        var els = document.querySelectorAll('[aria-label*="' + CSS.escape(query) + '"]');
         for (var i = 0; i < Math.min(els.length, 20); i++) {
           var rect = els[i].getBoundingClientRect();
           results.push({ tag: els[i].tagName.toLowerCase(), text: (els[i].textContent || '').trim().substring(0, 80), aria_label: els[i].getAttribute('aria-label') || null, data_name: els[i].getAttribute('data-name') || null, x: rect.x, y: rect.y, width: rect.width, height: rect.height, visible: els[i].offsetParent !== null });

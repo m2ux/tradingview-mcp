@@ -1,0 +1,17 @@
+# Keep the SHA-pinned actions in .github/workflows/ current — the security
+# model pins third-party actions to full commit SHAs, and dependabot is the
+# upkeep mechanism that proposes fresh pins (it understands the
+# `@<sha> # vX` comment convention and bumps both).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

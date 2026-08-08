@@ -211,6 +211,7 @@ function _resolveLaunchDeps(deps) {
     readdirSync: deps?.readdirSync || readdirSync,
     delay: deps?.delay || ((ms) => new Promise((r) => setTimeout(r, ms))),
     probeCdp: deps?.probeCdp || _probeCdp,
+    platform: deps?.platform || process.platform,
   };
 }
 
@@ -286,8 +287,8 @@ function _copyMsixPackageLocal(tvPath, { cpSync, rmSync, readdirSync, existsSync
 export async function launch({ port, kill_existing, _deps } = {}) {
   const deps = _resolveLaunchDeps(_deps);
   const cdpPort = port || CDP_PORT;
-  const killFirst = kill_existing !== false;
-  const platform = process.platform;
+  const killFirst = kill_existing === true;
+  const platform = deps.platform;
 
   const pathMap = {
     darwin: [
@@ -350,9 +351,37 @@ export async function launch({ port, kill_existing, _deps } = {}) {
   }
 
   const killExisting = async () => {
+    // Exact-path, by-PID termination: enumerate processes and match the
+    // resolved executable — a broad `pkill -f` substring can kill unrelated
+    // processes whose cmdline merely mentions TradingView.
+    const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
+    const target = norm(tvPath);
     try {
-      if (platform === 'win32') deps.execSync('taskkill /F /IM TradingView.exe', { timeout: 5000 });
-      else deps.execSync('pkill -f TradingView', { timeout: 5000 });
+      if (platform === 'win32') {
+        const out = deps.execSync('wmic process get ProcessId,ExecutablePath /FORMAT:CSV', { timeout: 10000 }).toString();
+        for (const line of out.split('\n')) {
+          const parts = line.trim().split(',');
+          if (parts.length < 3) continue;
+          const [ , exePath, pid ] = parts;
+          if (exePath && norm(exePath.trim()) === target) {
+            deps.execSync(`taskkill /F /PID ${pid.trim()}`, { timeout: 5000 });
+          }
+        }
+      } else {
+        const out = deps.execSync('ps -eo pid=,args=', { timeout: 5000 }).toString();
+        const targetBin = basename(tvPath).toLowerCase();
+        for (const line of out.split('\n')) {
+          const m = line.trim().match(/^(\d+)\s+(.+)$/);
+          if (!m) continue;
+          const [ , pid, args ] = m;
+          // argv[0] exact match only — a substring match on the full command
+          // line would kill unrelated processes merely mentioning the name
+          const argv0 = args.trim().split(/\s+/)[0];
+          if (basename(argv0).toLowerCase() === targetBin) {
+            deps.execSync(`kill ${pid}`, { timeout: 5000 });
+          }
+        }
+      }
       await deps.delay(1500);
     } catch { /* may not be running */ }
   };
@@ -371,9 +400,10 @@ export async function launch({ port, kill_existing, _deps } = {}) {
     }
     if (!info) {
       // Direct WindowsApps launch was blocked or CDP never bound — fall back to
-      // a local copy of the package (see _copyMsixPackageLocal).
+      // a local copy of the package (see _copyMsixPackageLocal). The fallback
+      // honors the caller's kill_existing choice like the primary path.
       const localExe = _copyMsixPackageLocal(tvPath, deps);
-      await killExisting();
+      if (killFirst) await killExisting();
       child = _spawnDetached(deps.spawn, localExe, cdpArgs);
       tvPath = localExe;
       usedLocalCopy = true;

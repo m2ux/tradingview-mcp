@@ -18,11 +18,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, '..', 'src', 'cli', 'index.js');
 
 function run(args, opts = {}) {
+  const { env: extraEnv, ...rest } = opts;
   try {
     const stdout = execFileSync('node', [CLI, ...args], {
       encoding: 'utf-8',
       timeout: 15000,
-      ...opts,
+      env: { ...process.env, ...extraEnv },
+      ...rest,
     });
     return { stdout, exitCode: 0 };
   } catch (err) {
@@ -132,7 +134,7 @@ describe('CLI — pine analyze (offline)', () => {
 describe('CLI — pine check (server compile)', () => {
   it('compiles valid Pine Script', () => {
     const source = '//@version=6\nindicator("test")\nplot(close)';
-    const { stdout, exitCode } = run(['pine', 'check'], { input: source });
+    const { stdout, exitCode } = run(['pine', 'check'], { input: source, env: { TV_ALLOW_PINE_CHECK_UPLOAD: '1' } });
     assert.equal(exitCode, 0);
     const result = JSON.parse(stdout);
     assert.equal(result.success, true);
@@ -141,10 +143,26 @@ describe('CLI — pine check (server compile)', () => {
 
   it('returns errors for invalid Pine Script', () => {
     const source = '//@version=6\nindicator("test")\nplot(nonexistent_var)';
-    const { stdout, exitCode } = run(['pine', 'check'], { input: source });
+    const { stdout, exitCode } = run(['pine', 'check'], { input: source, env: { TV_ALLOW_PINE_CHECK_UPLOAD: '1' } });
     assert.equal(exitCode, 0);
     const result = JSON.parse(stdout);
     assert.equal(result.compiled, false);
     assert.ok(result.error_count > 0);
+  });
+
+  it('is blocked without the upload opt-in', () => {
+    const source = '//@version=6\nindicator("test")\nplot(close)';
+    const { stdout, stderr, exitCode } = run(['pine', 'check'], { input: source });
+    assert.equal(exitCode, 1);
+    assert.match(`${stdout}${stderr}`, /TV_ALLOW_PINE_CHECK_UPLOAD/);
+  });
+});
+
+describe('CLI — launch flag polarity', () => {
+  it('launch help offers opt-in --kill and no default-kill flag', () => {
+    const { stdout, exitCode } = run(['launch', '--help']);
+    assert.equal(exitCode, 0);
+    assert.ok(stdout.includes('--kill'), 'opt-in kill flag present');
+    assert.ok(!stdout.includes('no-kill'), 'old default-kill escape hatch removed');
   });
 });
