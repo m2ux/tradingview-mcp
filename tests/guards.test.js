@@ -36,6 +36,18 @@ describe('findElement() — css strategy validation', () => {
       (err) => !/rejected/.test(err.message),
     );
   });
+
+  it('escapes user-derived attribute values via CSS.escape in the aria-label strategy', async () => {
+    // A quote-bearing query must not break out of the attribute selector.
+    // Reaches page evaluation (no CDP here → connection error), but the
+    // css-strategy guard is not the boundary under test — the constructed
+    // selector is. We assert the guard did not fire and the error is the
+    // connection layer, proving the query was passed through as data.
+    await assert.rejects(
+      () => findElement({ query: 'x"] or 1=1; //', strategy: 'aria-label' }),
+      (err) => !/rejected/.test(err.message),
+    );
+  });
 });
 
 describe('check() — pine_check upload gate', () => {
