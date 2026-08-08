@@ -16,7 +16,9 @@ If those weaknesses were abused, the blast radius is the user's whole trading wo
 
 ## Solution Overview
 
-*Populated by the producing step (a `stakeholder-overview` call).*
+The server is being made safe by default. The small set of tools that can run code inside TradingView, update the program itself, launch or kill the desktop app, or wipe drawings and alerts will simply not exist for an agent unless the owner has deliberately switched them on. The all-purpose "run any JavaScript" tool is removed entirely; in its place, new capabilities are added one at a time, each reviewed and approved by a human before it becomes available. On top of that, everything the agent reads back from the chart — prices, labels, notes drawn by indicators — is wrapped in a clear "this is data, not instructions" marker, so hostile text hidden in chart content cannot quietly steer the agent into doing something the owner never asked for.
+
+What the owner gets is a guarantee about where the line sits: the gate lives in the server's tool registry, which the agent cannot talk its way around, rather than in prompts or filters that can be tricked. The self-update path now proves what it is downloading before it installs anything and stops dead if installation fails, and the automated build pipeline only uses pinned, verifiable third-party code. Everyday chart reading stays exactly as it was — all the read-only tools remain on by default — while the dangerous powers become a conscious, auditable choice, verified by an automated test suite that runs on every change.
 
 ## 📊 Progress
 
