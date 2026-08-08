@@ -260,6 +260,9 @@ export async function mouseClick({ x, y, button, double_click }) {
 
 export async function findElement({ query, strategy }) {
   const strat = strategy || 'text';
+  if (strat === 'css' && /[<>]|\b(?:javascript|data|vbscript)\s*:/i.test(query)) {
+    throw new Error('ui_find_element css strategy rejected the query: markup characters and script/data URL schemes are not allowed');
+  }
   const results = await evaluate(`
     (function() {
       var query = ${JSON.stringify(query)};

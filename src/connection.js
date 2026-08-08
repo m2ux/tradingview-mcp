@@ -10,6 +10,21 @@ export const CDP_PORT = Number(process.env.TV_CDP_PORT || process.env.CDP_PORT) 
 const MAX_RETRIES = 5;
 const BASE_DELAY = 500;
 
+/**
+ * A non-loopback CDP endpoint exposes an authenticated TradingView session
+ * to whatever lives on that host/network — refuse unless the operator has
+ * explicitly opted in with TV_ALLOW_REMOTE_CDP=1.
+ */
+export function assertLoopbackHost(host = CDP_HOST, env = process.env) {
+  const loopback = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+  if (!loopback.includes(host) && env.TV_ALLOW_REMOTE_CDP !== '1') {
+    throw new Error(
+      `CDP host "${host}" is not loopback. Remote CDP exposes your TradingView session to the network; ` +
+      'set TV_ALLOW_REMOTE_CDP=1 on the server process if you really intend this.',
+    );
+  }
+}
+
 // Known direct API paths discovered via live probing (see PROBE_RESULTS.md)
 const KNOWN_PATHS = {
   chartApi: 'window.TradingViewApi._activeChartWidgetWV.value()',
@@ -51,6 +66,7 @@ export function requireFinite(value, name) {
 }
 
 export async function getClient() {
+  assertLoopbackHost();
   if (client) {
     try {
       // Quick liveness check

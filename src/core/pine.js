@@ -183,11 +183,20 @@ export function analyze({ source }) {
   };
 }
 
-export async function check({ source }) {
+export async function check({ source, _deps } = {}) {
+  const env = _deps?.env || process.env;
+  const fetchFn = _deps?.fetch || fetch;
+  // The compile check uploads Pine source to TradingView's facade — gate it
+  // behind explicit operator opt-in so an agent can't exfiltrate source by
+  // default.
+  if (env.TV_ALLOW_PINE_CHECK_UPLOAD !== '1') {
+    throw new Error('pine_check uploads source to TradingView\'s server and is disabled by default. Set TV_ALLOW_PINE_CHECK_UPLOAD=1 on the server process to allow it, or use pine_analyze for offline static analysis.');
+  }
+
   const formData = new URLSearchParams();
   formData.append('source', source);
 
-  const response = await fetch(
+  const response = await fetchFn(
     'https://pine-facade.tradingview.com/pine-facade/translate_light?user_name=Guest&pine_id=00000000-0000-0000-0000-000000000000',
     {
       method: 'POST',
