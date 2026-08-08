@@ -627,10 +627,11 @@
           "plan-prepare",
           "assumptions-review",
           "implement",
-          "lean-coding-audit"
+          "lean-coding-audit",
+          "post-impl-review"
         ],
         "condition": "",
-        "currentActivity": "post-impl-review",
+        "currentActivity": "validate",
         "currentTechnique": "apply-review-fixes",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -6368,19 +6369,312 @@
             },
             "timestamp": "2026-08-08T14:50:45.000Z",
             "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "architecture_summary",
+              "source": "variables_changed",
+              "value": "10-architecture-summary.md"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "classified_findings",
+              "source": "variables_changed",
+              "value": "M1/M2 Medium fixed; L1 fixed; L2/S2 Low recorded; S4 Informational; test 3.1/3.2 Low deferred"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "code_review_report",
+              "source": "variables_changed",
+              "value": "4/5; 2 Medium + 2 Low found, Mediums fixed in 9801051; re-review clean"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "has_critical_blocker",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "manual_diff_review_report",
+              "source": "variables_changed",
+              "value": "attested rationale-confirmed; no flagged blocks"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "needs_code_fixes",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "needs_test_improvements",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "reviewed_code_base_url",
+              "source": "variables_changed",
+              "value": "https://github.com/m2ux/tradingview-mcp/blob/081098cfc64bf068f561aaceacbd684bdd8e79a5"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "run_local_validation",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "structural_analysis",
+              "source": "variables_changed",
+              "value": "funnel-conservation verified; gate-before-effect holds"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "name": "test_suite_review_report",
+              "source": "variables_changed",
+              "value": "4.5/5 Acceptable; 0 anti-patterns; gaps 2.1/2.2 closed; suite green"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "announce-start"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "gitnexus-detect-changes-preflight"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "manual-diff-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "file-index-table"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "block-interview-loop"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "code-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "structural-analysis-inline"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "dispatch-prism"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "test-suite-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "apply-fixes"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "reset-fix-flags"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "re-manual-diff-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "re-code-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "re-test-suite-review"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "architecture-summary"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "classify-and-route-findings"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "local-validation-permission"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "post-impl-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "local-validation"
+            },
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "timestamp": "2026-08-08T14:59:01.829Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 4301,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T14:59:32.638Z",
+            "type": "activity_dispatched"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 89,
+        "seq": 91,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786200711,
+        "ts": 1786201172,
         "variables": {
           "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
+          "architecture_summary": "10-architecture-summary.md",
           "artifact_name": "",
           "artifact_publish_ref": "",
           "assumption_batch_accepted": false,
@@ -6403,6 +6697,8 @@
           "build_dependent_artifacts_pending": false,
           "change_block_index": "",
           "classification_rationale": "Prevention goal (design unsafe, nothing broken); complex per 9 finding areas with open usability-vs-security trade-offs",
+          "classified_findings": "M1/M2 Medium fixed; L1 fixed; L2/S2 Low recorded; S4 Informational; test 3.1/3.2 Low deferred",
+          "code_review_report": "4/5; 2 Medium + 2 Low found, Mediums fixed in 9801051; re-review clean",
           "completion_document_path": "",
           "component_name": "tradingview-mcp",
           "component_path": ".",
@@ -6445,6 +6741,7 @@
           "issue_url": "",
           "jira_issue_key": "",
           "kb_findings": "concept-rag holds no MCP/prompt-injection/CI-pinning guidance — generic least-privilege/defense-in-depth only; gap filled by web research",
+          "manual_diff_review_report": "attested rationale-confirmed; no flagged blocks",
           "mark_progress_na": false,
           "needs_cleanup": false,
           "needs_code_fixes": false,
@@ -6488,7 +6785,7 @@
           "review_pr_missing": false,
           "review_requires_changes": false,
           "review_type": "",
-          "reviewed_code_base_url": "",
+          "reviewed_code_base_url": "https://github.com/m2ux/tradingview-mcp/blob/081098cfc64bf068f561aaceacbd684bdd8e79a5",
           "run_local_validation": true,
           "safety_floor_cleared": true,
           "scope_boundaries": "In: the 9 finding areas incl. DP-1/2/3 decisions. Out: MSIX hash-verification design, live-CDP e2e of every gate, changes to the read-only analysis surface beyond fencing",
@@ -6502,12 +6799,14 @@
           "strategic_findings_deferred": false,
           "strategic_findings_summary": "",
           "strategic_fixes_selective": false,
+          "structural_analysis": "funnel-conservation verified; gate-before-effect holds",
           "submission_aborted": false,
           "success_criteria": "SC-1 ui_evaluate absent from agent surface; SC-2 DANGEROUS_TOOLS gated off by default; SC-3 tv_update token+allowlist+signed-tag+fail-closed; SC-4 untrusted-content fencing + instructions; SC-5 kill_existing default false + exact-path kill; SC-6 CI pinned + permissions + failing audit; SC-7 pine_check upload gate + remote-CDP guard; SC-8 full node --test suite green",
           "summary_budget_overruns": [],
           "target_path": "/home/mike1/projects/dev/tradingview-mcp/.worktrees/2026-08-08-tradingview-mcp-mitigations",
           "target_repo": "m2ux/tradingview-mcp",
           "test_plan_document": "06-test-plan.md — 22 planned cases, SC-1..SC-8 acceptance matrix",
+          "test_suite_review_report": "4.5/5 Acceptable; 0 anti-patterns; gaps 2.1/2.2 closed; suite green",
           "ticket_gaps_documented": false,
           "ticket_refactor_needed": false,
           "todo_tasks": "8 atomic tasks: capability-gate primitive; wire gate + remove ui_evaluate; output fencing; harden tv_update; launch/kill hardening; selector/upload/CDP guards; CI supply-chain; dependency pinning + agent rescope",
