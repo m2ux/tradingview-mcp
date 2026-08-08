@@ -594,10 +594,11 @@
           "start-work-package",
           "design-philosophy",
           "codebase-comprehension",
-          "requirements-elicitation"
+          "requirements-elicitation",
+          "research"
         ],
         "condition": "",
-        "currentActivity": "research",
+        "currentActivity": "implementation-analysis",
         "currentTechnique": "update-pr::create-pr",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -696,28 +697,35 @@
             "resource:assumptions-review#classification-vocabulary": "d95655f24a88f4f6",
             "resource:assumptions-review#probe-vocabulary": "be43ac5e7ec9ec36",
             "resource:deferred-items#template": "0e72353a4ff91aae",
+            "resource:implementation-analysis": "d98c6ca9b1a5a590",
             "resource:knowledge-base-research": "5d870c6f4b7e46ec",
             "resource:requirements-elicitation#document-template": "e3a58bcfda3829e0",
             "resource:requirements-elicitation#question-domain-reference": "c52b343e70751252",
             "resource:research-reconciliation#inventory-shape": "74d5ef840d12bd79",
             "resource:web-research#planning-artifact": "95adb80cdff73118",
-            "technique:analyse-challenge::run-loop": "e459886c5b4c468b",
+            "technique:analyse-challenge::run-loop": "019fc652f27fd03c",
+            "technique:implementation-analysis::analyze": "389f00a0a36a1c61",
+            "technique:implementation-analysis::document": "b4bf4d7849ebb567",
             "technique:inherited_inputs.items:10de6d51665fedc6": "10de6d51665fedc6",
             "technique:inherited_inputs.items:51e281d91da173f5": "51e281d91da173f5",
             "technique:inherited_inputs.items:57275dd8c43794a1": "57275dd8c43794a1",
             "technique:inherited_inputs.items:9b49ddf54b6b2bc2": "9b49ddf54b6b2bc2",
             "technique:inherited_inputs.items:b4676123504f93a1": "b4676123504f93a1",
             "technique:inherited_inputs.items:c30ca5a38c8ad3b3": "c30ca5a38c8ad3b3",
+            "technique:inherited_inputs.items:d6b17bd70ddf200c": "d6b17bd70ddf200c",
             "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
             "technique:inherited_inputs:01ad6743f09badfb": "01ad6743f09badfb",
+            "technique:inherited_inputs:2d15f5e82fec53fd": "2d15f5e82fec53fd",
             "technique:inherited_inputs:9e5c60d5cda703f1": "9e5c60d5cda703f1",
             "technique:inherited_inputs:b83c7860eeaa437e": "b83c7860eeaa437e",
             "technique:inherited_inputs:c1187b9ec6e2fb2c": "c1187b9ec6e2fb2c",
             "technique:inherited_inputs:d883a03c7a892c43": "d883a03c7a892c43",
             "technique:inherited_inputs:e31da4f1367cd5be": "e31da4f1367cd5be",
             "technique:inherited_outputs.items:21315b9922c3d036": "21315b9922c3d036",
+            "technique:inherited_outputs.items:26b1aa1d676e3f42": "26b1aa1d676e3f42",
             "technique:inherited_outputs.items:fa4a920939d10fce": "fa4a920939d10fce",
             "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:767e41735800d137": "767e41735800d137",
             "technique:inherited_outputs:98ff5ab4c0b7299c": "98ff5ab4c0b7299c",
             "technique:inherited_outputs:f0213104a587801d": "f0213104a587801d",
             "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
@@ -729,12 +737,13 @@
             "technique:research::research": "4e2ac0a299a32593",
             "technique:research::synthesize": "0ede49a93d831859",
             "technique:research::triage": "236fba3b73aaa875",
-            "technique:review-assumptions::collect": "59a5ccd7276554bc",
-            "technique:review-assumptions::interview": "e4e374491fbe0837",
+            "technique:review-assumptions::collect": "20752c2849adb64f",
+            "technique:review-assumptions::interview": "1a9645796892a312",
             "technique:review-assumptions::reconcile": "4521cc1ec4b3d994",
-            "technique:review-assumptions::record": "eec06a81d05792a4",
+            "technique:review-assumptions::record": "23e079203f4f1b9f",
             "technique:rules:1312287948d72037": "1312287948d72037",
             "technique:rules:25756973044566e7": "25756973044566e7",
+            "technique:rules:25ec9a60f79e828e": "25ec9a60f79e828e",
             "technique:rules:7ee01840785973f0": "7ee01840785973f0",
             "technique:rules:9b8300c9a26abf6a": "9b8300c9a26abf6a",
             "technique:rules:b33a79fc5801d2e5": "b33a79fc5801d2e5"
@@ -3680,18 +3689,460 @@
             },
             "timestamp": "2026-08-08T10:18:12.000Z",
             "type": "checkpoint_response"
+          },
+          {
+            "activity": "research",
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "applicable_patterns",
+              "source": "variables_changed",
+              "value": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "context_scope",
+              "source": "variables_changed",
+              "value": "mixed"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "context_scope_uncertain",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "findings_synthesis",
+              "source": "variables_changed",
+              "value": "All 9 requirement areas map to >=1 validated pattern; registrar (not fencing/scrubber) is the trust boundary"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "has_reconcilable_research",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "kb_findings",
+              "source": "variables_changed",
+              "value": "concept-rag holds no MCP/prompt-injection/CI-pinning guidance — generic least-privilege/defense-in-depth only; gap filled by web research"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "name": "web_findings",
+              "source": "variables_changed",
+              "value": "Deny-by-default registrar allowlists + fail-closed + audit logging; Spotlighting fencing; CI SHA pinning + restrictive permissions + dependency-review + Dependabot; npm lockfile + npm ci + failing audit + lockfile-lint; exact-path by-PID kill"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "research-knowledge-base"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "synthesize"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "triage-research-candidates"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "research-reconciliation"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "document"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "present-resolved-assumptions"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "derive-context-scope"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "announce-derived-context-scope"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "context-scope-declaration"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "research-assumption-interview"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "record-batch-response"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "research",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "assumption-interview"
+            },
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "implementation-analysis",
+            "timestamp": "2026-08-08T10:43:18.494Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 38057,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 6450,
+              "delivery": "full",
+              "stepId": "analyze-implementation",
+              "techniqueId": "implementation-analysis::analyze"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "analyze-implementation"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 5276,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 3850,
+              "delivery": "full",
+              "stepId": "document",
+              "techniqueId": "implementation-analysis::document"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "document"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4311,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 7791,
+              "delivery": "full",
+              "stepId": "analyse-challenge-loop",
+              "techniqueId": "analyse-challenge::run-loop"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 6508,
+              "delivery": "full",
+              "stepId": "present-resolved-assumptions",
+              "techniqueId": "review-assumptions::interview"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "present-resolved-assumptions"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 4589,
+              "delivery": "full",
+              "resourceId": "implementation-analysis"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 2452,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1038,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 1159,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implementation-analysis",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "bundled": true,
+              "chars": 316,
+              "delivery": "unchanged",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-08-08T10:43:48.579Z",
+            "type": "resource_fetched"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 43,
+        "seq": 45,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786184337,
+        "ts": 1786185828,
         "variables": {
+          "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
           "artifact_name": "",
           "artifact_publish_ref": "",
           "assumption_batch_accepted": false,
@@ -3720,7 +4171,7 @@
           "comprehension_artifact": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/tradingview-mcp.md",
           "comprehension_dir": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/",
           "comprehension_survey": "Architecture/module-map/abstractions/rationale/glossary assembled into comprehension artifact",
-          "context_scope": "repo-only",
+          "context_scope": "mixed",
           "context_scope_uncertain": false,
           "created_readme": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/README.md",
           "current_block_index": 0,
@@ -3728,6 +4179,7 @@
           "design_philosophy_doc": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/02-design-philosophy.md",
           "elicitation_complete": true,
           "existing_pr_number": "",
+          "findings_synthesis": "All 9 requirement areas map to >=1 validated pattern; registrar (not fencing/scrubber) is the trust boundary",
           "github_issue_found": false,
           "gitnexus_indexed": true,
           "has_critical_blocker": false,
@@ -3754,6 +4206,7 @@
           "issue_type_ambiguous": false,
           "issue_url": "",
           "jira_issue_key": "",
+          "kb_findings": "concept-rag holds no MCP/prompt-injection/CI-pinning guidance — generic least-privilege/defense-in-depth only; gap filled by web research",
           "mark_progress_na": false,
           "needs_cleanup": false,
           "needs_code_fixes": false,
@@ -3826,6 +4279,7 @@
           "use_existing_pr": false,
           "user_request": "start a work package workflow to address the issues described here: /home/mike1/projects/dev/caliper/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-security-audit",
           "validation_passed": false,
+          "web_findings": "Deny-by-default registrar allowlists + fail-closed + audit logging; Spotlighting fencing; CI SHA pinning + restrictive permissions + dependency-review + Dependabot; npm lockfile + npm ci + failing audit + lockfile-lint; exact-path by-PID kill",
           "worktree_created": false
         },
         "workflowId": "work-package",
