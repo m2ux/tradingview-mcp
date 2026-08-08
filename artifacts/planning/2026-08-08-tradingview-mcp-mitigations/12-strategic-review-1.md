@@ -39,10 +39,17 @@ Body refreshed to the Final template at `9801051` (Changes now past-tense; TODO-
 
 All 5 minimality checks pass. Lockfile growth (+633 lines) is the mechanical `lockfile-lint` addition plus transitive re-resolution from exact pins — required by in-scope #8, not speculative. No debug code, no fallback logic for impossible cases, no unused configuration.
 
+## Cleanup Actions Taken
+
+| Action | Files Affected | Commit |
+|--------|----------------|--------|
+| SR-1: `CSS.escape()` applied to all user-derived attribute-value selector construction (click/hover/findElement aria-label, data-name, class-contains paths) | [src/core/ui.js](https://github.com/m2ux/tradingview-mcp/blob/6915599/src/core/ui.js) | `6915599` |
+| SR-2: four new suites (`capabilities`, `fencing`, `guards`, `server-gating`) added to `test` / `test:unit` / `test:all` / `test:cli` scripts; suite now 200/200 | [package.json](https://github.com/m2ux/tradingview-mcp/blob/6915599/package.json) | `6915599` |
+
 ## Review Result
 
-**Outcome:** Minor findings — user decision required
+**Outcome:** Minor Cleanup Completed
 
-**Rationale:** The implementation is minimal and focused with zero investigation-artifact, over-engineering, or orphan findings. Two scope/coverage gaps (SR-1, SR-2) are each small and in-task, but both are genuine divergences from the requirements/test-plan text, so the outcome rests on explicit user choice rather than an agent-side accept.
+**Rationale:** The implementation was minimal and focused with zero investigation-artifact, over-engineering, or orphan findings. Two Low scope/coverage gaps (SR-1, SR-2) were fixed in this cycle; the suite is 200/200 green. The follow-ups register is now empty of open in-task items from this review.
 
-**Next Step:** review-findings gate — accept as-is (defer F-1/F-2), fix now, or selective fix.
+**Next Step:** Proceed to submit-for-review.
