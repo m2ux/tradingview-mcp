@@ -539,14 +539,60 @@
             },
             "optionId": "full-workflow",
             "respondedAt": "2026-08-08T07:40:55.000Z"
+          },
+          "requirements-elicitation-elicitation-complete": {
+            "effects": {
+              "variablesSet": {
+                "elicitation_complete": true
+              }
+            },
+            "optionId": "complete",
+            "respondedAt": "2026-08-08T09:58:00.000Z"
+          },
+          "requirements-elicitation-elicitation-complete#dp1-ui-evaluate": {
+            "effects": {
+              "variablesSet": {
+                "elicitation_complete": false
+              }
+            },
+            "optionId": "revisit-domain",
+            "respondedAt": "2026-08-08T09:35:15.000Z"
+          },
+          "requirements-elicitation-elicitation-complete#dp2-tv-update": {
+            "effects": {
+              "variablesSet": {
+                "elicitation_complete": false
+              }
+            },
+            "optionId": "revisit-domain",
+            "respondedAt": "2026-08-08T09:39:40.000Z"
+          },
+          "requirements-elicitation-elicitation-complete#dp3-dangerous-tools": {
+            "effects": {
+              "variablesSet": {
+                "elicitation_complete": false
+              }
+            },
+            "optionId": "revisit-domain",
+            "respondedAt": "2026-08-08T09:45:29.000Z"
+          },
+          "requirements-elicitation-stakeholder-transcript": {
+            "effects": {
+              "variablesSet": {
+                "has_stakeholder_input": false
+              }
+            },
+            "optionId": "skip-discussion",
+            "respondedAt": "2026-08-08T08:10:45.000Z"
           }
         },
         "completedActivities": [
           "start-work-package",
-          "design-philosophy"
+          "design-philosophy",
+          "codebase-comprehension"
         ],
         "condition": "",
-        "currentActivity": "codebase-comprehension",
+        "currentActivity": "requirements-elicitation",
         "currentTechnique": "update-pr::create-pr",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -630,6 +676,28 @@
             "technique:update-pr::create-pr": "e7df497990211790",
             "technique:version-control::resolve-host-repo": "c7b90edbc83130c0",
             "technique:workflow-engine::create-readme": "fd784a842505ab7c"
+          },
+          "wpw1-XD2I3T-02": {
+            "activity_rules:148ebfb566580534": "148ebfb566580534",
+            "bundle:rules:2cfa9db95a23a585": "2cfa9db95a23a585",
+            "bundle:variable-binding": "e5b276dec214b8d1",
+            "bundle:workflow-engine::activity-worker": "589271572041828e",
+            "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
+            "bundle:workflow-engine::resume-from-checkpoint": "9bc4d4f99cb0944c",
+            "bundle:workflow-engine::yield-checkpoint": "df32af09a25e7d7f",
+            "resource:assumptions-review#assumptions-log-template": "0bb474dba7db4665",
+            "resource:assumptions-review#classification-vocabulary": "d95655f24a88f4f6",
+            "resource:assumptions-review#probe-vocabulary": "be43ac5e7ec9ec36",
+            "resource:deferred-items#template": "0e72353a4ff91aae",
+            "resource:requirements-elicitation#document-template": "e3a58bcfda3829e0",
+            "resource:requirements-elicitation#question-domain-reference": "c52b343e70751252",
+            "technique:requirements-elicitation::ask-question": "49a9188eb5a3c45f",
+            "technique:requirements-elicitation::create-document": "b6a2fff77b0c64c4",
+            "technique:requirements-elicitation::discuss": "857bbfba4d8b23be",
+            "technique:requirements-elicitation::elicit": "d3b439cb7c39d5d6",
+            "technique:review-assumptions::collect": "3ded518e37419a10",
+            "technique:review-assumptions::reconcile": "4521cc1ec4b3d994",
+            "technique:review-assumptions::record": "2ed7a25f7a119dae"
           }
         },
         "history": [
@@ -2640,17 +2708,502 @@
             },
             "timestamp": "2026-08-08T07:46:45.840Z",
             "type": "resource_fetched"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "comprehension_artifact",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/tradingview-mcp.md"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "comprehension_dir",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "comprehension_survey",
+              "source": "variables_changed",
+              "value": "Architecture/module-map/abstractions/rationale/glossary assembled into comprehension artifact"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "has_open_questions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "needs_comprehension",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "name": "open_questions",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "build-comprehension"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "create-comprehension-artifact"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "initial-deep-dive"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "update-artifact-initial"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "revise-initial-questions"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "codebase-comprehension",
+            "data": {
+              "agentId": "wpw1-XD2I3T-01",
+              "stepId": "deep-dive-iteration"
+            },
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "timestamp": "2026-08-08T07:55:59.556Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "activities": 3,
+              "agentId": "wpw1-XD2I3T-01",
+              "budgetChars": 280000,
+              "chars": 298996,
+              "limit": "activity_cap",
+              "maxActivities": 3
+            },
+            "timestamp": "2026-08-08T07:56:49.792Z",
+            "type": "batch_refused"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 80526,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 3964,
+              "delivery": "full",
+              "stepId": "stakeholder-discussion",
+              "techniqueId": "requirements-elicitation::discuss"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "stakeholder-discussion"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4882,
+              "delivery": "full",
+              "stepId": "elicit-requirements",
+              "techniqueId": "requirements-elicitation::elicit"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "elicit-requirements"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4238,
+              "delivery": "full",
+              "stepId": "ask-question",
+              "techniqueId": "requirements-elicitation::ask-question"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "ask-question"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 5305,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4056,
+              "delivery": "full",
+              "stepId": "create-document",
+              "techniqueId": "requirements-elicitation::create-document"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "create-document"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 4312,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 12534,
+              "delivery": "full",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-08-08T07:58:21.563Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 2049,
+              "delivery": "full",
+              "resourceId": "requirements-elicitation#document-template"
+            },
+            "timestamp": "2026-08-08T07:59:47.511Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 1953,
+              "delivery": "full",
+              "resourceId": "requirements-elicitation#question-domain-reference"
+            },
+            "timestamp": "2026-08-08T07:59:51.425Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 2570,
+              "delivery": "full",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-08-08T07:59:55.348Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 1148,
+              "delivery": "full",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-08-08T07:59:59.259Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 1278,
+              "delivery": "full",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-08-08T08:00:03.128Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "agentId": "wpw1-XD2I3T-02",
+              "chars": 410,
+              "delivery": "full",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-08-08T08:00:03.496Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "stakeholder-transcript",
+            "timestamp": "2026-08-08T08:00:44.734Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "stakeholder-transcript",
+            "data": {
+              "optionId": "skip-discussion"
+            },
+            "timestamp": "2026-08-08T08:10:45.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "has_stakeholder_input",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T08:10:45.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp1-ui-evaluate",
+            "timestamp": "2026-08-08T08:12:20.907Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp1-ui-evaluate",
+            "data": {
+              "optionId": "revisit-domain"
+            },
+            "timestamp": "2026-08-08T09:35:15.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "elicitation_complete",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T09:35:15.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp2-tv-update",
+            "timestamp": "2026-08-08T09:37:31.836Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp2-tv-update",
+            "data": {
+              "optionId": "revisit-domain"
+            },
+            "timestamp": "2026-08-08T09:39:40.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "elicitation_complete",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T09:39:40.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp3-dangerous-tools",
+            "timestamp": "2026-08-08T09:41:27.429Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete#dp3-dangerous-tools",
+            "data": {
+              "optionId": "revisit-domain"
+            },
+            "timestamp": "2026-08-08T09:45:29.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "elicitation_complete",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T09:45:29.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete",
+            "timestamp": "2026-08-08T09:49:28.311Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "checkpoint": "elicitation-complete",
+            "data": {
+              "optionId": "complete"
+            },
+            "timestamp": "2026-08-08T09:58:00.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "requirements-elicitation",
+            "data": {
+              "name": "elicitation_complete",
+              "source": "setVariable",
+              "value": true
+            },
+            "timestamp": "2026-08-08T09:58:00.000Z",
+            "type": "variable_set"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 14,
+        "seq": 38,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786175205,
+        "ts": 1786183137,
         "variables": {
           "artifact_name": "",
           "artifact_publish_ref": "",
@@ -2677,15 +3230,16 @@
           "completion_document_path": "",
           "component_name": "tradingview-mcp",
           "component_path": ".",
-          "comprehension_artifact": "",
-          "comprehension_dir": "",
+          "comprehension_artifact": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/tradingview-mcp.md",
+          "comprehension_dir": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/comprehension/",
+          "comprehension_survey": "Architecture/module-map/abstractions/rationale/glossary assembled into comprehension artifact",
           "context_scope": "repo-only",
           "context_scope_uncertain": false,
           "created_readme": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/README.md",
           "current_block_index": 0,
           "current_branch": "",
           "design_philosophy_doc": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/02-design-philosophy.md",
-          "elicitation_complete": false,
+          "elicitation_complete": true,
           "existing_pr_number": "",
           "github_issue_found": false,
           "gitnexus_indexed": true,
@@ -2716,7 +3270,7 @@
           "mark_progress_na": false,
           "needs_cleanup": false,
           "needs_code_fixes": false,
-          "needs_comprehension": true,
+          "needs_comprehension": false,
           "needs_elicitation": true,
           "needs_further_discussion": false,
           "needs_github_issue_creation": false,
@@ -2733,6 +3287,7 @@
             "DP-2: tv_update tool vs CLI-only",
             "DP-3: DANGEROUS_TOOLS extended membership"
           ],
+          "open_questions": [],
           "path_rationale": "Full workflow — user-confirmed at classification-and-path-confirmed (option full-workflow)",
           "planning_folder_path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations",
           "post_jira_comment": false,
