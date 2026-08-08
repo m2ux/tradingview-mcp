@@ -204,3 +204,51 @@ describe('launch() — kill_existing semantics', () => {
     assert.deepEqual(state.killed, []);
   });
 });
+
+describe('launch() — win32 kill branch', () => {
+  // Exercises the wmic/taskkill path through the platform DI seam — the MSIX
+  // suite skips off-Windows, so without this the rewritten win32 kill parsing
+  // is never executed by any runnable test. The fake answers the Appx query
+  // so the classic-path candidates (built from missing env vars on Linux)
+  // are bypassed and the resolved exe is the Appx install location.
+  const WIN_EXE = 'C:\\Program Files\\WindowsApps\\TradingView.Desktop_3.1.0.7818_x64__n534cwy3pjxzj\\TradingView.exe';
+  const WMIC_CSV = [
+    'Node,ExecutablePath,ProcessId',
+    'WS1,C:\\Program Files\\WindowsApps\\TradingView.Desktop_3.1.0.7818_x64__n534cwy3pjxzj\\TradingView.exe,441',
+    'WS1,C:\\Tools\\TradingViewHelper.exe,555',   // substring decoy — must NOT be killed
+    'WS1,,778',                                    // no exe path — must be skipped
+    'WS1,C:\\Windows\\System32\\svchost.exe,901',
+    '',                                            // blank trailing line
+  ].join('\r\n');
+
+  function winDeps(state) {
+    return {
+      existsSync: (p) => p === WIN_EXE,
+      execSync: (cmd) => {
+        if (cmd.includes('Get-AppxPackage')) return 'C:\\Program Files\\WindowsApps\\TradingView.Desktop_3.1.0.7818_x64__n534cwy3pjxzj\n';
+        if (cmd.startsWith('wmic ')) return WMIC_CSV;
+        if (cmd.startsWith('taskkill ')) { state.killed.push(cmd); return ''; }
+        throw new Error(`unexpected execSync: ${cmd}`);
+      },
+      spawn: (exe) => { state.spawned.push(exe); state.cdpUp = true; return mockChild(); },
+      cpSync: () => {}, rmSync: () => {}, readdirSync: () => [],
+      delay: async () => {},
+      probeCdp: async () => (state.cdpUp ? CDP_VERSION : null),
+      platform: 'win32',
+    };
+  }
+
+  it('kills only the exact ExecutablePath match by PID', async () => {
+    const state = { spawned: [], killed: [], cdpUp: false };
+    const result = await launch({ kill_existing: true, _deps: winDeps(state) });
+    assert.equal(result.success, true);
+    assert.deepEqual(state.killed, ['taskkill /F /PID 441'], 'only the exact-path process dies; decoys and blank rows survive');
+  });
+
+  it('kills nothing by default', async () => {
+    const state = { spawned: [], killed: [], cdpUp: false };
+    const result = await launch({ _deps: winDeps(state) });
+    assert.equal(result.success, true);
+    assert.deepEqual(state.killed, []);
+  });
+});

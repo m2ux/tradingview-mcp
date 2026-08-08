@@ -157,3 +157,12 @@ describe('CLI — pine check (server compile)', () => {
     assert.match(`${stdout}${stderr}`, /TV_ALLOW_PINE_CHECK_UPLOAD/);
   });
 });
+
+describe('CLI — launch flag polarity', () => {
+  it('launch help offers opt-in --kill and no default-kill flag', () => {
+    const { stdout, exitCode } = run(['launch', '--help']);
+    assert.equal(exitCode, 0);
+    assert.ok(stdout.includes('--kill'), 'opt-in kill flag present');
+    assert.ok(!stdout.includes('no-kill'), 'old default-kill escape hatch removed');
+  });
+});

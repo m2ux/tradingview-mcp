@@ -324,6 +324,8 @@ The server is **safe by default**: the read-only chart-analysis surface is alway
 |------|----------------|
 | `tv_update` | Self-installs code from the network (also requires `TV_UPDATE_TOKEN`; see tool description) |
 | `tv_launch` | Spawns/kills desktop processes |
+
+The standalone `tv launch` CLI follows the same safe-by-default rule: it does not kill running instances unless you pass `--kill`.
 | `alert_delete` | Irreversible alert mutation |
 | `draw_clear` | Irreversible drawing removal |
 | `batch_run` | Fan-out amplification across symbols/timeframes |
