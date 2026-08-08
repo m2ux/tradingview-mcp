@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { wrapRegistrar } from './capabilities.js';
 import { registerHealthTools } from './tools/health.js';
 import { registerChartTools } from './tools/chart.js';
 import { registerPineTools } from './tools/pine.js';
@@ -69,7 +70,11 @@ CONTEXT MANAGEMENT:
   }
 );
 
-// Register all tool groups
+// Register all tool groups through the capability allowlist gate — power
+// tools (tv_update, tv_launch, alert_delete, draw_clear, batch_run) are
+// denied by default and register only on TV_ALLOW_DANGEROUS=1; ui_evaluate
+// is removed from the surface entirely. Skips are logged to stderr.
+wrapRegistrar(server);
 registerHealthTools(server);
 registerChartTools(server);
 registerPineTools(server);
