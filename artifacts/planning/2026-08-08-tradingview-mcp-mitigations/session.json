@@ -6,10 +6,10 @@
   "agentId": "orchestrator",
   "sessionIndex": "PPSIEW",
   "currentActivity": "dispatch-client-workflow",
-  "currentTechnique": "workflow-engine::dispatch-activity",
+  "currentTechnique": "workflow-engine::commit-and-persist",
   "condition": "",
-  "seq": 15,
-  "ts": 1786173371,
+  "seq": 16,
+  "ts": 1786173971,
   "startedAt": "2026-08-08T07:06:26.655Z",
   "completedActivities": [
     "discover-session",
@@ -478,6 +478,27 @@
       },
       "timestamp": "2026-08-08T07:16:11.801Z",
       "type": "resource_fetched"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "data": {
+        "agentId": "meta-w1-PPSIEW-01",
+        "chars": 14002,
+        "delivery": "full",
+        "stepId": "commit-activity-artifacts",
+        "techniqueId": "workflow-engine::commit-and-persist"
+      },
+      "timestamp": "2026-08-08T07:26:11.591Z",
+      "type": "technique_fetched"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "data": {
+        "agentId": "meta-w1-PPSIEW-01",
+        "stepId": "commit-activity-artifacts"
+      },
+      "timestamp": "2026-08-08T07:26:11.591Z",
+      "type": "step_started"
     }
   ],
   "triggeredWorkflows": [
@@ -1234,6 +1255,7 @@
       "technique:rules:f44a5337002a0423": "f44a5337002a0423",
       "technique:version-control::detect-repo-type": "8cef3262be6b4865",
       "technique:version-control::initialize-folder": "281df2de7f639dd2",
+      "technique:workflow-engine::commit-and-persist": "106fc44a2035d978",
       "technique:workflow-engine::create-session": "1044b92d05f1ff0f",
       "technique:workflow-engine::dispatch-activity": "206292040b14aadb"
     }
