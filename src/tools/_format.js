@@ -1,14 +1,8 @@
 /**
  * Shared MCP response formatting helper.
  * All tool files use this instead of manually constructing MCP responses.
- *
- * Tool output is untrusted input for the consuming model: chart labels,
- * Pine tables, console text, and error messages can all carry injected
- * instructions. jsonResult fences string *values* (never keys or
- * structure) with origin-tagged markers so the payload still parses and
- * the model can tell data from instructions. The registrar allowlist —
- * not this fence — is the trust boundary; fencing is the complementary
- * spotlighting layer.
+ * Tool output is untrusted input for the consuming model; the registrar
+ * allowlist is the trust boundary, fencing is the spotlighting layer.
  */
 
 const FENCE_PREFIX = 'UNTRUSTED_';

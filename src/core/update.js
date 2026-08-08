@@ -1,14 +1,7 @@
 /**
  * Core self-update logic: authenticated fetch + verified fast-forward of
  * origin/main, then npm ci when the lockfile changed.
- *
- * The tool is gated twice: TV_ALLOW_DANGEROUS=1 registers it at all, and
- * TV_UPDATE_TOKEN must be set for a run — an agent that sees the tool still
- * cannot drive an update the operator didn't arm. Provenance of *what* is
- * fetched is enforced before any merge: the origin URL must sit on the
- * host allowlist, and the fetched target must be a signed tag or the SHA
- * pinned in TV_UPDATE_PINNED_SHA. npm ci failure is fatal — code and
- * dependencies never skew. Every guard returns before the merge.
+ * Every guard returns before the merge.
  */
 import { execSync as _execSync } from 'child_process';
 import { existsSync as _existsSync } from 'fs';

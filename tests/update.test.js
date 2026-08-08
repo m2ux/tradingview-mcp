@@ -12,11 +12,7 @@ const NEW = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const ALLOWED_URL = 'git@github.com:m2ux/tradingview-mcp.git';
 const TOKEN_ENV = { TV_UPDATE_TOKEN: 'test-token' };
 
-/**
- * Build DI deps simulating a git repo.
- * @param {object} opts — branch, dirty, remoteSha, ahead, behind, lockChanged,
- *   npmFails, env, originUrl, tag, tagSigned, pinnedSha
- */
+/** Build DI deps simulating a git repo. */
 function gitDeps({
   branch = 'main', dirty = '', remoteSha = OLD, ahead = 0, behind = 0,
   lockChanged = false, npmFails = false, env = TOKEN_ENV,
