@@ -27,7 +27,7 @@ export function registerHealthTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('tv_update', 'Update this MCP server to the latest version: git fast-forward of origin/main + npm ci when dependencies changed. Safe by design — refuses on non-git installs, dirty working trees, non-main branches, or diverged history. After a successful update the MCP server must be restarted to load the new code.', {}, async () => {
+  server.tool('tv_update', 'Update this MCP server to the latest version: verified git fast-forward of origin/main + npm ci when dependencies changed. Requires TV_ALLOW_DANGEROUS=1 (registration) and TV_UPDATE_TOKEN (execution) on the server process; fetches only from the origin-URL allowlist and fast-forwards only to a GPG-signed tag or TV_UPDATE_PINNED_SHA. Refuses on non-git installs, dirty working trees, non-main branches, or diverged history; npm ci failure is fatal so code and dependencies never skew. After a successful update the MCP server must be restarted to load the new code.', {}, async () => {
     try { return jsonResult(await update({})); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
