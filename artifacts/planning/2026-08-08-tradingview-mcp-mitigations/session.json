@@ -600,10 +600,11 @@
           "codebase-comprehension",
           "requirements-elicitation",
           "research",
-          "implementation-analysis"
+          "implementation-analysis",
+          "plan-prepare"
         ],
         "condition": "",
-        "currentActivity": "plan-prepare",
+        "currentActivity": "assumptions-review",
         "currentTechnique": "update-pr::render",
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
@@ -762,18 +763,32 @@
             "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
             "bundle:workflow-engine::resume-from-checkpoint": "9bc4d4f99cb0944c",
             "bundle:workflow-engine::yield-checkpoint": "df32af09a25e7d7f",
+            "resource:assumptions-review#assumptions-log-template": "0bb474dba7db4665",
+            "resource:assumptions-review#classification-vocabulary": "d95655f24a88f4f6",
+            "resource:assumptions-review#probe-vocabulary": "be43ac5e7ec9ec36",
+            "resource:deferred-items#template": "0e72353a4ff91aae",
             "resource:design-framework#design-framework-trizics-approach": "977d1b778bffb2d0",
             "resource:pr-description#link-row-forms": "2356a858c8d0ea62",
             "resource:pr-description#template-initial": "ebd113d147578b51",
             "resource:test-plan#templates": "853cd4cab9189ab1",
             "resource:wp-plan": "e4af1fb3ef88d959",
-            "technique:analyse-challenge::run-loop": "8e0259f684af3d36",
+            "technique:analyse-challenge::run-loop": "8de4b58a6017b13f",
             "technique:create-test-plan": "8b83b86d87421ade",
+            "technique:inherited_inputs.items:9b49ddf54b6b2bc2": "9b49ddf54b6b2bc2",
+            "technique:inherited_inputs.items:b4676123504f93a1": "b4676123504f93a1",
+            "technique:inherited_inputs.items:c30ca5a38c8ad3b3": "c30ca5a38c8ad3b3",
+            "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
+            "technique:inherited_inputs:9e5c60d5cda703f1": "9e5c60d5cda703f1",
+            "technique:inherited_inputs:b83c7860eeaa437e": "b83c7860eeaa437e",
+            "technique:inherited_inputs:d883a03c7a892c43": "d883a03c7a892c43",
             "technique:manage-git::sync-branch": "3ac3a7eceffa9199",
             "technique:plan-prepare::create-todos": "3337592592383396",
             "technique:plan-prepare::plan": "ee08a4dfe9a49c72",
-            "technique:review-assumptions::collect": "568c770fa06bb0ae",
-            "technique:review-assumptions::record": "4a5a5c190a50452d",
+            "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
+            "technique:review-assumptions::collect": "a9cf0838c8f7d4d5",
+            "technique:review-assumptions::record": "c6d72aac91f0c229",
+            "technique:rules:1312287948d72037": "1312287948d72037",
+            "technique:rules:7ee01840785973f0": "7ee01840785973f0",
             "technique:stakeholder-overview": "48edd931a2ee43a0",
             "technique:update-pr::render": "aa68cb1f410df8bc"
           }
@@ -4525,17 +4540,347 @@
             },
             "timestamp": "2026-08-08T11:06:10.000Z",
             "type": "checkpoint_response"
+          },
+          {
+            "activity": "plan-prepare",
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "assumptions_log",
+              "source": "variables_changed",
+              "value": "02-assumptions-log.md — 22 rows (DP/RE/RS/IA/PL), all validated or confirmed"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "open_assumptions",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "plan_document",
+              "source": "variables_changed",
+              "value": "06-work-package-plan.md — 8 dependency-ordered tasks covering G1-G9, registrar-enforced capability allowlist"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "rendered_pr_body",
+              "source": "variables_changed",
+              "value": "PR #1 description updated from initial template"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "stakeholder_overview",
+              "source": "variables_changed",
+              "value": "Two-paragraph plain-language Solution Overview in planning README"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "test_plan_document",
+              "source": "variables_changed",
+              "value": "06-test-plan.md — 22 planned cases, SC-1..SC-8 acceptance matrix"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "todo_tasks",
+              "source": "variables_changed",
+              "value": "8 atomic tasks: capability-gate primitive; wire gate + remove ui_evaluate; output fencing; harden tv_update; launch/kill hardening; selector/upload/CDP guards; CI supply-chain; dependency pinning + agent rescope"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "env-prerequisites"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "create-plan"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "create-test-plan"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "present-solution-overview"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "create-todos"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "sync-branch"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "update-pr"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "approach-confirmed"
+            },
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "timestamp": "2026-08-08T11:26:36.995Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 32270,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 5279,
+              "delivery": "full",
+              "stepId": "evaluate-open-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "evaluate-open-assumptions"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 7791,
+              "delivery": "full",
+              "stepId": "analyse-challenge-loop",
+              "techniqueId": "analyse-challenge::run-loop"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "analyse-challenge-loop"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "chars": 4302,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 2452,
+              "delivery": "full",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 1038,
+              "delivery": "full",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 1159,
+              "delivery": "full",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-03",
+              "bundled": true,
+              "chars": 316,
+              "delivery": "full",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-08-08T11:27:12.549Z",
+            "type": "resource_fetched"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 57,
+        "seq": 59,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786187237,
+        "ts": 1786188432,
         "variables": {
           "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
           "artifact_name": "",
@@ -4544,7 +4889,7 @@
           "assumption_decisions": [],
           "assumption_deferred": false,
           "assumption_resolved_inline": false,
-          "assumptions_log": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/02-assumptions-log.md",
+          "assumptions_log": "02-assumptions-log.md — 22 rows (DP/RE/RS/IA/PL), all validated or confirmed",
           "attestation_option": "certify",
           "audit_confirmed": false,
           "awaiting_review": false,
@@ -4617,13 +4962,10 @@
           "needs_strategic_fixes": false,
           "needs_test_improvements": false,
           "on_feature_branch": true,
-          "open_assumptions": [
-            "DP-1: ui_evaluate removal vs env-gate",
-            "DP-2: tv_update tool vs CLI-only",
-            "DP-3: DANGEROUS_TOOLS extended membership"
-          ],
+          "open_assumptions": [],
           "open_questions": [],
           "path_rationale": "Full workflow — user-confirmed at classification-and-path-confirmed (option full-workflow)",
+          "plan_document": "06-work-package-plan.md — 8 dependency-ordered tasks covering G1-G9, registrar-enforced capability allowlist",
           "planning_folder_path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations",
           "post_jira_comment": false,
           "pr_exists": true,
@@ -4637,6 +4979,7 @@
           "provenance_log_path": "",
           "push_remote": "origin",
           "push_remote_url": "",
+          "rendered_pr_body": "PR #1 description updated from initial template",
           "requirements": "9 in-scope finding areas consolidated from the mitigation plan + DP decisions: capability-allowlist model replacing ui_evaluate; hardened gated tv_update; gate tv_launch/alert_delete/draw_clear/batch_run; untrusted-content fencing; launch safety; UI selector hardening; CI supply-chain pinning; dependency pinning/auditability; pine_check upload gate + CDP host guardrails",
           "resign_unsigned_commits_requested": false,
           "review_comments_summary": "",
@@ -4655,7 +4998,7 @@
           "skip_assumption_review": false,
           "skip_optional_activities": false,
           "squash_merge_supported": true,
-          "stakeholder_overview": "Problem Overview written into planning README",
+          "stakeholder_overview": "Two-paragraph plain-language Solution Overview in planning README",
           "stakeholder_review_complete": false,
           "stealth_mode": false,
           "strategic_findings_deferred": false,
@@ -4666,8 +5009,10 @@
           "summary_budget_overruns": [],
           "target_path": "/home/mike1/projects/dev/tradingview-mcp/.worktrees/2026-08-08-tradingview-mcp-mitigations",
           "target_repo": "m2ux/tradingview-mcp",
+          "test_plan_document": "06-test-plan.md — 22 planned cases, SC-1..SC-8 acceptance matrix",
           "ticket_gaps_documented": false,
           "ticket_refactor_needed": false,
+          "todo_tasks": "8 atomic tasks: capability-gate primitive; wire gate + remove ui_evaluate; output fencing; harden tv_update; launch/kill hardening; selector/upload/CDP guards; CI supply-chain; dependency pinning + agent rescope",
           "uncertain_symbols": "",
           "unsigned_commit_list_summary": "",
           "unsigned_commits_in_pr": false,
