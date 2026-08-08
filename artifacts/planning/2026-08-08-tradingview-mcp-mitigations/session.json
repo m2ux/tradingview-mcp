@@ -615,6 +615,24 @@
           "research-research-convergence": {
             "optionId": "accept-research",
             "respondedAt": "2026-08-08T10:18:12.000Z"
+          },
+          "strategic-review-review-findings": {
+            "effects": {
+              "variablesSet": {
+                "needs_strategic_fixes": true
+              }
+            },
+            "optionId": "fix-findings",
+            "respondedAt": "2026-08-08T15:30:13.000Z"
+          },
+          "strategic-review-unsigned-commits-prompt": {
+            "effects": {
+              "variablesSet": {
+                "resign_unsigned_commits_requested": false
+              }
+            },
+            "optionId": "decline-resign",
+            "respondedAt": "2026-08-08T15:20:27.000Z"
           }
         },
         "completedActivities": [
@@ -628,11 +646,25 @@
           "assumptions-review",
           "implement",
           "lean-coding-audit",
-          "post-impl-review"
+          "post-impl-review",
+          "validate",
+          "strategic-review"
         ],
-        "condition": "",
-        "currentActivity": "validate",
-        "currentTechnique": "apply-review-fixes",
+        "condition": "review_passed == true",
+        "currentActivity": "submit-for-review",
+        "currentTechnique": "strategic-findings-analysis",
+        "declaredArtifacts": [
+          {
+            "id": "strategic_review_doc",
+            "name": "12-strategic-review-1.md",
+            "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/12-strategic-review-1.md"
+          },
+          {
+            "id": "follow_ups",
+            "name": "follow-ups.md",
+            "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-mitigations/follow-ups.md"
+          }
+        ],
         "deliveredContent": {
           "wpw1-XD2I3T-01": {
             "activity_rules:148ebfb566580534": "148ebfb566580534",
@@ -862,18 +894,59 @@
             "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
             "bundle:workflow-engine::resume-from-checkpoint": "9bc4d4f99cb0944c",
             "bundle:workflow-engine::yield-checkpoint": "df32af09a25e7d7f",
+            "resource:architecture-review#architectural-significance": "8682012c46a2ff62",
+            "resource:architecture-review#decision-making-discipline": "a42b1f2ca376aa10",
+            "resource:architecture-summary#architecture-summary-artifact-template": "58c9de9f69a55d58",
+            "resource:architecture-summary#diagram-selection": "ff962be82ecfa9a4",
+            "resource:deferred-items": "867228d3bd83447e",
+            "resource:design-framework#design-philosophy-artifact-template": "58e954f0a0bf16e8",
+            "resource:follow-ups": "f323278c8451b4f4",
+            "resource:pr-description#lifecycle-tense": "d936d7b283cfb8af",
+            "resource:pr-description#link-row-forms": "2356a858c8d0ea62",
+            "resource:pr-description#template-final": "4c6b973e4a58d6bc",
             "resource:rust-substrate-code-review#report-template": "edb2468f3a77c3e4",
             "resource:rust-substrate-code-review#review-criteria": "634ba3def088266f",
+            "resource:session-trace": "b71e3319bd7fbf28",
+            "resource:strategic-review#strategic-review-artifact-template": "4140d4ef56676f97",
             "resource:test-suite-review#anti-patterns": "ed681cab1b4025fe",
             "resource:test-suite-review#report-template": "d3903bf33098c576",
             "resource:test-suite-review#review-criteria": "63e3071542043f4c",
             "technique:apply-review-fixes": "0d35a745d1ebe61b",
             "technique:findings-classification": "fabb98697909ab5b",
+            "technique:inherited_inputs.items:46a75d51c8d18937": "46a75d51c8d18937",
+            "technique:inherited_inputs.items:9c616687be2411f9": "9c616687be2411f9",
+            "technique:inherited_inputs.items:b4676123504f93a1": "b4676123504f93a1",
+            "technique:inherited_inputs.items:c4998a34e7110880": "c4998a34e7110880",
+            "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
+            "technique:inherited_inputs:46fa8781a0b8a919": "46fa8781a0b8a919",
+            "technique:inherited_inputs:9eb2d1b5a4a148b3": "9eb2d1b5a4a148b3",
+            "technique:inherited_inputs:d883a03c7a892c43": "d883a03c7a892c43",
+            "technique:inherited_inputs:f08817d78b1190a5": "f08817d78b1190a5",
+            "technique:inherited_outputs.items:8e1b1cb9a631324c": "8e1b1cb9a631324c",
+            "technique:inherited_outputs.items:8ef6d8a826552844": "8ef6d8a826552844",
+            "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:3c90b9be63694811": "3c90b9be63694811",
+            "technique:inherited_outputs:54de7f2f7c57e14c": "54de7f2f7c57e14c",
+            "technique:manage-artifacts::verify-artifact-conforms": "878dc76d4af7b026",
             "technique:prism/structural-analysis": "9323fcaa9e7fd53d",
+            "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
             "technique:review-code": "2e7b51f18a801e47",
             "technique:review-diff": "774f792cdfade7c4",
             "technique:review-test-suite": "be4c93df0f865f1c",
-            "technique:summarize-architecture": "0afe1a12611f6dee"
+            "technique:rules:133b0edbf83941df": "133b0edbf83941df",
+            "technique:rules:74851ef1c634907a": "74851ef1c634907a",
+            "technique:rules:c00dccb332ce1db6": "c00dccb332ce1db6",
+            "technique:rules:e81d776ac973b253": "e81d776ac973b253",
+            "technique:strategic-findings-analysis": "f979c38910dcf4d1",
+            "technique:strategic-review::apply-cleanup": "3868341c25b30dbf",
+            "technique:strategic-review::changes-folder": "7d6ab78e1c8e698a",
+            "technique:strategic-review::document-findings": "5bb89bee5cfe0076",
+            "technique:strategic-review::resign-commits": "6029bc661177e526",
+            "technique:strategic-review::review-scope": "13bd36f4da1a678d",
+            "technique:strategic-review::verify-fragment": "3526d8327d207de6",
+            "technique:summarize-architecture": "0afe1a12611f6dee",
+            "technique:update-pr::render": "aefaee67b0d7067d",
+            "technique:workflow-engine::verify-readme-conforms": "b35353cec2f9de34"
           }
         },
         "history": [
@@ -6661,17 +6734,713 @@
             },
             "timestamp": "2026-08-08T14:59:32.638Z",
             "type": "activity_dispatched"
+          },
+          {
+            "activity": "validate",
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "name": "validation_results",
+              "source": "variables_changed",
+              "value": "{\"validation_passed\": true, \"checks\": [\"test:unit 166/166\", \"lint 0 errors/4 pre-existing warnings\", \"security:audit exit 0\", \"syntax OK\"], \"failed_checks\": [], \"first_failure\": null}"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "mark-validation-na"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "preflight"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "run-suite"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "document-failures"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "assess-test-coverage"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "triage-reported-failures"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "fix-failures"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "fix-revalidate-cycle"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "validate",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "validation-run"
+            },
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "timestamp": "2026-08-08T15:02:18.684Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 65538,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 9665,
+              "delivery": "full",
+              "stepId": "review-strategy",
+              "techniqueId": "strategic-review::review-scope"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "review-strategy"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 3644,
+              "delivery": "full",
+              "stepId": "verify-readme",
+              "techniqueId": "workflow-engine::verify-readme-conforms"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-readme"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 9977,
+              "delivery": "full",
+              "stepId": "verify-artifact-conformance",
+              "techniqueId": "manage-artifacts::verify-artifact-conforms"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-artifact-conformance"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 6183,
+              "delivery": "full",
+              "stepId": "ensure-changes-folder-entry",
+              "techniqueId": "strategic-review::changes-folder"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "ensure-changes-folder-entry"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5855,
+              "delivery": "full",
+              "stepId": "verify-change-fragment",
+              "techniqueId": "strategic-review::verify-fragment"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-change-fragment"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 4963,
+              "delivery": "full",
+              "stepId": "document-findings",
+              "techniqueId": "strategic-review::document-findings"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "document-findings"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5273,
+              "delivery": "unchanged",
+              "stepId": "create-architecture-summary",
+              "techniqueId": "summarize-architecture"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "create-architecture-summary"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5001,
+              "delivery": "full",
+              "stepId": "analyze-strategic-findings",
+              "techniqueId": "strategic-findings-analysis"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "analyze-strategic-findings"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 1304,
+              "delivery": "full",
+              "resourceId": "follow-ups"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 1793,
+              "delivery": "full",
+              "resourceId": "deferred-items"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 2206,
+              "delivery": "full",
+              "resourceId": "session-trace"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 1107,
+              "delivery": "full",
+              "resourceId": "architecture-review#architectural-significance"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 438,
+              "delivery": "full",
+              "resourceId": "architecture-review#decision-making-discipline"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 3908,
+              "delivery": "full",
+              "resourceId": "architecture-summary#architecture-summary-artifact-template"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 2545,
+              "delivery": "full",
+              "resourceId": "strategic-review#strategic-review-artifact-template"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 2039,
+              "delivery": "full",
+              "resourceId": "design-framework#design-philosophy-artifact-template"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "bundled": true,
+              "chars": 1416,
+              "delivery": "full",
+              "resourceId": "architecture-summary#diagram-selection"
+            },
+            "timestamp": "2026-08-08T15:02:48.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 7876,
+              "delivery": "full",
+              "stepId": "refresh-pr-body",
+              "techniqueId": "update-pr::render"
+            },
+            "timestamp": "2026-08-08T15:06:44.172Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "refresh-pr-body"
+            },
+            "timestamp": "2026-08-08T15:06:44.172Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 1347,
+              "delivery": "full",
+              "resourceId": "pr-description#template-final"
+            },
+            "timestamp": "2026-08-08T15:06:53.413Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 822,
+              "delivery": "full",
+              "resourceId": "pr-description#lifecycle-tense"
+            },
+            "timestamp": "2026-08-08T15:07:42.719Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 1348,
+              "delivery": "full",
+              "resourceId": "pr-description#link-row-forms"
+            },
+            "timestamp": "2026-08-08T15:07:44.628Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "checkpoint": "unsigned-commits-prompt",
+            "timestamp": "2026-08-08T15:08:40.930Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "strategic-review",
+            "checkpoint": "unsigned-commits-prompt",
+            "data": {
+              "optionId": "decline-resign"
+            },
+            "timestamp": "2026-08-08T15:20:27.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "resign_unsigned_commits_requested",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T15:20:27.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5722,
+              "delivery": "full",
+              "stepId": "apply-cleanup",
+              "techniqueId": "strategic-review::apply-cleanup"
+            },
+            "timestamp": "2026-08-08T15:26:14.757Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "apply-cleanup"
+            },
+            "timestamp": "2026-08-08T15:26:14.757Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5273,
+              "delivery": "full",
+              "stepId": "create-architecture-summary",
+              "techniqueId": "summarize-architecture"
+            },
+            "timestamp": "2026-08-08T15:26:16.757Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5463,
+              "delivery": "full",
+              "stepId": "resign-unsigned-commits",
+              "techniqueId": "strategic-review::resign-commits"
+            },
+            "timestamp": "2026-08-08T15:26:26.684Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "resign-unsigned-commits"
+            },
+            "timestamp": "2026-08-08T15:26:26.684Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "strategic-review",
+            "checkpoint": "review-findings",
+            "timestamp": "2026-08-08T15:27:05.228Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "strategic-review",
+            "checkpoint": "review-findings",
+            "data": {
+              "optionId": "fix-findings"
+            },
+            "timestamp": "2026-08-08T15:30:13.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "needs_strategic_fixes",
+              "source": "setVariable",
+              "value": true
+            },
+            "timestamp": "2026-08-08T15:30:13.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "chars": 5001,
+              "delivery": "full",
+              "stepId": "analyze-strategic-findings",
+              "techniqueId": "strategic-findings-analysis"
+            },
+            "timestamp": "2026-08-08T15:37:52.696Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "strategic-review",
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "recommended_strategic_option",
+              "source": "variables_changed",
+              "value": "acceptable"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "review_passed",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_findings_summary",
+              "source": "variables_changed",
+              "value": ""
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "review-strategy"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "refresh-pr-body"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "resign-unsigned-commits"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-readme"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-artifact-conformance"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "ensure-changes-folder-entry"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-change-fragment"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "document-findings"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "apply-cleanup"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "create-architecture-summary"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "analyze-strategic-findings"
+            },
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T15:38:42.184Z",
+            "type": "activity_entered"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 91,
+        "seq": 108,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786201172,
+        "ts": 1786203522,
         "variables": {
           "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
           "architecture_summary": "10-architecture-summary.md",
@@ -6754,7 +7523,7 @@
           "needs_plan_revision": false,
           "needs_research": true,
           "needs_simplification": false,
-          "needs_strategic_fixes": false,
+          "needs_strategic_fixes": true,
           "needs_test_improvements": false,
           "on_feature_branch": true,
           "open_assumptions": [],
@@ -6774,12 +7543,13 @@
           "provenance_log_path": "",
           "push_remote": "origin",
           "push_remote_url": "",
+          "recommended_strategic_option": "acceptable",
           "rendered_pr_body": "PR #1 description updated from initial template",
           "requirements": "9 in-scope finding areas consolidated from the mitigation plan + DP decisions: capability-allowlist model replacing ui_evaluate; hardened gated tv_update; gate tv_launch/alert_delete/draw_clear/batch_run; untrusted-content fencing; launch safety; UI selector hardening; CI supply-chain pinning; dependency pinning/auditability; pine_check upload gate + CDP host guardrails",
           "resign_unsigned_commits_requested": false,
           "review_comments_summary": "",
           "review_mode_ambiguous": false,
-          "review_passed": false,
+          "review_passed": true,
           "review_posted": false,
           "review_pr_captured": false,
           "review_pr_missing": false,
@@ -6816,6 +7586,7 @@
           "use_existing_pr": false,
           "user_request": "start a work package workflow to address the issues described here: /home/mike1/projects/dev/caliper/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-security-audit",
           "validation_passed": false,
+          "validation_results": "{\"validation_passed\": true, \"checks\": [\"test:unit 166/166\", \"lint 0 errors/4 pre-existing warnings\", \"security:audit exit 0\", \"syntax OK\"], \"failed_checks\": [], \"first_failure\": null}",
           "web_findings": "Deny-by-default registrar allowlists + fail-closed + audit logging; Spotlighting fencing; CI SHA pinning + restrictive permissions + dependency-review + Dependabot; npm lockfile + npm ci + failing audit + lockfile-lint; exact-path by-PID kill",
           "worktree_created": false
         },
