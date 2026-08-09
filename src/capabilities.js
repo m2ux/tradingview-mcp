@@ -15,7 +15,9 @@ export const REMOVED_TOOLS = new Set();
  * Power tools gated off by default. Each registers only when its gate opens.
  * Blast radius: tv_update = self-install; tv_launch = process spawn/kill;
  * alert_delete/draw_clear = irreversible chart-state mutation;
- * batch_run = fan-out amplification.
+ * batch_run = fan-out amplification;
+ * net_request = arbitrary authenticated HTTP from the page session;
+ * ui_fiber_action = invoke a component's own action handler directly.
  */
 export const GATED_TOOLS = new Set([
   'tv_update',
@@ -23,6 +25,8 @@ export const GATED_TOOLS = new Set([
   'alert_delete',
   'draw_clear',
   'batch_run',
+  'net_request',
+  'ui_fiber_action',
 ]);
 
 /**

@@ -2,31 +2,179 @@
  * Core UI automation logic.
  */
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
-import { pressKey } from './dom.js';
+import { pressKey, clickAt, findElementExpression } from './dom.js';
 
-export async function click({ by, value }) {
-  const escaped = JSON.stringify(value);
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export async function click({ by, value, trusted = false } = {}) {
+  const find = findElementExpression({ by, value, targetVar: 'el' });
   const result = await evaluate(`
     (function() {
-      var by = ${JSON.stringify(by)};
-      var value = ${escaped};
-      var el = null;
-      if (by === 'aria-label') el = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
-      else if (by === 'data-name') el = document.querySelector('[data-name="' + CSS.escape(value) + '"]');
-      else if (by === 'text') {
-        var candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"]');
-        for (var i = 0; i < candidates.length; i++) {
-          var text = candidates[i].textContent.trim();
-          if (text === value || text.toLowerCase() === value.toLowerCase()) { el = candidates[i]; break; }
-        }
-      } else if (by === 'class-contains') el = document.querySelector('[class*="' + CSS.escape(value) + '"]');
+      ${find}
       if (!el) return { found: false };
       el.click();
-      return { found: true, tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim().substring(0, 80), aria_label: el.getAttribute('aria-label') || null, data_name: el.getAttribute('data-name') || null };
+      var rect = el.getBoundingClientRect();
+      return {
+        found: true,
+        tag: el.tagName.toLowerCase(),
+        text: (el.textContent || '').trim().substring(0, 80),
+        aria_label: el.getAttribute('aria-label') || null,
+        data_name: el.getAttribute('data-name') || null,
+        pressed: el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-expanded') === 'true',
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height / 2,
+      };
     })()
   `);
   if (!result || !result.found) throw new Error('No matching element found for ' + by + '="' + value + '"');
-  return { success: true, clicked: result };
+
+  // trusted=true escalates: if the synthetic click left the control reporting
+  // an un-activated aria state, re-issue a trusted CDP click at its centre so
+  // React/native handlers that ignore untrusted events honour it.
+  let via = 'synthetic';
+  if (trusted && result.pressed === false && Number.isFinite(result.x) && Number.isFinite(result.y)) {
+    await delay(50);
+    await clickAt(result.x, result.y, { button: 'left' });
+    via = 'trusted';
+  }
+  const { x, y, pressed, ...clicked } = result;
+  return { success: true, via, clicked };
+}
+
+/**
+ * Set a React-controlled input/textarea value via the native setter so React
+ * registers the change. Resolves the input by placeholder/aria-label/name
+ * (regex `match`), optionally scoped to the open dialog. Generic form of the
+ * Pine dialog-fill idiom.
+ */
+export async function setInput({ value, match, within_dialog = true } = {}, _deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const re = match instanceof RegExp ? match.source : String(match || 'name|script|title|search|description');
+  const result = await evalFn(`
+    (function() {
+      var re = new RegExp(${JSON.stringify(re)}, 'i');
+      var scope = (${within_dialog ? 'true' : 'false'})
+        ? (document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]') || document)
+        : document;
+      var inputs = scope.querySelectorAll('input, textarea');
+      function vis(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
+      function commit(inp, matched, fallback) {
+        inp.focus();
+        var proto = inp.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(inp, ${JSON.stringify(String(value))});
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        var r = { set: true, matched: String(matched).substring(0, 80) };
+        if (fallback) r.fallback = true;
+        return r;
+      }
+      for (var i = 0; i < inputs.length; i++) {
+        var inp = inputs[i];
+        if (!vis(inp)) continue;
+        var meta = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.name || '');
+        if (re.test(meta)) return commit(inp, meta.trim(), false);
+      }
+      for (var j = 0; j < inputs.length; j++) {
+        var inp2 = inputs[j];
+        if (!vis(inp2)) continue;
+        if (inp2.type && inp2.type !== 'text' && inp2.type !== 'search' && inp2.tagName !== 'TEXTAREA') continue;
+        return commit(inp2, inp2.placeholder || inp2.name || 'input', true);
+      }
+      return { set: false };
+    })()
+  `);
+  if (!result || !result.set) throw new Error('No visible input matched "' + re + '"');
+  return { success: true, ...result };
+}
+
+/**
+ * Poll a page-context predicate until it returns truthy or the timeout
+ * elapses. Replaces the fixed sleep chains scattered across UI flows with an
+ * explicit, observable wait. `expression` must evaluate truthy when the
+ * desired state is reached. _deps.evaluate is injectable for tests.
+ */
+export async function waitFor({ expression, timeout_ms = 5000, interval_ms = 150 } = {}, _deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const budget = Math.max(0, Number(timeout_ms) || 0);
+  const poll = Math.max(25, Number(interval_ms) || 150);
+  const deadline = Date.now() + budget;
+  let last;
+  for (;;) {
+    last = await evalFn(`(function(){ return (${expression}); })()`);
+    if (last) return { success: true, met: true, value: last };
+    if (Date.now() >= deadline) break;
+    await delay(poll);
+  }
+  return { success: false, met: false, timeout_ms: budget, last: last ?? null };
+}
+
+/**
+ * Invoke a component's own action handler by walking the React fiber chain of
+ * a resolved element — the reliable path when raw DOM gestures are swallowed.
+ * Reads `prop` from memoizedProps (default 'onClick') and calls it with
+ * `args`. Registered gated (ui_fiber_action) behind TV_ALLOW_DANGEROUS.
+ */
+export async function fiberAction({ by, value, prop = 'onClick', args = [] } = {}) {
+  const find = findElementExpression({ by, value, targetVar: 'el' });
+  const result = await evaluate(`
+    (function() {
+      ${find}
+      if (!el) return { found: false };
+      var fiberKey = Object.getOwnPropertyNames(el).find(function(k) { return k.indexOf('__reactFiber$') === 0; });
+      if (!fiberKey) return { found: true, invoked: false, reason: 'no fiber on node' };
+      var cur = el[fiberKey];
+      var fn = null;
+      for (var d = 0; d < 20 && cur && !fn; d++) {
+        var mp = cur.memoizedProps;
+        if (mp && typeof mp[${JSON.stringify(prop)}] === 'function') fn = mp[${JSON.stringify(prop)}];
+        cur = cur.return;
+      }
+      if (!fn) return { found: true, invoked: false, reason: 'prop not a function up the fiber chain' };
+      try { fn.apply(null, ${JSON.stringify(args)}); return { found: true, invoked: true, prop: ${JSON.stringify(prop)} }; }
+      catch (e) { return { found: true, invoked: false, reason: 'handler threw: ' + (e.message || '').slice(0, 80) }; }
+    })()
+  `);
+  if (!result || !result.found) throw new Error('No matching element found for ' + by + '="' + value + '"');
+  if (!result.invoked) throw new Error('fiber action not invoked: ' + (result.reason || 'unknown'));
+  return { success: true, ...result };
+}
+
+/**
+ * Page-context authenticated fetch — the network-first escape hatch that
+ * bypasses DOM driving where a backend endpoint exists (e.g. the pine-facade
+ * REST API). Runs fetch() inside the page so session cookies are included.
+ * Registered gated (net_request) behind TV_ALLOW_DANGEROUS. https: only.
+ */
+export async function netRequest({ url, method = 'GET', body, headers = {}, timeout_ms = 8000 } = {}) {
+  if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
+    throw new Error('net_request only permits absolute https: URLs');
+  }
+  const result = await evaluateAsync(`
+    (function() {
+      var ctrl = new AbortController();
+      var t = setTimeout(function() { ctrl.abort(); }, ${Number(timeout_ms) || 8000});
+      return fetch(${JSON.stringify(url)}, {
+        method: ${JSON.stringify(method)},
+        credentials: 'include',
+        headers: ${JSON.stringify(headers)},
+        body: ${body === undefined ? 'undefined' : JSON.stringify(body)},
+        signal: ctrl.signal,
+      }).then(function(r) {
+        clearTimeout(t);
+        return r.text().then(function(text) {
+          var json = null;
+          try { json = JSON.parse(text); } catch (e) {}
+          return { ok: r.ok, status: r.status, json: json, text: json ? null : text.slice(0, 4000) };
+        });
+      }).catch(function(e) {
+        clearTimeout(t);
+        return { ok: false, status: 0, error: e.name === 'AbortError' ? 'timeout' : (e.message || 'fetch failed') };
+      });
+    })()
+  `);
+  if (!result) throw new Error('net_request: no response');
+  if (result.error) throw new Error(`net_request failed (${result.error})`);
+  return { success: result.ok !== false, ...result };
 }
 
 export async function openPanel({ panel, action }) {

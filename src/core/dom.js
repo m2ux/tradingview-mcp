@@ -14,6 +14,30 @@
  */
 import { getClient, safeString } from '../connection.js';
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Dispatch a trusted mouse click (move → press → release) at page
+ * coordinates via CDP. This is the trusted counterpart to a synthetic
+ * el.click(): it produces isTrusted events that React and native
+ * handlers honour. button: 'left' | 'right' | 'middle'.
+ */
+export async function clickAt(x, y, { button = 'left', double = false } = {}, _deps = {}) {
+  const clientFn = _deps.getClient || getClient;
+  const c = await clientFn();
+  const btn = button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left';
+  const btnNum = btn === 'right' ? 2 : btn === 'middle' ? 1 : 0;
+  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x, y });
+  await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 });
+  await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+  if (double) {
+    await sleep(50);
+    await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 });
+    await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+  }
+  return { success: true, x, y, button: btn, double_click: !!double };
+}
+
 // ── Keyboard ────────────────────────────────────────────────────────────────
 
 /**
@@ -120,6 +144,39 @@ export function setNativeValueExpression(value, inputVar = 'inp') {
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     })()
+  `;
+}
+
+/**
+ * Build a page-context expression that resolves a single element by a
+ * selector strategy, assigning it to `targetVar`. Returns the source string.
+ * Strategies mirror ui_click/ui_find_element: aria-label, data-name, text,
+ * class-contains. The element must be visible to resolve. Pure builder.
+ */
+export function findElementExpression({ by, value, targetVar = 'el' }) {
+  const v = safeString(value);
+  return `
+    var ${targetVar} = null;
+    (function() {
+      var by = ${safeString(by)};
+      var value = ${v};
+      function vis(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
+      if (by === 'aria-label') {
+        ${targetVar} = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
+        if (!${targetVar}) ${targetVar} = document.querySelector('[aria-label*="' + CSS.escape(value) + '"]');
+      } else if (by === 'data-name') {
+        ${targetVar} = document.querySelector('[data-name="' + CSS.escape(value) + '"]');
+      } else if (by === 'class-contains') {
+        ${targetVar} = document.querySelector('[class*="' + CSS.escape(value) + '"]');
+      } else {
+        var cands = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"], input, select, label, span, div');
+        for (var i = 0; i < cands.length; i++) {
+          var t = (cands[i].textContent || '').trim();
+          if ((t === value || t.toLowerCase() === value.toLowerCase()) && vis(cands[i])) { ${targetVar} = cands[i]; break; }
+        }
+      }
+      if (${targetVar} && !vis(${targetVar})) ${targetVar} = null;
+    })();
   `;
 }
 
