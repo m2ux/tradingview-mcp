@@ -1,0 +1,4 @@
+[submodule ".engineering"]
+	path = .engineering
+	url = git@github.com:m2ux/tradingview-mcp.git
+	branch = engineering
