@@ -20,6 +20,7 @@ register('pine', {
       description: 'Set Pine Script source (reads stdin or --file)',
       options: {
         file: { type: 'string', short: 'f', description: 'Read source from file' },
+        'script-name': { type: 'string', description: 'Refuse if editor header identity differs' },
       },
       handler: async (opts) => {
         let source;
@@ -29,12 +30,17 @@ register('pine', {
           source = await readStdin();
         }
         if (!source) throw new Error('No source provided. Pipe source via stdin or use --file.');
-        return core.setSource({ source });
+        return core.setSource({ source, script_name: opts['script-name'] });
       },
     }],
     ['compile', {
       description: 'Smart compile: detect button, compile, check errors',
-      handler: () => core.smartCompile(),
+      options: {
+        'require-published-imports': { type: 'boolean', description: 'Fail when import-resolve errors present' },
+      },
+      handler: (opts) => core.smartCompile({
+        require_published_imports: !!opts['require-published-imports'],
+      }),
     }],
     ['raw-compile', {
       description: 'Click compile/add button without smart detection',
@@ -84,15 +90,75 @@ register('pine', {
       },
     }],
     ['open', {
-      description: 'Open a saved Pine Script by name',
+      description: 'Open a saved Pine Script by registered identity (Open dialog)',
       handler: (opts, positionals) => {
         if (!positionals[0]) throw new Error('Script name required. Usage: tv pine open "My Script"');
         return core.openScript({ name: positionals.join(' ') });
       },
     }],
+    ['copy', {
+      description: 'Make a registered UI copy of a script',
+      options: {
+        from: { type: 'string', description: 'Source script name' },
+        'from-id': { type: 'string', description: 'Source scriptIdPart' },
+        replace: { type: 'boolean', description: 'Replace if new name exists' },
+      },
+      handler: (opts, positionals) => {
+        const newName = positionals.join(' ');
+        if (!newName) throw new Error('Usage: tv pine copy --from "Old" "New Name"');
+        if (!opts.from && !opts['from-id']) throw new Error('--from or --from-id required');
+        return core.copyScript({
+          from_name: opts.from,
+          from_id: opts['from-id'],
+          new_name: newName,
+          replace: !!opts.replace,
+        });
+      },
+    }],
+    ['save-as', {
+      description: 'Alias for pine copy (registered Save as / Make a copy)',
+      options: {
+        from: { type: 'string', description: 'Source script name' },
+        'from-id': { type: 'string', description: 'Source scriptIdPart' },
+        replace: { type: 'boolean', description: 'Replace if new name exists' },
+      },
+      handler: (opts, positionals) => {
+        const newName = positionals.join(' ');
+        if (!newName) throw new Error('Usage: tv pine save-as --from "Old" "New Name"');
+        if (!opts.from && !opts['from-id']) throw new Error('--from or --from-id required');
+        return core.saveAsScript({
+          from_name: opts.from,
+          from_id: opts['from-id'],
+          new_name: newName,
+          replace: !!opts.replace,
+        });
+      },
+    }],
+    ['add-to-chart', {
+      description: 'Add/update the open Pine script on the active chart',
+      handler: () => core.addToChart(),
+    }],
+    ['publish', {
+      description: 'Publish the open or named script (private|public)',
+      options: {
+        name: { type: 'string', description: 'Script name to open and publish' },
+        id: { type: 'string', description: 'scriptIdPart' },
+        privacy: { type: 'string', description: 'private (default) or public' },
+        description: { type: 'string', description: 'Publish description' },
+      },
+      handler: (opts) => core.publishScript({
+        name: opts.name,
+        id: opts.id,
+        privacy: opts.privacy || 'private',
+        description: opts.description,
+      }),
+    }],
     ['list', {
-      description: 'List saved Pine Scripts',
-      handler: () => core.listScripts(),
+      description: 'List saved Pine Scripts (with orphan / publish flags)',
+      options: {
+        'no-ui-check': { type: 'boolean', description: 'Skip Open-dialog ui_visible scrape' },
+      },
+      handler: (opts) => core.listScripts({ check_ui_visible: !opts['no-ui-check'] }),
     }],
     ['errors', {
       description: 'Get Pine Script compilation errors',

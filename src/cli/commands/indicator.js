@@ -53,5 +53,12 @@ register('indicator', {
         return dataCore.getIndicator({ entity_id: positionals[0] });
       },
     }],
+    ['inputs', {
+      description: 'List study input ids/values/titles (no encrypted blobs)',
+      handler: (opts, positionals) => {
+        if (!positionals[0]) throw new Error('Entity ID required. Usage: tv indicator inputs eFu1Ot');
+        return indCore.getInputs({ entity_id: positionals[0] });
+      },
+    }],
   ]),
 });

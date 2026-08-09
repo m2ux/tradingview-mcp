@@ -48,7 +48,34 @@ export async function list() {
           var mainSeries = model ? model.mainSeries() : null;
           var sym = mainSeries ? mainSeries.symbol() : 'unknown';
           var res = mainSeries ? mainSeries.interval() : null;
-          panes.push({ index: i, symbol: sym, resolution: res || null });
+          var studies = [];
+          try {
+            // Prefer chart widget getAllStudies when available
+            var studyList = null;
+            if (typeof c.getAllStudies === 'function') studyList = c.getAllStudies();
+            else if (model && typeof model.getAllStudies === 'function') studyList = model.getAllStudies();
+            if (studyList && studyList.length) {
+              for (var s = 0; s < studyList.length; s++) {
+                var st = studyList[s];
+                var sid = st.id || null;
+                var sname = st.name || null;
+                var paneIndex = null;
+                var placement = 'unknown';
+                try {
+                  var studyObj = typeof c.getStudyById === 'function' ? c.getStudyById(sid) : null;
+                  if (studyObj) {
+                    if (typeof studyObj.paneIndex === 'function') paneIndex = studyObj.paneIndex();
+                    else if (typeof studyObj.paneIndex === 'number') paneIndex = studyObj.paneIndex;
+                    if (studyObj.isOverlay && studyObj.isOverlay()) placement = 'overlay';
+                    else if (paneIndex === 0 || paneIndex === null) placement = 'overlay_or_main';
+                    else placement = 'separate';
+                  }
+                } catch (e2) {}
+                studies.push({ id: sid, name: sname, pane_index: paneIndex, placement: placement });
+              }
+            }
+          } catch (eStudies) {}
+          panes.push({ index: i, symbol: sym, resolution: res || null, studies: studies });
         } catch(e) { panes.push({ index: i, error: e.message }); }
       }
 

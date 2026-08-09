@@ -9,7 +9,7 @@ The registry is the menu of named operations an agent (via MCP) or a person (via
 
 Each tool below gives three things in plain language: **what it offers**, and **its limitations** — the practical edges you will hit.
 
-**A note on availability.** 78 tools are always on. Five **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`. `ui_evaluate` (run any JavaScript) is **approval-gated**: it registers only with `TV_ALLOW_UI_EVALUATE=1`, and every call elicits a human confirmation before the expression runs. Gated tools are marked **🔒 gated** below; approval-gated tools are marked **🛡 approval**.
+**A note on availability.** 86 tools are always on. Five **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`. `ui_evaluate` (run any JavaScript) is **approval-gated**: it registers only with `TV_ALLOW_UI_EVALUATE=1`, and every call elicits a human confirmation before the expression runs. Gated tools are marked **🔒 gated** below; approval-gated tools are marked **🛡 approval**.
 
 ---
 
@@ -94,20 +94,36 @@ Prices, indicators, strategy results, and the drawings your Pine scripts make.
 Develop, compile, and debug Pine in the editor.
 
 ### `pine_get_source` / `pine_set_source`
-- **Offers:** Read the editor's code, or inject new code.
-- **Limitations:** `pine_get_source` can return 200KB+ on big scripts — avoid unless you're editing.
+- **Offers:** Read the editor's code, or inject new code. Optional `script_name` on set refuses when the editor header identity differs.
+- **Limitations:** `pine_get_source` can return 200KB+ on big scripts — avoid unless you're editing. Never set+save when the header shows a different script.
 
 ### `pine_compile` / `pine_smart_compile`
-- **Offers:** Add the script to the chart; `smart_compile` detects the button, compiles, checks errors, reports study changes.
+- **Offers:** Add the script to the chart; `smart_compile` detects the button, compiles, checks errors, reports study changes. Import-resolve / unpublished-library failures are returned in `import_errors`; pass `require_published_imports: true` to fail on those.
 - **Limitations:** Acts on the open editor and current chart; a broken script surfaces as compile errors, not exceptions.
 
 ### `pine_get_errors` / `pine_get_console`
 - **Offers:** Compile errors (Monaco markers) and log output (`log.info()`, errors).
 - **Limitations:** Reflects the current editor state — read these after a compile.
 
-### `pine_save` / `pine_new` / `pine_open` / `pine_list_scripts`
-- **Offers:** Save to your TradingView cloud, create blank scripts, open/list saved ones.
-- **Limitations:** Operates on *your* saved scripts; open needs the exact name.
+### `pine_open`
+- **Offers:** Opens a saved script via the **Open script** dialog so Save/Publish target that identity. Returns `{name, scriptIdPart, version}` and refuses if the editor header ≠ requested name.
+- **Limitations:** Exact name preferred; ambiguous substring matches are refused. Does **not** Monaco-inject into another open buffer.
+
+### `pine_copy` / `pine_save_as`
+- **Offers:** Registered Make-a-copy / Save-as of an existing script (`from_name`|`from_id`, `new_name`, optional `replace`). Appears in Open dialog / My scripts and can be published.
+- **Limitations:** Uses the UI path — never orphan `pine-facade/save/new` alone. Replace prompts require `replace: true`.
+
+### `pine_add_to_chart`
+- **Offers:** Toolbar Add to chart / Update on chart for the currently open script.
+- **Limitations:** Prefer this over `indicator_add` for freshly saved My scripts (search lag).
+
+### `pine_publish`
+- **Offers:** Drive the Publish wizard (`privacy: private|public`, optional `description`). Handles the Add-to-chart gate. Returns `{pubId, version}` for `import user/Lib/N`.
+- **Limitations:** Cloud side effect on your TradingView account; confirm the open identity first.
+
+### `pine_save` / `pine_new` / `pine_list_scripts`
+- **Offers:** Save to cloud; blank editor templates; list saved scripts with `kind`, `published_version`, and `ui_visible` / `in_open_dialog` (orphan detection when a facade-saved id is missing from Open dialog).
+- **Limitations:** `pine_new` only injects a template — it does **not** register a publishable identity (use `pine_copy` / Save as). Listing with `check_ui_visible` opens the Open dialog briefly.
 
 ### `pine_analyze`
 - **Offers:** Offline static analysis — array out-of-bounds, unguarded `first()/last()`, bad loop bounds, implicit bool casts. No TradingView connection needed.
@@ -228,16 +244,20 @@ The server and the TradingView process itself.
 ## Capture
 
 ### `capture_screenshot`
-- **Offers:** Screenshot a region — `full`, `chart`, `strategy_tester`.
-- **Limitations:** Saves a file and returns its path (not image bytes). Often the cheapest way to get visual context instead of pulling large datasets.
+- **Offers:** Screenshot a region — `full`, `chart`, `strategy_tester`. Optional `wait_for_render` + `stabilize_ms` (default 3000ms) soft-wait for canvas stability; still captures if the budget expires.
+- **Limitations:** Saves a file and returns its path (not image bytes). Often the cheapest way to get visual context instead of pulling large datasets. Close the Pine editor before capture when comparing study panes.
 
 ---
 
 ## Indicators
 
 ### `indicator_add`
-- **Offers:** Search the Indicators dialog and add by name — works for strategies and community scripts too. Returns the new study's entity_id.
-- **Limitations:** Name must match a searchable result.
+- **Offers:** Search the Indicators dialog and add by name — works for strategies and community scripts too. Retries when My scripts lag after save. Returns the new study's entity_id.
+- **Limitations:** Fresh My scripts may still miss — prefer `pine_add_to_chart` from the open editor.
+
+### `indicator_get_inputs`
+- **Offers:** List `[{id, value, title?}]` for a study — usable `in_*` ids for align-before-verify without dumping encrypted text blobs.
+- **Limitations:** Needs entity_id from `chart_get_state`; protected scripts may expose few inputs.
 
 ### `indicator_set_inputs`
 - **Offers:** Change a study's inputs (length, source, period, …).
@@ -268,8 +288,8 @@ The server and the TradingView process itself.
 ## Pane
 
 ### `pane_list` / `pane_focus` / `pane_set_symbol`
-- **Offers:** List panes and symbols, focus one by index, set a pane's symbol.
-- **Limitations:** 0-based indexes; only panes in the current layout.
+- **Offers:** List panes and symbols (with per-pane `studies` `{id, name, placement}` when available), focus one by index, set a pane's symbol.
+- **Limitations:** 0-based indexes; only panes in the current layout. Placement (`overlay` vs `separate`) depends on TradingView's study API.
 
 ### `pane_set_layout`
 - **Offers:** Change the grid — single, 2x2, 2h, 3v, and more.

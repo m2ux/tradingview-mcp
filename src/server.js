@@ -23,7 +23,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 86 tools by default (81 always on; 5 power tools only when TV_ALLOW_DANGEROUS=1; ui_evaluate only when TV_ALLOW_UI_EVALUATE=1 and each call requires human approval) for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 91 tools by default (86 always on; 5 power tools only when TV_ALLOW_DANGEROUS=1; ui_evaluate only when TV_ALLOW_UI_EVALUATE=1 and each call requires human approval) for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -32,6 +32,7 @@ Reading your chart:
 - data_get_study_values → get current numeric values from ALL visible indicators (RSI, MACD, BB, EMA, etc.)
 - quote_get → get real-time price snapshot (last, OHLC, volume)
 - data_get_ohlcv → get price bars. ALWAYS pass summary=true unless you need individual bars
+- indicator_get_inputs → list in_* ids/values for align-before-verify (no encrypted blobs)
 
 Reading custom Pine indicator output (line.new/label.new/table.new/box.new drawings):
 - data_get_pine_lines → horizontal price levels from custom indicators (deduplicated, sorted)
@@ -47,19 +48,25 @@ Changing the chart:
 - chart_scroll_to_date → jump to a date (ISO format)
 - indicator_set_inputs → change indicator settings (length, source, etc.)
 
-Pine Script development:
-- pine_set_source → inject code, pine_smart_compile → compile + check errors
-- pine_get_errors → read errors, pine_get_console → read log output
+Pine Script development (create → publish → render → verify):
+- pine_open → Open-dialog identity switch (Save/Publish target); refuses header mismatch
+- pine_copy / pine_save_as → registered Make a copy (never orphan facade save/new)
+- pine_set_source → inject code (optional script_name guard); pine_save → save
+- pine_add_to_chart → toolbar Add for open script (prefer over indicator_add for fresh My scripts)
+- pine_publish → Publish wizard; returns pubId + version for import user/Lib/N
+- pine_list_scripts → kind / published_version / ui_visible orphan flags
+- pine_smart_compile → compile + import_errors; optional require_published_imports
+- pine_get_errors / pine_get_console → read errors and log output
 - WARNING: pine_get_source can return 200KB+ for complex scripts — avoid unless editing
 
-Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester"
+Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester" (stabilize_ms soft wait)
 Replay: replay_start → replay_step → replay_trade → replay_status → replay_stop
 Batch: batch_run → run action across multiple symbols/timeframes (gated)
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
 Drawing templates: draw_template_list / draw_template_get / draw_template_save (drawing_type + name; save accepts content and/or from_template)
 Alerts: alert_create, alert_list; alert_delete (gated)
 Launch: tv_launch (gated) → auto-detect and start TradingView with CDP on any platform
-Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
+Panes: pane_list (includes studies), pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
 
 CONTEXT MANAGEMENT:
