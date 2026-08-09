@@ -11,6 +11,8 @@ import {
   getVisibleDialogs,
   resolveAddToChartDialog,
   resolvePublishSaveDialog,
+  resolvePublishedIdentity,
+  facadeScriptMatches,
 } from '../src/core/pine_ui.js';
 import { shouldOpenScript } from '../src/core/pine.js';
 
@@ -94,6 +96,39 @@ describe('publish identity selection', () => {
   it('opens the requested script when identity is absent or different', () => {
     assert.equal(shouldOpenScript(null, 'TVSmokeLib'), true);
     assert.equal(shouldOpenScript('Other Script', 'TVSmokeLib'), true);
+  });
+});
+
+describe('resolvePublishedIdentity', () => {
+  it('matches facade rows by name or title', () => {
+    assert.equal(facadeScriptMatches({ scriptName: 'TVSmokeLib' }, 'tvsmokelib'), true);
+    assert.equal(facadeScriptMatches({ scriptTitle: 'PR5 Import Smoke' }, 'PR5 Import Smoke'), true);
+    assert.equal(facadeScriptMatches({ scriptName: 'Other' }, 'TVSmokeLib'), false);
+  });
+
+  it('prefers the published list when present', () => {
+    const identity = resolvePublishedIdentity('TVSmokeLib', {
+      published: [{ scriptIdPart: 'pub-1', scriptName: 'TVSmokeLib', version: '2.0' }],
+      saved: [{ scriptIdPart: 'saved-1', scriptName: 'TVSmokeLib', version: '5.0' }],
+    });
+    assert.equal(identity.source, 'published');
+    assert.equal(identity.pubId, 'pub-1');
+    assert.equal(identity.version, '2.0');
+  });
+
+  it('falls back to the saved list for private publications', () => {
+    const identity = resolvePublishedIdentity('TVSmokeLib', {
+      published: [],
+      saved: [{ scriptIdPart: 'USER;abc', scriptName: 'TVSmokeLib', scriptTitle: 'PR5 Import Smoke', version: '5.0' }],
+    });
+    assert.equal(identity.source, 'saved');
+    assert.equal(identity.pubId, 'USER;abc');
+    assert.equal(identity.version, '5.0');
+    assert.equal(identity.name, 'TVSmokeLib');
+  });
+
+  it('returns null when neither list contains the script', () => {
+    assert.equal(resolvePublishedIdentity('TVSmokeLib', { published: [], saved: [] }), null);
   });
 });
 

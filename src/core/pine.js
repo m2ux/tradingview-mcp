@@ -21,6 +21,7 @@ import {
   openViaOpenDialog,
   resolveAddToChartDialog,
   resolvePublishSaveDialog,
+  resolvePublishedIdentity,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -28,10 +29,14 @@ import {
 // Monaco finder (injected into TV page) ──
 // Note: TradingView's newer Pine editor (React 18+/createRoot) does not expose
 // a __reactFiber$ backlink on the Monaco container, so fiber walking fails.
-// Presence of the editor is best detected by the DOM container itself.
+// Presence alone is not enough: a collapsed/zero-size Monaco is not usable.
 const FIND_MONACO_CONTAINER = `
   (function() {
-    return !!document.querySelector('.monaco-editor.pine-editor-monaco');
+    var el = document.querySelector('.monaco-editor.pine-editor-monaco');
+    if (!el) return false;
+    var rect = el.getBoundingClientRect();
+    return (el.offsetParent !== null || el.getClientRects().length > 0)
+      && rect.width >= 40 && rect.height >= 40;
   })()
 `;
 const FIND_MONACO = `
@@ -71,27 +76,25 @@ export async function ensurePineEditorOpen() {
   const already = await evaluate(FIND_MONACO_CONTAINER);
   if (already) return true;
 
-  await evaluate(`
-    (function() {
-      var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
-      if (!bwb) return;
-      if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
-      else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
-    })()
-  `);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await evaluate(`
+      (function() {
+        var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
+        if (bwb) {
+          if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
+          else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
+        }
+        var btn = document.querySelector('[aria-label="Pine"]')
+          || document.querySelector('[data-name="pine-dialog-button"]');
+        if (btn) btn.click();
+      })()
+    `);
 
-  await evaluate(`
-    (function() {
-      var btn = document.querySelector('[aria-label="Pine"]')
-        || document.querySelector('[data-name="pine-dialog-button"]');
-      if (btn) btn.click();
-    })()
-  `);
-
-  for (let i = 0; i < 50; i++) {
-    await new Promise(r => setTimeout(r, 200));
-    const ready = await evaluate(FIND_MONACO_CONTAINER);
-    if (ready) return true;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const ready = await evaluate(FIND_MONACO_CONTAINER);
+      if (ready) return true;
+    }
   }
   return false;
 }
@@ -824,7 +827,13 @@ export async function publishScript({ name, id, privacy = 'private', description
 
   await assertEditorIdentity(scriptName);
 
-  let publishClicked = await clickVisibleButton(/publish script/i);
+  const clickPublishEntry = async () => {
+    // Pine-specific label only — never the global community "Publish" control
+    // ("Share your idea with the trade community").
+    return clickVisibleButton(/publish script/i);
+  };
+
+  let publishClicked = await clickPublishEntry();
   if (!publishClicked) throw new Error('Publish script button not found.');
 
   let publishDialogs = [];
@@ -834,7 +843,7 @@ export async function publishScript({ name, id, privacy = 'private', description
     if (saveGate.handled) {
       saveHandled = true;
       await assertEditorIdentity(scriptName);
-      publishClicked = await clickVisibleButton(/publish script/i);
+      publishClicked = await clickPublishEntry();
       if (!publishClicked) throw new Error('Publish script button not found after saving.');
     } else if (saveGate.dialogs.length > 0) {
       publishDialogs = saveGate.dialogs;
@@ -873,23 +882,28 @@ export async function publishScript({ name, id, privacy = 'private', description
       try { await addToChart(); } catch { /* continue */ }
     }
     await delay(1000);
-    publishClicked = await clickVisibleButton(/publish script/i);
+    publishClicked = await clickPublishEntry();
     if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
     await delay(800);
   }
 
-  // Wizard entry: select "Publish new script", fill its required description, then continue.
-  const publishNew = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
-  if (!publishNew) {
-    throw new Error('Publish wizard is open, but "Publish new script" was not found.');
+  // Wizard entry: prefer "Publish new script"; allow "Update existing script" when
+  // the target is already privately published (common for smoke re-runs).
+  let publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
+  if (!publishMode) {
+    publishMode = await clickVisibleButton(/^update existing script(?:update existing script)?$/i, { withinDialog: true });
   }
+  if (!publishMode) {
+    throw new Error('Publish wizard is open, but neither "Publish new script" nor "Update existing script" was found.');
+  }
+  const isUpdate = /update existing script/i.test(publishMode);
 
   if (description) {
     const descriptionSet = await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
-    if (!descriptionSet) {
+    if (!descriptionSet && !isUpdate) {
       throw new Error('Publish wizard description field was not found in a visible dialog.');
     }
-    await delay(300);
+    if (descriptionSet) await delay(300);
   }
 
   const continued = await clickVisibleButton(/^(continue|next)(?:\1)?$/i, { withinDialog: true });
@@ -927,39 +941,52 @@ export async function publishScript({ name, id, privacy = 'private', description
     throw new Error(`Final Publish ${privacy} button not found in wizard.`);
   }
 
-  await delay(2500);
+  // Private publications can lag the facade; poll while confirming the wizard closed.
+  let identity = null;
+  let lastPublishedError = null;
+  let lastSavedError = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await delay(attempt === 0 ? 800 : 400);
+    const dialogsAfterPublish = await getVisibleDialogs();
+    const publishDialog = dialogsAfterPublish.find((dialog) => (
+      /publish (?:new |existing )?script/i.test(dialog.text)
+      || /publish private|publish public/i.test(dialog.text)
+    ));
+    if (publishDialog && attempt < 8) continue;
+    if (publishDialog) {
+      throw new Error(
+        'Publish wizard is still open after the final Publish action: '
+        + publishDialog.text,
+      );
+    }
 
-  const dialogsAfterPublish = await getVisibleDialogs();
-  const publishDialog = dialogsAfterPublish.find((dialog) => /publish (?:new |existing )?script/i.test(dialog.text));
-  if (publishDialog) {
-    throw new Error(
-      'Publish wizard is still open after the final Publish action: '
-      + publishDialog.text,
-    );
+    const published = await fetchFacadeList('published');
+    const saved = await fetchFacadeList('saved');
+    lastPublishedError = published.error || null;
+    lastSavedError = saved.error || null;
+    identity = resolvePublishedIdentity(scriptName, {
+      published: published.scripts || [],
+      saved: saved.scripts || [],
+    });
+    if (identity?.pubId) break;
   }
 
-  // Confirm via published list
-  const published = await fetchFacadeList('published');
-  const want = String(scriptName).toLowerCase();
-  const entry = (published.scripts || []).find((s) => {
-    const sn = (s.scriptName || '').toLowerCase();
-    const st = (s.scriptTitle || '').toLowerCase();
-    return sn === want || st === want;
-  });
-
-  if (!entry) {
+  if (!identity?.pubId) {
     throw new Error(
-      `Publish wizard completed but "${scriptName}" not found in pine-facade published list. `
-      + (published.error || 'Check the UI for errors.')
+      `Publish wizard completed but "${scriptName}" was not found in pine-facade `
+      + 'published or saved lists. '
+      + (lastPublishedError || lastSavedError || 'Check the UI for errors.'),
     );
   }
 
   return {
     success: true,
-    name: entry.scriptName || entry.scriptTitle || scriptName,
-    pubId: entry.scriptIdPart || null,
-    version: entry.version ?? null,
+    name: identity.name,
+    pubId: identity.pubId,
+    version: identity.version,
     privacy,
+    verification_source: identity.source,
+    update_existing: isUpdate,
   };
 }
 

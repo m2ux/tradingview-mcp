@@ -148,7 +148,8 @@ describe('dialog-scoped Pine controls', () => {
     assert.match(expression, /\[class~="js-dialog"\]/);
     assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
     assert.doesNotMatch(expression, /\|\| document/);
-    assert.match(expression, /matches\(text\) \|\| matches\(aria\)/);
+    assert.match(expression, /matches\(text\) \|\| matches\(aria\) \|\| matches\(title\)/);
+    assert.match(expression, /getAttribute\('title'\)/);
     assert.match(expression, /re\.lastIndex = 0/);
   });
 

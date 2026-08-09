@@ -98,6 +98,48 @@ export function mergeScriptLists(saved = [], published = [], uiVisibleNames = nu
   });
 }
 
+/** True when a facade row matches the requested script name/title (case-insensitive). */
+export function facadeScriptMatches(entry, scriptName) {
+  if (!entry || !scriptName) return false;
+  const want = String(scriptName).trim().toLowerCase();
+  const names = [
+    entry.scriptName,
+    entry.scriptTitle,
+    entry.name,
+    entry.title,
+  ].filter(Boolean).map((n) => String(n).trim().toLowerCase());
+  return names.includes(want);
+}
+
+/**
+ * Resolve a post-publish identity from facade lists.
+ * Private publications often never appear in filter=published; fall back to saved.
+ * Pure helper for unit tests.
+ */
+export function resolvePublishedIdentity(scriptName, { published = [], saved = [] } = {}) {
+  const fromPublished = (published || []).find((s) => facadeScriptMatches(s, scriptName));
+  if (fromPublished) {
+    return {
+      entry: fromPublished,
+      source: 'published',
+      name: fromPublished.scriptName || fromPublished.scriptTitle || scriptName,
+      pubId: fromPublished.scriptIdPart || fromPublished.id || null,
+      version: fromPublished.version ?? fromPublished.published_version ?? null,
+    };
+  }
+  const fromSaved = (saved || []).find((s) => facadeScriptMatches(s, scriptName));
+  if (fromSaved) {
+    return {
+      entry: fromSaved,
+      source: 'saved',
+      name: fromSaved.scriptName || fromSaved.scriptTitle || scriptName,
+      pubId: fromSaved.scriptIdPart || fromSaved.id || null,
+      version: fromSaved.version ?? null,
+    };
+  }
+  return null;
+}
+
 export async function getEditorIdentity(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   const result = await evalFn(`
@@ -203,9 +245,10 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
         }
         var text = (b.textContent || '').replace(/\\s+/g, ' ').trim();
         var aria = (b.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
-        if (matches(text) || matches(aria)) {
+        var title = (b.getAttribute('title') || '').replace(/\\s+/g, ' ').trim();
+        if (matches(text) || matches(aria) || matches(title)) {
           b.click();
-          return aria || text;
+          return aria || title || text;
         }
       }
       return null;
