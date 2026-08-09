@@ -1,15 +1,16 @@
 /**
- * Comprehensive E2E tests for all 70 TradingView MCP tools.
+ * Comprehensive E2E tests for TradingView MCP tools.
  * Requires TradingView Desktop running with --remote-debugging-port=9222
  *
  * Run: node --test tests/e2e.test.js
  *
- * Coverage: 70+ tests across 12 tool modules
+ * Coverage: 70+ tests across 13 tool modules
  * - Health & Connection (4 tools)
  * - Chart Control (8 tools)
  * - Data Access (12 tools)
  * - Pine Script (12 tools)
  * - Drawing (5 tools)
+ * - Drawing Templates (3 tools: list / get / save)
  * - UI Automation (12 tools)
  * - Replay Mode (6 tools)
  * - Alerts (3 tools)
@@ -22,6 +23,11 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import CDP from 'chrome-remote-interface';
+import {
+  listTemplates,
+  getTemplate,
+  saveTemplate,
+} from '../src/core/drawing_templates.js';
 
 let client;
 let Runtime;
@@ -1016,6 +1022,91 @@ val = array.get(a, 5)`;
       await evaluate(`${CHART_API}.removeAllShapes()`);
       const after = await evaluate(`${CHART_API}.getAllShapes()`);
       assert.equal(after.length, 0, 'All shapes cleared');
+    });
+  });
+
+  // ─── 5b. DRAWING TEMPLATES (3 tools) ──────────────────────────────────
+
+  describe('Drawing Templates', () => {
+    const drawingType = 'trend line';
+    const tool = 'LineToolTrendLine';
+    const templateName = '__mcp_e2e_draw_tpl__';
+    const content = { linewidth: 3, linecolor: '#00aa00' };
+    let saved = false;
+
+    after(async () => {
+      if (!saved) return;
+      try {
+        await evaluate(`
+          (async function() {
+            var fd = new FormData();
+            fd.append('name', ${JSON.stringify(templateName)});
+            fd.append('tool', ${JSON.stringify(tool)});
+            await fetch('/remove-drawing-template/', {
+              method: 'POST',
+              credentials: 'same-origin',
+              body: fd,
+            });
+            return true;
+          })()
+        `);
+      } catch (err) {
+        console.error('Drawing template cleanup failed:', err.message);
+      }
+    });
+
+    it('draw_template_save — create disposable template', async () => {
+      const result = await saveTemplate({
+        drawing_type: drawingType,
+        name: templateName,
+        content,
+      });
+      if (!result.success) {
+        assert.fail(`saveTemplate failed: ${result.error || 'unknown error'}`);
+      }
+      saved = true;
+      assert.equal(result.tool, tool);
+      assert.equal(result.name, templateName);
+      assert.equal(result.content.linewidth, content.linewidth);
+      assert.equal(result.content.linecolor, content.linecolor);
+    });
+
+    it('draw_template_get — read params', async () => {
+      assert.ok(saved, 'save must succeed before get');
+      const result = await getTemplate({
+        drawing_type: drawingType,
+        name: templateName,
+      });
+      if (!result.success) {
+        assert.fail(`getTemplate failed: ${result.error || 'unknown error'}`);
+      }
+      assert.equal(result.tool, tool);
+      assert.equal(result.name, templateName);
+      assert.equal(result.content.linewidth, content.linewidth);
+      assert.equal(result.content.linecolor, content.linecolor);
+    });
+
+    it('draw_template_list — name appears', async () => {
+      assert.ok(saved, 'save must succeed before list');
+      const result = await listTemplates({ drawing_type: drawingType });
+      if (!result.success) {
+        assert.fail(`listTemplates failed: ${result.error || 'unknown error'}`);
+      }
+      assert.ok(Array.isArray(result.templates), 'templates is array');
+      assert.ok(
+        result.templates.includes(templateName),
+        `expected ${templateName} in list`,
+      );
+    });
+
+    it('draw_template_list — aliases without type', async () => {
+      const result = await listTemplates({});
+      assert.equal(result.success, true);
+      assert.ok(Array.isArray(result.types), 'types is array');
+      assert.ok(
+        result.types.some((t) => t.tool === tool),
+        'LineToolTrendLine present in aliases',
+      );
     });
   });
 
