@@ -826,18 +826,36 @@ export async function publishScript({ name, id, privacy = 'private', description
 
   let publishClicked = await clickVisibleButton(/publish script/i);
   if (!publishClicked) throw new Error('Publish script button not found.');
-  await delay(800);
 
-  const saveGate = await resolvePublishSaveDialog();
-  if (saveGate.handled) {
-    await assertEditorIdentity(scriptName);
-    publishClicked = await clickVisibleButton(/publish script/i);
-    if (!publishClicked) throw new Error('Publish script button not found after saving.');
-    await delay(800);
-  } else if (saveGate.dialogs.length > 0) {
+  let publishDialogs = [];
+  let saveHandled = false;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    const saveGate = await resolvePublishSaveDialog();
+    if (saveGate.handled) {
+      saveHandled = true;
+      await assertEditorIdentity(scriptName);
+      publishClicked = await clickVisibleButton(/publish script/i);
+      if (!publishClicked) throw new Error('Publish script button not found after saving.');
+    } else if (saveGate.dialogs.length > 0) {
+      publishDialogs = saveGate.dialogs;
+      break;
+    }
+    await delay(200);
+  }
+
+  if (publishDialogs.length === 0) {
+    throw new Error(
+      `Publish did not expose a dialog within 3 seconds${saveHandled ? ' after saving' : ''}.`,
+    );
+  }
+
+  if (publishDialogs.some((dialog) => (
+    !/publish (?:new |existing )?script/i.test(dialog.text)
+    && !/not on the chart|add to chart/i.test(dialog.text)
+  ))) {
     throw new Error(
       'Publish is blocked by an unexpected dialog: '
-      + saveGate.dialogs[saveGate.dialogs.length - 1].text,
+      + publishDialogs[publishDialogs.length - 1].text,
     );
   }
 

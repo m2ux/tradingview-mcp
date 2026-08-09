@@ -130,7 +130,7 @@ describe('dialog-aware Add to chart helpers', () => {
     assert.deepEqual(result.dialogs, dialogs);
   });
 
-  it('detects TradingView warning dialogs as visible dialogs', async () => {
+  it('detects TradingView warning dialogs and publish wizards as visible dialogs', async () => {
     let expression;
     await getVisibleDialogs({
       evaluate: async (value) => {
@@ -139,6 +139,9 @@ describe('dialog-aware Add to chart helpers', () => {
       },
     });
     assert.match(expression, /\[data-name="warning-dialog"\]/);
+    assert.match(expression, /\[class~="js-dialog"\]/);
+    assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
+    assert.match(expression, /hasVisibleNestedDialog/);
   });
 
   it('handles the recognized save-before-publish warning', async () => {

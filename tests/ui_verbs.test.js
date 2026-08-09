@@ -145,7 +145,11 @@ describe('dialog-scoped Pine controls', () => {
     });
     assert.equal(clicked, 'Continue');
     assert.match(expression, /closest\(dialogSelector\)/);
+    assert.match(expression, /\[class~="js-dialog"\]/);
+    assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
     assert.doesNotMatch(expression, /\|\| document/);
+    assert.match(expression, /matches\(text\) \|\| matches\(aria\)/);
+    assert.match(expression, /re\.lastIndex = 0/);
   });
 
   it('returns true when an input is set', async () => {
@@ -157,6 +161,8 @@ describe('dialog-scoped Pine controls', () => {
     const r = await fillDialogInput('My Script', {}, { evaluate });
     assert.equal(r, true);
     assert.match(expression, /closest\(dialogSelector\)/);
+    assert.match(expression, /\[class~="js-dialog"\]/);
+    assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
     assert.match(expression, /\[contenteditable="true"\]/);
   });
 

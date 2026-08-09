@@ -187,8 +187,13 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
   return evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(source)}, ${JSON.stringify(flags)});
-      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class*="dialog"], [class*="modal"]';
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]';
       var btns = document.querySelectorAll('button, [role="button"], [role="menuitem"], a[class*="button"], [class*="menuItem"], [class*="item"] [class*="label"]');
+      function matches(value) {
+        if (!value) return false;
+        re.lastIndex = 0;
+        return re.test(value);
+      }
       for (var i = btns.length - 1; i >= 0; i--) {
         var b = btns[i];
         if (b.offsetParent === null && b.getClientRects().length === 0) continue;
@@ -196,8 +201,12 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
           var container = b.closest(dialogSelector);
           if (!container || (container.offsetParent === null && container.getClientRects().length === 0)) continue;
         }
-        var text = (b.textContent || b.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
-        if (re.test(text)) { b.click(); return text; }
+        var text = (b.textContent || '').replace(/\\s+/g, ' ').trim();
+        var aria = (b.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+        if (matches(text) || matches(aria)) {
+          b.click();
+          return aria || text;
+        }
       }
       return null;
     })()
@@ -209,7 +218,7 @@ export async function getVisibleDialogs(_deps = {}) {
   const dialogs = await evalFn(`
     (function() {
       var nodes = document.querySelectorAll(
-        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]'
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
       );
       var out = [];
       var seen = [];
@@ -217,6 +226,17 @@ export async function getVisibleDialogs(_deps = {}) {
         var dlg = nodes[i];
         if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
         if (seen.indexOf(dlg) !== -1) continue;
+        var nested = dlg.querySelectorAll(
+          '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
+        );
+        var hasVisibleNestedDialog = false;
+        for (var n = 0; n < nested.length; n++) {
+          if (nested[n].offsetParent !== null || nested[n].getClientRects().length > 0) {
+            hasVisibleNestedDialog = true;
+            break;
+          }
+        }
+        if (hasVisibleNestedDialog) continue;
         seen.push(dlg);
         var text = (dlg.innerText || dlg.textContent || '').replace(/\\s+/g, ' ').trim();
         if (!text) continue;
@@ -314,7 +334,7 @@ export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = 
   const result = await evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(ph)}, 'i');
-      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class*="dialog"], [class*="modal"]';
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]';
       var inputs = document.querySelectorAll('input, textarea, [contenteditable="true"]');
       function visible(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
       function setValue(inp) {
