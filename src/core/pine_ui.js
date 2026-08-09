@@ -144,60 +144,91 @@ export async function getEditorIdentity(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   const result = await evalFn(`
     (function() {
-      // Pine editor header identity — the script name button (class nameButton-*)
-      // lives in .tv-script-widget (the Pine editor dialog). Prefer this first.
-      var widget = document.querySelector('.tv-script-widget');
-      var scope = widget;
-      if (!scope) {
-        // Editor may be collapsed/undocked: the .tv-script-widget handle is gone
-        // but the Monaco container persists. Scope to the visible Monaco's panel
-        // so we can still read the identity from a nearby name button.
-        var mon = document.querySelector('.monaco-editor.pine-editor-monaco');
-        if (mon) {
-          var p = mon;
-          for (var up = 0; up < 8 && p; up++) {
-            if (p.querySelector && p.querySelector('[class*="nameButton"]')) { scope = p; break; }
-            p = p.parentElement;
+      function visible(el) {
+        if (!el) return false;
+        if (el.offsetParent === null && el.getClientRects().length === 0) return false;
+        var r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+      function cleanName(raw) {
+        if (!raw) return null;
+        var t = String(raw).replace(/\\s+/g, ' ').trim();
+        // Doubled labels: "TVSmokeLibTVSmokeLib" / "SavedSaved"
+        t = t.replace(/^(.*?)\\1$/i, '$1').trim();
+        t = t.split('\\n')[0].trim();
+        if (!t || t.length > 80) return null;
+        if (/^(add to chart|update on chart|save|saved|publish|publish script|open|new)/i.test(t)) return null;
+        return t;
+      }
+      function usableMonaco() {
+        var preferred = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+        for (var i = 0; i < preferred.length; i++) {
+          if (visible(preferred[i]) && preferred[i].getBoundingClientRect().width >= 40) return preferred[i];
+        }
+        var any = document.querySelectorAll('.monaco-editor');
+        for (var j = 0; j < any.length; j++) {
+          if (visible(any[j]) && any[j].getBoundingClientRect().width >= 40) return any[j];
+        }
+        return null;
+      }
+
+      // 1) Visible overlay title (h2 next to Publish script) — most reliable in dialog mode.
+      var h2s = document.querySelectorAll('h2');
+      for (var h = 0; h < h2s.length; h++) {
+        if (!visible(h2s[h])) continue;
+        var hn = cleanName(h2s[h].textContent);
+        if (hn) return { name: hn, source: 'h2' };
+      }
+
+      // 2) Pine editor header name button (class nameButton-*).
+      var widgets = document.querySelectorAll('.tv-script-widget');
+      for (var w = 0; w < widgets.length; w++) {
+        if (!visible(widgets[w]) && widgets[w].getClientRects().length === 0) continue;
+        var nameBtn = widgets[w].querySelector('[class*="nameButton"]');
+        var n0 = cleanName(nameBtn && nameBtn.textContent);
+        if (n0) return { name: n0, source: 'nameButton' };
+      }
+
+      // 3) Scope around a usable-sized Monaco (never the zero-size docked ghost).
+      var mon = usableMonaco();
+      var scope = null;
+      if (mon) {
+        var p = mon;
+        for (var up = 0; up < 10 && p; up++) {
+          if (p.querySelector) {
+            var nb = p.querySelector('[class*="nameButton"], h2, [data-name="pine-script-title"]');
+            if (nb && visible(nb)) { scope = p; break; }
           }
-          if (!scope) scope = mon.parentElement;
+          p = p.parentElement;
         }
+        if (!scope) scope = mon.parentElement;
       }
-      if (scope) {
-        var nameBtn = scope.querySelector('[class*="nameButton"]');
-        if (nameBtn) {
-          var t0 = (nameBtn.textContent || '').trim();
-          if (t0 && t0.length < 80) return { name: t0.split('\\n')[0].trim() };
-        }
+      if (!scope) {
+        scope = document.querySelector('.pine-editor-container')
+          || document.querySelector('[class*="pine-editor"]')
+          || document.querySelector('[class*="layout__area--bottom"]');
       }
-      var root = document.querySelector('.pine-editor-container')
-        || document.querySelector('[class*="pine-editor"]')
-        || document.querySelector('[class*="layout__area--bottom"]');
-      if (!root) return null;
-      var h2 = root.querySelector('h2');
-      if (h2) {
-        var t = (h2.textContent || '').trim();
-        if (t) return { name: t };
-      }
-      var titleBtn = root.querySelector('[data-name="pine-script-title"]')
-        || root.querySelector('[class*="nameButton"]')
-        || root.querySelector('[class*="title"] button')
-        || root.querySelector('button[class*="scriptTitle"]')
-        || root.querySelector('[class*="scriptName"]');
-      if (titleBtn) {
-        var t2 = (titleBtn.textContent || '').trim();
-        if (t2) return { name: t2 };
-      }
-      var candidates = root.querySelectorAll('button, [role="button"], h2, h3');
+      if (!scope) return null;
+
+      var titleBtn = scope.querySelector('[data-name="pine-script-title"]')
+        || scope.querySelector('[class*="nameButton"]')
+        || scope.querySelector('h2')
+        || scope.querySelector('[class*="title"] button')
+        || scope.querySelector('button[class*="scriptTitle"]')
+        || scope.querySelector('[class*="scriptName"]');
+      var n1 = cleanName(titleBtn && titleBtn.textContent);
+      if (n1) return { name: n1, source: 'title' };
+
+      var candidates = scope.querySelectorAll('button, [role="button"], h2, h3');
       for (var i = 0; i < candidates.length; i++) {
         var el = candidates[i];
-        var txt = (el.textContent || '').trim();
-        if (!txt || txt.length > 80) continue;
-        if (/^(add to chart|update on chart|save|publish|open|new|saved)/i.test(txt)) continue;
+        if (!visible(el)) continue;
         if (el.closest('.monaco-editor')) continue;
-        // Prefer elements near the top of the pine panel
+        var txt = cleanName(el.textContent);
+        if (!txt) continue;
         var rect = el.getBoundingClientRect();
-        if (rect.height > 0 && rect.height < 48 && txt.length > 0) {
-          return { name: txt.split('\\n')[0].trim() };
+        if (rect.height > 0 && rect.height < 48) {
+          return { name: txt, source: 'candidate' };
         }
       }
       return null;

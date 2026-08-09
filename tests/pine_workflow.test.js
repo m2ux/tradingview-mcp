@@ -87,6 +87,25 @@ describe('assertEditorIdentity', () => {
   });
 });
 
+describe('getEditorIdentity overlay preference', () => {
+  it('prefers visible h2 and usable Monaco over zero-size docked ghost', async () => {
+    const { getEditorIdentity } = await import('../src/core/pine_ui.js');
+    // Capture the injected expression without a live page.
+    let expression = '';
+    await getEditorIdentity({
+      evaluate: async (expr) => {
+        expression = expr;
+        return { name: 'TVSmokeLib', source: 'h2' };
+      },
+    });
+    assert.match(expression, /querySelectorAll\('h2'\)/);
+    assert.match(expression, /usableMonaco|querySelectorAll\('\.monaco-editor/);
+    assert.match(expression, /function visible/);
+    // Must not stop at the first zero-size .pine-editor-monaco only.
+    assert.match(expression, /querySelectorAll\('\.monaco-editor\.pine-editor-monaco'\)/);
+  });
+});
+
 describe('publish identity selection', () => {
   it('does not reopen the requested script when it is already current', () => {
     assert.equal(shouldOpenScript('TVSmokeLib', 'TVSmokeLib'), false);
