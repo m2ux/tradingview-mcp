@@ -2,17 +2,38 @@
  * Pine Editor DOM helpers — identity, Open dialog, toolbar/dialog clicks.
  * Shared by pine_open / copy / publish / list enrichment.
  */
-import { evaluate, evaluateAsync, safeString } from '../connection.js';
+import https from 'node:https';
+import { evaluate, safeString } from '../connection.js';
 import {
   pressKey,
   setNativeValueExpression,
   readFiberPropExpression,
-  IS_VISIBLE_EXPR,
 } from './dom.js';
+import { setInput as uiSetInput } from './ui.js';
 
 export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Node-side HTTPS GET that returns parsed JSON. Used for the pine-facade REST
+ * reads so they no longer round-trip through a CDP page-context fetch.
+ * fetchImpl is injectable for tests; it receives (url) and resolves
+ * { ok, status, json() }.
+ */
+function httpsGetJson(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(data); } catch { /* non-JSON body */ }
+        resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, status: res.statusCode, json });
+      });
+    }).on('error', reject);
+  });
+}
 
 // ── Pine Open-script picker helpers (local, consolidated) ───────────────────
 
@@ -205,32 +226,18 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
 }
 
 export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = {}) {
-  const evalFn = _deps.evaluate || evaluate;
   const ph = placeholderRegex instanceof RegExp
     ? placeholderRegex.source
     : (placeholderRegex || 'name|script|title|description');
-  return evalFn(`
-    (function() {
-      var re = new RegExp(${JSON.stringify(ph)}, 'i');
-      var dlg = document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]') || document;
-      var inputs = dlg.querySelectorAll('input, textarea');
-      for (var i = 0; i < inputs.length; i++) {
-        var inp = inputs[i];
-        if (!${IS_VISIBLE_EXPR}) continue;
-        var ph = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.name || '');
-        if (!re.test(ph) && inputs.length > 1) continue;
-        return (${setNativeValueExpression(value, 'inp')});
-      }
-      // Fallback: first visible text input in dialog
-      for (var j = 0; j < inputs.length; j++) {
-        var inp2 = inputs[j];
-        if (inp2.type && inp2.type !== 'text' && inp2.type !== 'search' && inp2.tagName !== 'TEXTAREA') continue;
-        if (!(inp2.offsetParent !== null || inp2.getClientRects().length > 0)) continue;
-        return (${setNativeValueExpression(value, 'inp2')});
-      }
-      return false;
-    })()
-  `);
+  try {
+    const r = await uiSetInput(
+      { value: String(value), match: ph, within_dialog: true },
+      { evaluate: _deps.evaluate || evaluate },
+    );
+    return r.set === true;
+  } catch {
+    return false; // no matching input → setInput threw
+  }
 }
 
 export async function confirmReplaceIfNeeded(replace, _deps = {}) {
@@ -598,17 +605,16 @@ export async function isNameInOpenDialog(name, _deps = {}) {
 }
 
 export async function fetchFacadeList(filter = 'saved', _deps = {}) {
-  const evalAsync = _deps.evaluateAsync || evaluateAsync;
-  const result = await evalAsync(`
-    fetch(${JSON.stringify(PINE_FACADE + '/list/?filter=' + filter)}, { credentials: 'include' })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (!Array.isArray(data)) return { scripts: [], error: 'Unexpected response from pine-facade' };
-        return { scripts: data };
-      })
-      .catch(function(e) { return { scripts: [], error: e.message }; })
-  `);
-  return result || { scripts: [], error: 'No response' };
+  const fetchImpl = _deps.fetchImpl || httpsGetJson;
+  const url = `${PINE_FACADE}/list/?filter=${encodeURIComponent(filter)}`;
+  try {
+    const r = await fetchImpl(url);
+    const data = r && typeof r.json === 'function' ? await r.json() : r?.json;
+    if (!Array.isArray(data)) return { scripts: [], error: 'Unexpected response from pine-facade' };
+    return { scripts: data };
+  } catch (e) {
+    return { scripts: [], error: e.message };
+  }
 }
 
 export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
