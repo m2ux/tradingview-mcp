@@ -164,6 +164,10 @@ describe('dialog-scoped Pine controls', () => {
     assert.match(expression, /\[class~="js-dialog"\]/);
     assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
     assert.match(expression, /\[contenteditable="true"\]/);
+    assert.match(expression, /candidate\.tagName !== 'TEXTAREA'/);
+    assert.match(expression, /isPublishWizard/);
+    assert.match(expression, /publish new script/);
+    assert.match(expression, /fallbackArea >= 1000/);
   });
 
   it('returns false when no input is found', async () => {

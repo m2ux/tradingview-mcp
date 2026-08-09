@@ -878,11 +878,20 @@ export async function publishScript({ name, id, privacy = 'private', description
     await delay(800);
   }
 
-  // Wizard entry: select "Publish new script" explicitly, then require Continue.
+  // Wizard entry: select "Publish new script", fill its required description, then continue.
   const publishNew = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
   if (!publishNew) {
     throw new Error('Publish wizard is open, but "Publish new script" was not found.');
   }
+
+  if (description) {
+    const descriptionSet = await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
+    if (!descriptionSet) {
+      throw new Error('Publish wizard description field was not found in a visible dialog.');
+    }
+    await delay(300);
+  }
+
   const continued = await clickVisibleButton(/^(continue|next)(?:\1)?$/i, { withinDialog: true });
   if (!continued) {
     throw new Error('Publish wizard did not expose a Continue/Next button.');
@@ -910,22 +919,12 @@ export async function publishScript({ name, id, privacy = 'private', description
   }
   await delay(400);
 
-  if (description) {
-    const descriptionSet = await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
-    if (!descriptionSet) {
-      throw new Error('Publish wizard description field was not found in a visible dialog.');
-    }
-    await delay(300);
-  }
-
   const finalBtn = privacy === 'private'
     ? await clickVisibleButton(/publish private/i, { withinDialog: true })
     : await clickVisibleButton(/publish public|publish$/i, { withinDialog: true });
 
   if (!finalBtn) {
-    // Last resort: any Publish button in dialog
-    const any = await clickVisibleButton(/publish/i, { withinDialog: true });
-    if (!any) throw new Error('Final Publish button not found in wizard.');
+    throw new Error(`Final Publish ${privacy} button not found in wizard.`);
   }
 
   await delay(2500);

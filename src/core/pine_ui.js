@@ -356,6 +356,25 @@ export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = 
         var meta = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.getAttribute('name') || '');
         if (re.test(meta)) return setValue(inp);
       }
+      var fallback = null;
+      var fallbackArea = 0;
+      for (var f = inputs.length - 1; f >= 0; f--) {
+        var candidate = inputs[f];
+        var candidateDialog = candidate.closest(dialogSelector);
+        if (!visible(candidate) || !visible(candidateDialog)) continue;
+        var dialogText = (candidateDialog.innerText || candidateDialog.textContent || '').replace(/\\s+/g, ' ').trim();
+        var isPublishWizard = /publish script/i.test(dialogText)
+          && /publish new script/i.test(dialogText)
+          && /continue|next/i.test(dialogText);
+        if ((!re.test(dialogText) && !isPublishWizard) || candidate.tagName !== 'TEXTAREA') continue;
+        var rect = candidate.getBoundingClientRect();
+        var area = rect.width * rect.height;
+        if (area > fallbackArea) {
+          fallback = candidate;
+          fallbackArea = area;
+        }
+      }
+      if (fallback && fallbackArea >= 1000) return setValue(fallback);
       return false;
     })()
   `);
