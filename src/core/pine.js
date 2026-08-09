@@ -31,24 +31,44 @@ import {
 // Note: TradingView's newer Pine editor (React 18+/createRoot) does not expose
 // a __reactFiber$ backlink on the Monaco container, so fiber walking fails.
 // Presence alone is not enough: a collapsed/zero-size Monaco is not usable.
+// IMPORTANT: TV often keeps a zero-size docked .pine-editor-monaco in the DOM
+// while the real overlay Monaco is a later .monaco-editor sibling. Never use
+// querySelector alone — scan all candidates and pick a usable-sized one.
 const FIND_MONACO_CONTAINER = `
   (function() {
-    var el = document.querySelector('.monaco-editor.pine-editor-monaco');
-    if (!el) return false;
-    var rect = el.getBoundingClientRect();
-    return (el.offsetParent !== null || el.getClientRects().length > 0)
-      && rect.width >= 40 && rect.height >= 40;
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var preferred = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+    for (var i = 0; i < preferred.length; i++) {
+      if (usable(preferred[i])) return true;
+    }
+    var any = document.querySelectorAll('.monaco-editor');
+    for (var j = 0; j < any.length; j++) {
+      if (usable(any[j])) return true;
+    }
+    return false;
   })()
 `;
 // Overlay mode exposes labeled Publish/Add controls. Docked bottom-panel Monaco is
 // "open" but often icon-only, which breaks pine_add_to_chart / pine_publish.
 const FIND_PINE_OVERLAY_READY = `
   (function() {
-    var el = document.querySelector('.monaco-editor.pine-editor-monaco');
-    if (!el) return false;
-    var rect = el.getBoundingClientRect();
-    if (!((el.offsetParent !== null || el.getClientRects().length > 0)
-      && rect.width >= 40 && rect.height >= 40)) return false;
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var monacoOk = false;
+    var nodes = document.querySelectorAll('.monaco-editor.pine-editor-monaco, .monaco-editor');
+    for (var n = 0; n < nodes.length; n++) {
+      if (usable(nodes[n])) { monacoOk = true; break; }
+    }
+    if (!monacoOk) return false;
     var btns = document.querySelectorAll('button, [role="button"]');
     for (var i = 0; i < btns.length; i++) {
       var b = btns[i];
@@ -63,7 +83,23 @@ const FIND_PINE_OVERLAY_READY = `
 `;
 const FIND_MONACO = `
   (function findMonacoEditor() {
-    var container = document.querySelector('.monaco-editor.pine-editor-monaco');
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var container = null;
+    var preferred = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+    for (var p = 0; p < preferred.length; p++) {
+      if (usable(preferred[p])) { container = preferred[p]; break; }
+    }
+    if (!container) {
+      var any = document.querySelectorAll('.monaco-editor');
+      for (var a = 0; a < any.length; a++) {
+        if (usable(any[a])) { container = any[a]; break; }
+      }
+    }
     if (!container) return null;
     var el = container;
     var fiberKey;

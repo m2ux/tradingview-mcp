@@ -282,4 +282,14 @@ describe('ensurePineEditorOpen overlay preference', () => {
     assert.ok(dialogBtn < dockCall, 'overlay open must come before docked bottomWidgetBar fallback');
     assert.match(body, /FIND_PINE_OVERLAY_READY|publish script/i);
   });
+
+  it('scans all Monaco nodes instead of querySelector first-hit', async () => {
+    const src = await import('node:fs').then((fs) =>
+      fs.readFileSync(new URL('../src/core/pine.js', import.meta.url), 'utf8'),
+    );
+    // Zero-size docked .pine-editor-monaco often precedes the usable overlay node.
+    assert.match(src, /querySelectorAll\('\.monaco-editor\.pine-editor-monaco'\)/);
+    assert.match(src, /querySelectorAll\('\.monaco-editor'\)/);
+    assert.match(src, /rect\.width >= 40 && rect\.height >= 40/);
+  });
 });
