@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-84 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+87 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -67,6 +67,14 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 - `draw_list` → see what's drawn
 - `draw_remove_one` → remove by ID
 - `draw_clear` → remove all
+
+### "Manage drawing templates"
+Saved style templates for a drawing tool (Fib Channel, parallel channel, etc.):
+1. `draw_template_list` with `drawing_type: "fibonacci channel"` → template names (omit type to list aliases)
+2. `draw_template_get` with `drawing_type` + `name` → native content object
+3. `draw_template_save` with `drawing_type` + `name` + `content` and/or `from_template` (clone then deep-merge) → create/overwrite in TradingView cloud
+
+Use friendly types (`fibonacci channel`, `parallel channel`, `trend line`) or raw `LineTool*` ids.
 
 ### "Manage alerts"
 - `alert_create` → set price alert (condition: "crossing", "greater_than", "less_than")
