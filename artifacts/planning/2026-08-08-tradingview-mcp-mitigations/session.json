@@ -633,6 +633,42 @@
             },
             "optionId": "decline-resign",
             "respondedAt": "2026-08-08T15:20:27.000Z"
+          },
+          "submit-for-review-build-artifact-check": {
+            "effects": {
+              "variablesSet": {
+                "build_dependent_artifacts_pending": false
+              }
+            },
+            "optionId": "none-needed",
+            "respondedAt": "2026-08-08T18:13:04.000Z"
+          },
+          "submit-for-review-dco-sign-off-confirmation": {
+            "effects": {
+              "variablesSet": {
+                "attestation_option": "certify"
+              }
+            },
+            "optionId": "certify",
+            "respondedAt": "2026-08-08T18:08:01.000Z"
+          },
+          "submit-for-review-review-outcome": {
+            "effects": {
+              "variablesSet": {
+                "review_requires_changes": false
+              }
+            },
+            "optionId": "approved",
+            "respondedAt": "2026-08-08T19:49:53.000Z"
+          },
+          "submit-for-review-review-received": {
+            "effects": {
+              "variablesSet": {
+                "awaiting_review": true
+              }
+            },
+            "optionId": "no-waiting",
+            "respondedAt": "2026-08-08T19:01:13.000Z"
           }
         },
         "completedActivities": [
@@ -648,11 +684,12 @@
           "lean-coding-audit",
           "post-impl-review",
           "validate",
-          "strategic-review"
+          "strategic-review",
+          "submit-for-review"
         ],
-        "condition": "review_passed == true",
-        "currentActivity": "submit-for-review",
-        "currentTechnique": "strategic-findings-analysis",
+        "condition": "review-outcome: approved (review_requires_changes == false) → isDefault to complete",
+        "currentActivity": "complete",
+        "currentTechnique": "update-pr::mark-ready",
         "declaredArtifacts": [
           {
             "id": "strategic_review_doc",
@@ -666,6 +703,18 @@
           }
         ],
         "deliveredContent": {
+          "orchestrator": {
+            "activity_rules:148ebfb566580534": "148ebfb566580534",
+            "bundle:rules:2cfa9db95a23a585": "2cfa9db95a23a585",
+            "bundle:variable-binding": "e5b276dec214b8d1",
+            "bundle:workflow-engine::activity-worker": "589271572041828e",
+            "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
+            "bundle:workflow-engine::resume-from-checkpoint": "9bc4d4f99cb0944c",
+            "bundle:workflow-engine::yield-checkpoint": "df32af09a25e7d7f",
+            "technique:finalize-documentation::create-complete-doc": "b6ce502de072c0fe",
+            "technique:finalize-documentation::render-token-usage": "b7ef6aa8eafec17d",
+            "technique:workflow-engine::read-session": "e046003d4f2cba5c"
+          },
           "wpw1-XD2I3T-01": {
             "activity_rules:148ebfb566580534": "148ebfb566580534",
             "bundle:rules:2cfa9db95a23a585": "2cfa9db95a23a585",
@@ -947,6 +996,20 @@
             "technique:summarize-architecture": "0afe1a12611f6dee",
             "technique:update-pr::render": "aefaee67b0d7067d",
             "technique:workflow-engine::verify-readme-conforms": "b35353cec2f9de34"
+          },
+          "wpw1-XD2I3T-06": {
+            "activity_rules:148ebfb566580534": "148ebfb566580534",
+            "bundle:rules:2cfa9db95a23a585": "2cfa9db95a23a585",
+            "bundle:variable-binding": "e5b276dec214b8d1",
+            "bundle:workflow-engine::activity-worker": "589271572041828e",
+            "bundle:workflow-engine::finalize-activity": "a6a8bd435a0f657d",
+            "bundle:workflow-engine::resume-from-checkpoint": "9bc4d4f99cb0944c",
+            "bundle:workflow-engine::yield-checkpoint": "df32af09a25e7d7f",
+            "technique:dco-provenance::record-attestation": "e80e5c671042a4d9",
+            "technique:manage-git::instruct-merge-strategy": "2ee5540ceccd8b13",
+            "technique:manage-git::push-commits": "f78608367073364f",
+            "technique:update-pr::mark-ready": "d735648f7a3929db",
+            "technique:update-pr::render": "2f2281c20cc87b36"
           }
         },
         "history": [
@@ -7430,20 +7493,613 @@
             "activity": "submit-for-review",
             "timestamp": "2026-08-08T15:38:42.184Z",
             "type": "activity_entered"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "artifact_conformance",
+              "source": "variables_changed",
+              "value": "conforms"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "fragment_references_issue",
+              "source": "variables_changed",
+              "value": null
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "readme_conformance",
+              "source": "variables_changed",
+              "value": "conforms"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "recommended_strategic_option",
+              "source": "variables_changed",
+              "value": "acceptable"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_passed",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "strategic_findings_summary",
+              "source": "variables_changed",
+              "value": ""
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "unsigned_commits_in_pr",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "review-strategy"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "refresh-pr-body"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "unsigned-commits-prompt"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "resign-unsigned-commits"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-readme"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-artifact-conformance"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "ensure-changes-folder-entry"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "verify-change-fragment"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "document-findings"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "apply-cleanup"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "create-architecture-summary"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "analyze-strategic-findings"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-05",
+              "stepId": "review-findings"
+            },
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T15:39:46.521Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "activities": 3,
+              "agentId": "wpw1-XD2I3T-05",
+              "budgetChars": 280000,
+              "chars": 206129,
+              "limit": "activity_cap",
+              "maxActivities": 3
+            },
+            "timestamp": "2026-08-08T15:40:11.436Z",
+            "type": "batch_refused"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 47945,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-08-08T15:41:04.102Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 16781,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T15:42:52.987Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "dco-sign-off-confirmation",
+            "timestamp": "2026-08-08T15:44:01.534Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "dco-sign-off-confirmation",
+            "data": {
+              "optionId": "certify"
+            },
+            "timestamp": "2026-08-08T18:08:01.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "attestation_option",
+              "source": "setVariable",
+              "value": "certify"
+            },
+            "timestamp": "2026-08-08T18:08:01.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 3710,
+              "delivery": "full",
+              "stepId": "dco-sign-off",
+              "techniqueId": "dco-provenance::record-attestation"
+            },
+            "timestamp": "2026-08-08T18:09:11.425Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "stepId": "dco-sign-off"
+            },
+            "timestamp": "2026-08-08T18:09:11.425Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 4526,
+              "delivery": "full",
+              "stepId": "push-commits",
+              "techniqueId": "manage-git::push-commits"
+            },
+            "timestamp": "2026-08-08T18:09:51.678Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "stepId": "push-commits"
+            },
+            "timestamp": "2026-08-08T18:09:51.678Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 7948,
+              "delivery": "full",
+              "stepId": "update-description",
+              "techniqueId": "update-pr::render"
+            },
+            "timestamp": "2026-08-08T18:10:28.714Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "stepId": "update-description"
+            },
+            "timestamp": "2026-08-08T18:10:28.714Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 5021,
+              "delivery": "full",
+              "stepId": "instruct-merge-strategy",
+              "techniqueId": "manage-git::instruct-merge-strategy"
+            },
+            "timestamp": "2026-08-08T18:11:29.755Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "stepId": "instruct-merge-strategy"
+            },
+            "timestamp": "2026-08-08T18:11:29.755Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "build-artifact-check",
+            "timestamp": "2026-08-08T18:11:42.426Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "build-artifact-check",
+            "data": {
+              "optionId": "none-needed"
+            },
+            "timestamp": "2026-08-08T18:13:04.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "build_dependent_artifacts_pending",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T18:13:04.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "chars": 5066,
+              "delivery": "full",
+              "stepId": "mark-ready",
+              "techniqueId": "update-pr::mark-ready"
+            },
+            "timestamp": "2026-08-08T18:13:55.835Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "wpw1-XD2I3T-06",
+              "stepId": "mark-ready"
+            },
+            "timestamp": "2026-08-08T18:13:55.835Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-received",
+            "timestamp": "2026-08-08T18:14:22.415Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-received",
+            "data": {
+              "optionId": "no-waiting"
+            },
+            "timestamp": "2026-08-08T19:01:13.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "awaiting_review",
+              "source": "setVariable",
+              "value": true
+            },
+            "timestamp": "2026-08-08T19:01:13.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "awaiting_review",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_comments_summary",
+              "source": "variables_changed",
+              "value": "Owner sign-off: review complete, pass. No GitHub review comments on PR #1 (reviewDecision empty). No changes requested."
+            },
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_passed",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_requires_changes",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T19:48:09.148Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 47945,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-08-08T19:48:16.546Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 47945,
+              "priorAgentId": "wpw1-XD2I3T-06"
+            },
+            "timestamp": "2026-08-08T19:48:16.546Z",
+            "type": "activity_redelivered"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-outcome",
+            "timestamp": "2026-08-08T19:48:42.950Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-outcome",
+            "data": {
+              "optionId": "approved"
+            },
+            "timestamp": "2026-08-08T19:49:53.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_requires_changes",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-08T19:49:53.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-08T19:50:00.667Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "complete",
+            "timestamp": "2026-08-08T19:50:00.667Z",
+            "type": "activity_entered"
+          },
+          {
+            "timestamp": "2026-08-08T19:50:00.667Z",
+            "type": "workflow_completed"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 54170,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 5591,
+              "delivery": "full",
+              "stepId": "create-complete-doc",
+              "techniqueId": "finalize-documentation::create-complete-doc"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "stepId": "create-complete-doc"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 7145,
+              "delivery": "full",
+              "stepId": "render-token-usage",
+              "techniqueId": "finalize-documentation::render-token-usage"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "stepId": "render-token-usage"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "chars": 3113,
+              "delivery": "full",
+              "stepId": "read-session",
+              "techniqueId": "workflow-engine::read-session"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "orchestrator",
+              "stepId": "read-session"
+            },
+            "timestamp": "2026-08-08T19:50:06.009Z",
+            "type": "step_started"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 108,
+        "seq": 132,
         "sessionIndex": "XD2I3T",
         "skippedActivities": [],
         "startedAt": "2026-08-08T07:12:35.750Z",
-        "status": "running",
+        "status": "completed",
         "triggeredWorkflows": [],
-        "ts": 1786203522,
+        "ts": 1786218606,
         "variables": {
           "applicable_patterns": "deny-by-default registrar allowlist (HIGH); positive-not-negative scoping (HIGH); fail-closed (HIGH); Spotlighting fencing (HIGH); immutable SHA pinning (HIGH); lockfile-authoritative + npm ci (HIGH); human-in-the-loop (MEDIUM); audit logging (MEDIUM); exact-path by-PID kill (MEDIUM)",
           "architecture_summary": "10-architecture-summary.md",
+          "artifact_conformance": "conforms",
           "artifact_name": "",
           "artifact_publish_ref": "",
           "assumption_batch_accepted": false,
@@ -7483,6 +8139,7 @@
           "elicitation_complete": true,
           "existing_pr_number": "",
           "findings_synthesis": "All 9 requirement areas map to >=1 validated pattern; registrar (not fencing/scrubber) is the trust boundary",
+          "fragment_references_issue": null,
           "github_issue_found": false,
           "gitnexus_indexed": true,
           "has_critical_blocker": false,
@@ -7543,11 +8200,12 @@
           "provenance_log_path": "",
           "push_remote": "origin",
           "push_remote_url": "",
+          "readme_conformance": "conforms",
           "recommended_strategic_option": "acceptable",
           "rendered_pr_body": "PR #1 description updated from initial template",
           "requirements": "9 in-scope finding areas consolidated from the mitigation plan + DP decisions: capability-allowlist model replacing ui_evaluate; hardened gated tv_update; gate tv_launch/alert_delete/draw_clear/batch_run; untrusted-content fencing; launch safety; UI selector hardening; CI supply-chain pinning; dependency pinning/auditability; pine_check upload gate + CDP host guardrails",
           "resign_unsigned_commits_requested": false,
-          "review_comments_summary": "",
+          "review_comments_summary": "Owner sign-off: review complete, pass. No GitHub review comments on PR #1 (reviewDecision empty). No changes requested.",
           "review_mode_ambiguous": false,
           "review_passed": true,
           "review_posted": false,
@@ -7582,7 +8240,7 @@
           "todo_tasks": "8 atomic tasks: capability-gate primitive; wire gate + remove ui_evaluate; output fencing; harden tv_update; launch/kill hardening; selector/upload/CDP guards; CI supply-chain; dependency pinning + agent rescope",
           "uncertain_symbols": "",
           "unsigned_commit_list_summary": "",
-          "unsigned_commits_in_pr": false,
+          "unsigned_commits_in_pr": true,
           "use_existing_pr": false,
           "user_request": "start a work package workflow to address the issues described here: /home/mike1/projects/dev/caliper/.engineering/artifacts/planning/2026-08-08-tradingview-mcp-security-audit",
           "validation_passed": false,

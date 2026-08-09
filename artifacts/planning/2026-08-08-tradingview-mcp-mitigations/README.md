@@ -6,7 +6,7 @@
 
 ## 🎯 Executive Summary
 
-[2-3 sentences explaining what this delivers and why it matters]
+This work package makes tradingview-mcp safe by default: the powers that could run arbitrary code in a live chart, self-update the server, launch/kill the desktop app, or wipe drawings and alerts are now gated off unless the owner deliberately opts in, and the all-purpose "run any JavaScript" tool is removed entirely. Everything the agent reads back from the chart is fenced as untrusted data, and the update/launch and supply-chain paths are hardened and pinned. The result keeps every read-only capability on by default while turning the dangerous ones into a conscious, auditable, human-approved choice — closing the audit's holes before they can be exploited.
 
 ## Problem Overview
 
@@ -49,7 +49,7 @@ What the owner gets is a guarantee about where the line sits: the gate lives in 
 | 23 | [Architecture summary](10-architecture-summary.md) | Stakeholder architecture overview | 15-30m | ✅ |
 | 24 | Validation | Build, test, lint verification | 15-30m | ✅ |
 | 25 | [Strategic review](12-strategic-review-1.md) | Scope/minimality series (`strategic-review-{n}`) | 15-30m | ✅ |
-| 26 | Submit for review | PR review lifecycle / stealth push | 30-60m | 🟡 |
+| 26 | Submit for review | PR review lifecycle / stealth push | 30-60m | ✅ |
 | 27 | [Close-out](14-COMPLETE.md) | Deliverables, limitations, retrospective; ADR when owed | 10-20m | ⬚ |
 | 28 | [Token usage](14-token-usage.md) | Session token and cost summary | 5-10m | ⬚ |
 | 29 | [Session trace](14-session-trace.md) | Lean mechanical execution trace | 5-10m | ⬚ |

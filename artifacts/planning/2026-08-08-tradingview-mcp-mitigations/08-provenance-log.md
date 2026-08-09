@@ -10,3 +10,9 @@
 | 6 | cursor | kimi-k3 | code-generation | repo-only | ui_find_element css guard, pine_check upload opt-in, remote-CDP loopback guard |
 | 7 | cursor | kimi-k3 | code-generation | repo-only | CI supply-chain: SHA-pinned actions, least-privilege permissions, blocking audit, dependency-review job |
 | 8 | cursor | kimi-k3 | code-generation | repo-only | Exact dependency pins, lockfile-lint + security:audit script, performance-analyst agent rescope |
+
+## Attestation
+
+- Timestamp: 2026-08-08T18:09:43Z
+- Certifier: Mike Clay <mike.clay@shielded.io>
+- Option: certify
