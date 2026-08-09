@@ -20,6 +20,7 @@ import {
   mergeScriptLists,
   openViaOpenDialog,
   resolveAddToChartDialog,
+  resolvePublishSaveDialog,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -826,6 +827,19 @@ export async function publishScript({ name, id, privacy = 'private', description
   let publishClicked = await clickVisibleButton(/publish script/i);
   if (!publishClicked) throw new Error('Publish script button not found.');
   await delay(800);
+
+  const saveGate = await resolvePublishSaveDialog();
+  if (saveGate.handled) {
+    await assertEditorIdentity(scriptName);
+    publishClicked = await clickVisibleButton(/publish script/i);
+    if (!publishClicked) throw new Error('Publish script button not found after saving.');
+    await delay(800);
+  } else if (saveGate.dialogs.length > 0) {
+    throw new Error(
+      'Publish is blocked by an unexpected dialog: '
+      + saveGate.dialogs[saveGate.dialogs.length - 1].text,
+    );
+  }
 
   // Gate: script not on chart
   const notOnChart = await evaluate(`

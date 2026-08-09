@@ -185,7 +185,7 @@ export async function uiState() {
       }
       ui.dialogs = [];
       var dialogNodes = document.querySelectorAll(
-        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]'
       );
       var seenDialogs = [];
       for (var d = 0; d < dialogNodes.length; d++) {

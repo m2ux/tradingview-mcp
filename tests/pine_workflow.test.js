@@ -10,6 +10,7 @@ import {
   assertEditorIdentity,
   getVisibleDialogs,
   resolveAddToChartDialog,
+  resolvePublishSaveDialog,
 } from '../src/core/pine_ui.js';
 import { shouldOpenScript } from '../src/core/pine.js';
 
@@ -125,6 +126,45 @@ describe('dialog-aware Add to chart helpers', () => {
   it('does not dismiss or guess at unknown dialogs', async () => {
     const dialogs = [{ text: 'Publishing house rules', buttons: ['Cancel', 'Continue'], input_count: 0 }];
     const result = await resolveAddToChartDialog({ evaluate: async () => dialogs });
+    assert.equal(result.handled, false);
+    assert.deepEqual(result.dialogs, dialogs);
+  });
+
+  it('detects TradingView warning dialogs as visible dialogs', async () => {
+    let expression;
+    await getVisibleDialogs({
+      evaluate: async (value) => {
+        expression = value;
+        return [];
+      },
+    });
+    assert.match(expression, /\[data-name="warning-dialog"\]/);
+  });
+
+  it('handles the recognized save-before-publish warning', async () => {
+    const expressions = [];
+    const result = await resolvePublishSaveDialog({
+      evaluate: async (expression) => {
+        expressions.push(expression);
+        if (expressions.length === 1) {
+          return [{
+            text: "Save this script? Script with unsaved changes can't be published.",
+            buttons: ['Save', 'Cancel'],
+            input_count: 0,
+          }];
+        }
+        return 'Save';
+      },
+    });
+    assert.equal(result.handled, true);
+    assert.equal(result.action, 'Save');
+    assert.match(expressions[1], /closest\(dialogSelector\)/);
+    assert.match(expressions[1], /\[data-name="warning-dialog"\]/);
+  });
+
+  it('does not act on unknown publish dialogs', async () => {
+    const dialogs = [{ text: 'Publishing house rules', buttons: ['Continue'], input_count: 0 }];
+    const result = await resolvePublishSaveDialog({ evaluate: async () => dialogs });
     assert.equal(result.handled, false);
     assert.deepEqual(result.dialogs, dialogs);
   });

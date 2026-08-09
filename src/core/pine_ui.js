@@ -187,7 +187,7 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
   return evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(source)}, ${JSON.stringify(flags)});
-      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [class*="dialog"], [class*="modal"]';
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class*="dialog"], [class*="modal"]';
       var btns = document.querySelectorAll('button, [role="button"], [role="menuitem"], a[class*="button"], [class*="menuItem"], [class*="item"] [class*="label"]');
       for (var i = btns.length - 1; i >= 0; i--) {
         var b = btns[i];
@@ -209,7 +209,7 @@ export async function getVisibleDialogs(_deps = {}) {
   const dialogs = await evalFn(`
     (function() {
       var nodes = document.querySelectorAll(
-        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]'
       );
       var out = [];
       var seen = [];
@@ -281,6 +281,31 @@ export async function resolveAddToChartDialog(_deps = {}) {
   return { handled: true, action: clicked, dialogs };
 }
 
+export async function resolvePublishSaveDialog(_deps = {}) {
+  const dialogs = await getVisibleDialogs(_deps);
+  if (dialogs.length === 0) return { handled: false, dialogs: [] };
+
+  const saveGate = dialogs.find(
+    (dialog) => /save this script\?/i.test(dialog.text)
+      && /unsaved changes can(?:not|'t) be published/i.test(dialog.text),
+  );
+  if (!saveGate) return { handled: false, dialogs };
+
+  const clicked = await clickVisibleButton(
+    /^save(?:save)?$/i,
+    { withinDialog: true },
+    _deps,
+  );
+  if (!clicked) {
+    throw new Error(
+      'The save-before-publish dialog is open, but its Save button was not found. '
+      + `Visible dialog buttons: ${saveGate.buttons.join(', ') || '(none)'}.`,
+    );
+  }
+  await delay(800);
+  return { handled: true, action: clicked, dialogs };
+}
+
 export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = {}) {
   const ph = placeholderRegex instanceof RegExp
     ? placeholderRegex.source
@@ -289,7 +314,7 @@ export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = 
   const result = await evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(ph)}, 'i');
-      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [class*="dialog"], [class*="modal"]';
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class*="dialog"], [class*="modal"]';
       var inputs = document.querySelectorAll('input, textarea, [contenteditable="true"]');
       function visible(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
       function setValue(inp) {
