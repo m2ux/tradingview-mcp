@@ -17,11 +17,20 @@ import {
   lookupFacadeScript,
   mergeScriptLists,
   openScriptDialogAndSelect,
+  openViaOpenDialog,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
 
-// ── Monaco finder (injected into TV page) ──
+// Monaco finder (injected into TV page) ──
+// Note: TradingView's newer Pine editor (React 18+/createRoot) does not expose
+// a __reactFiber$ backlink on the Monaco container, so fiber walking fails.
+// Presence of the editor is best detected by the DOM container itself.
+const FIND_MONACO_CONTAINER = `
+  (function() {
+    return !!document.querySelector('.monaco-editor.pine-editor-monaco');
+  })()
+`;
 const FIND_MONACO = `
   (function findMonacoEditor() {
     var container = document.querySelector('.monaco-editor.pine-editor-monaco');
@@ -56,12 +65,7 @@ const FIND_MONACO = `
  * Returns true if editor is accessible, false on timeout.
  */
 export async function ensurePineEditorOpen() {
-  const already = await evaluate(`
-    (function() {
-      var m = ${FIND_MONACO};
-      return m !== null;
-    })()
-  `);
+  const already = await evaluate(FIND_MONACO_CONTAINER);
   if (already) return true;
 
   await evaluate(`
@@ -83,7 +87,7 @@ export async function ensurePineEditorOpen() {
 
   for (let i = 0; i < 50; i++) {
     await new Promise(r => setTimeout(r, 200));
-    const ready = await evaluate(`(function() { return ${FIND_MONACO} !== null; })()`);
+    const ready = await evaluate(FIND_MONACO_CONTAINER);
     if (ready) return true;
   }
   return false;
@@ -616,27 +620,24 @@ export async function openScript({ name }) {
     // Open dialog may still find UI-registered scripts; continue.
   }
 
-  const { selected } = await openScriptDialogAndSelect(wanted);
+  const openedRes = await openViaOpenDialog(wanted);
+  const selected = openedRes?.name || openedRes?.selected || wanted;
+  const scriptIdPart = facadeMeta?.scriptIdPart || openedRes?.scriptIdPart || null;
+  const version = facadeMeta?.version ?? null;
 
-  // Wait for header to settle
-  let identity = null;
-  for (let i = 0; i < 15; i++) {
-    await delay(200);
-    identity = await getEditorIdentity();
-    if (identity?.name && identity.name.toLowerCase() === wanted.toLowerCase()) break;
-    if (identity?.name && selected && identity.name.toLowerCase() === String(selected).toLowerCase()) break;
+  if (!openedRes?.opened) {
+    throw new Error(
+      `Could not open "${wanted}" in the Pine editor (current: "${openedRes?.name || 'unknown'}").`
+    );
   }
 
   const facadeName = facadeMeta
     ? (facadeMeta.scriptName || facadeMeta.scriptTitle || wanted)
     : wanted;
-  const header = identity?.name;
-  if (!header) {
-    throw new Error(`Could not read Pine editor identity after opening "${wanted}".`);
-  }
+  const header = openedRes.name;
   const ok = [wanted, selected, facadeName]
     .filter(Boolean)
-    .some((n) => String(n).toLowerCase() === header.toLowerCase());
+    .some((n) => String(n).toLowerCase() === String(header).toLowerCase());
   if (!ok) {
     throw new Error(
       `Pine editor identity is "${header}", not "${wanted}". `
@@ -644,16 +645,13 @@ export async function openScript({ name }) {
     );
   }
 
-  const scriptIdPart = facadeMeta?.scriptIdPart || null;
-  const version = facadeMeta?.version ?? null;
-
   return {
     success: true,
     name: header,
     scriptIdPart,
     script_id: scriptIdPart,
     version,
-    source: 'open_dialog',
+    source: openedRes.via || 'open_dialog',
     opened: true,
   };
 }
@@ -672,15 +670,20 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
   const fromName = sourceMeta.scriptName || sourceMeta.scriptTitle;
   await openScript({ name: fromName });
 
-  // Open script-name menu → Make a copy…
-  const menuOpened = await evaluate(`
+  // Open script-name menu → Make a copy… (name button = [class*="nameButton"])
+  let menuOpened = await evaluate(`
     (function() {
+      var widget = document.querySelector('.tv-script-widget');
+      if (widget) {
+        var nameBtn = widget.querySelector('[class*="nameButton"]');
+        if (nameBtn) { nameBtn.click(); return true; }
+      }
+      var nb = document.querySelector('[class*="nameButton"]');
+      if (nb) { nb.click(); return true; }
       var root = document.querySelector('.pine-editor-container')
         || document.querySelector('[class*="pine-editor"]')
         || document.querySelector('[class*="layout__area--bottom"]');
       if (!root) return false;
-      var h2 = root.querySelector('h2');
-      if (h2) { h2.click(); return true; }
       var titleBtn = root.querySelector('[data-name="pine-script-title"]')
         || root.querySelector('button[class*="scriptTitle"]')
         || root.querySelector('[class*="scriptName"]');
@@ -689,20 +692,44 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
     })()
   `);
   if (!menuOpened) throw new Error('Could not open Pine script name menu.');
-  await delay(400);
+  await delay(700);
 
   const copyClicked = await clickVisibleButton(/make a copy/i);
   if (!copyClicked) throw new Error('"Make a copy…" menu item not found.');
-  await delay(500);
-
-  const filled = await fillDialogInput(String(new_name).trim(), {
-    placeholderRegex: /name|script|title/i,
-  });
-  if (!filled) throw new Error('Could not fill new script name in Make a copy dialog.');
-
-  const makeCopy = await clickVisibleButton(/make copy|create copy|copy/i, { withinDialog: true });
-  if (!makeCopy) throw new Error('Make copy button not found.');
   await delay(600);
+
+  // "Make a copy…" reveals an inline rename input prefilled "<name> copy".
+  // Set it to new_name and submit with Enter (no separate confirm button).
+  const newName = String(new_name).trim();
+  const submitted = await evaluate(`
+    (function() {
+      var inputs = Array.prototype.slice.call(document.querySelectorAll('input'));
+      var inp = inputs.find(function(i) {
+        return (i.offsetParent !== null || i.getClientRects().length > 0) && /copy$/i.test((i.value || '').trim());
+      }) || inputs.find(function(i) { return i.offsetParent !== null || i.getClientRects().length > 0; });
+      if (!inp) return { err: 'rename input not found' };
+      inp.focus();
+      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(inp, ${JSON.stringify(newName)});
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+      var mk = function(type) { return new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }); };
+      inp.dispatchEvent(mk('keydown'));
+      inp.dispatchEvent(mk('keypress'));
+      inp.dispatchEvent(mk('keyup'));
+      return { ok: true };
+    })()
+  `);
+  if (submitted?.err) throw new Error(`Could not set new script name: ${submitted.err}`);
+  await delay(800);
+
+  // Trusted Enter as a fallback submit
+  try {
+    const c = await getClient();
+    await c.Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+  } catch { /* non-fatal */ }
+  await delay(900);
 
   await confirmReplaceIfNeeded(!!replace);
   await delay(1000);
