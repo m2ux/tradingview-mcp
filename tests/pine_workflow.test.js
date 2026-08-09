@@ -141,6 +141,9 @@ describe('dialog-aware Add to chart helpers', () => {
     assert.match(expression, /\[data-name="warning-dialog"\]/);
     assert.match(expression, /\[class~="js-dialog"\]/);
     assert.doesNotMatch(expression, /\[class\*="dialog"\]/);
+    assert.match(expression, /function isDialogSurface/);
+    assert.match(expression, /publish private\|publish public/);
+    assert.match(expression, /if \(!isDialogSurface\(dlg\)\) continue/);
     assert.match(expression, /hasVisibleNestedDialog/);
   });
 

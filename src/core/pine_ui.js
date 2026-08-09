@@ -217,6 +217,22 @@ export async function getVisibleDialogs(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   const dialogs = await evalFn(`
     (function() {
+      function isDialogSurface(node) {
+        if (node.matches('[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]')) {
+          return true;
+        }
+        if (!node.matches('[class~="js-dialog"]')) return false;
+        var text = (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim();
+        var controls = node.querySelectorAll('button, [role="button"], [role="radio"], label');
+        for (var c = 0; c < controls.length; c++) {
+          var label = ((controls[c].getAttribute('aria-label') || '') + ' ' + (controls[c].textContent || ''))
+            .replace(/\\s+/g, ' ')
+            .trim();
+          if (/publish new script|publish existing script|publish private|publish public/i.test(label)) return true;
+        }
+        return /publish (?:new|existing) script/i.test(text)
+          && /(?:continue|next|privacy|private|public|description)/i.test(text);
+      }
       var nodes = document.querySelectorAll(
         '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
       );
@@ -225,13 +241,17 @@ export async function getVisibleDialogs(_deps = {}) {
       for (var i = 0; i < nodes.length; i++) {
         var dlg = nodes[i];
         if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
+        if (!isDialogSurface(dlg)) continue;
         if (seen.indexOf(dlg) !== -1) continue;
         var nested = dlg.querySelectorAll(
           '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
         );
         var hasVisibleNestedDialog = false;
         for (var n = 0; n < nested.length; n++) {
-          if (nested[n].offsetParent !== null || nested[n].getClientRects().length > 0) {
+          if (
+            (nested[n].offsetParent !== null || nested[n].getClientRects().length > 0)
+            && isDialogSurface(nested[n])
+          ) {
             hasVisibleNestedDialog = true;
             break;
           }

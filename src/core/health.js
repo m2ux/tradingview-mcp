@@ -187,11 +187,42 @@ export async function uiState() {
       var dialogNodes = document.querySelectorAll(
         '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
       );
+      function isDialogSurface(node) {
+        if (node.matches('[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]')) {
+          return true;
+        }
+        if (!node.matches('[class~="js-dialog"]')) return false;
+        var text = (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim();
+        var controls = node.querySelectorAll('button, [role="button"], [role="radio"], label');
+        for (var c = 0; c < controls.length; c++) {
+          var controlLabel = ((controls[c].getAttribute('aria-label') || '') + ' ' + (controls[c].textContent || ''))
+            .replace(/\\s+/g, ' ')
+            .trim();
+          if (/publish new script|publish existing script|publish private|publish public/i.test(controlLabel)) return true;
+        }
+        return /publish (?:new|existing) script/i.test(text)
+          && /(?:continue|next|privacy|private|public|description)/i.test(text);
+      }
       var seenDialogs = [];
       for (var d = 0; d < dialogNodes.length; d++) {
         var dlg = dialogNodes[d];
         if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
+        if (!isDialogSurface(dlg)) continue;
         if (seenDialogs.indexOf(dlg) !== -1) continue;
+        var nestedDialogs = dlg.querySelectorAll(
+          '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
+        );
+        var hasVisibleNestedDialog = false;
+        for (var nd = 0; nd < nestedDialogs.length; nd++) {
+          if (
+            (nestedDialogs[nd].offsetParent !== null || nestedDialogs[nd].getClientRects().length > 0)
+            && isDialogSurface(nestedDialogs[nd])
+          ) {
+            hasVisibleNestedDialog = true;
+            break;
+          }
+        }
+        if (hasVisibleNestedDialog) continue;
         seenDialogs.push(dlg);
         var dlgText = (dlg.innerText || dlg.textContent || '').replace(/\\s+/g, ' ').trim();
         if (!dlgText) continue;
