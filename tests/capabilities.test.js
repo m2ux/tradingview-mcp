@@ -1,11 +1,19 @@
 /**
  * Tests for the capability allowlist gate (src/capabilities.js).
- * Covers deny-by-default gating, gate-open registration, removal of
+ * Covers deny-by-default gating, gate-open registration, approval-gated
  * ui_evaluate, and the stderr audit trail for skipped registrations.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { REMOVED_TOOLS, GATED_TOOLS, isGateOpen, isAllowed, wrapRegistrar } from '../src/capabilities.js';
+import {
+  REMOVED_TOOLS,
+  GATED_TOOLS,
+  APPROVAL_TOOLS,
+  isGateOpen,
+  isApprovalGateOpen,
+  isAllowed,
+  wrapRegistrar,
+} from '../src/capabilities.js';
 
 function stubServer() {
   const registered = [];
@@ -32,6 +40,18 @@ describe('isGateOpen', () => {
   });
 });
 
+describe('isApprovalGateOpen', () => {
+  it('is closed by default and on non-"1" values', () => {
+    assert.equal(isApprovalGateOpen({}), false);
+    assert.equal(isApprovalGateOpen({ TV_ALLOW_UI_EVALUATE: '0' }), false);
+    assert.equal(isApprovalGateOpen({ TV_ALLOW_UI_EVALUATE: 'true' }), false);
+  });
+
+  it('opens only on TV_ALLOW_UI_EVALUATE=1', () => {
+    assert.equal(isApprovalGateOpen({ TV_ALLOW_UI_EVALUATE: '1' }), true);
+  });
+});
+
 describe('isAllowed', () => {
   it('denies every gated tool when the gate is closed', () => {
     for (const name of GATED_TOOLS) {
@@ -46,10 +66,24 @@ describe('isAllowed', () => {
     }
   });
 
-  it('never permits removed tools, even with the gate open', () => {
-    for (const name of REMOVED_TOOLS) {
+  it('denies approval tools by default and with only TV_ALLOW_DANGEROUS', () => {
+    for (const name of APPROVAL_TOOLS) {
       assert.equal(isAllowed(name, {}), false);
       assert.equal(isAllowed(name, { TV_ALLOW_DANGEROUS: '1' }), false);
+    }
+  });
+
+  it('permits approval tools only with TV_ALLOW_UI_EVALUATE=1', () => {
+    const env = { TV_ALLOW_UI_EVALUATE: '1' };
+    for (const name of APPROVAL_TOOLS) {
+      assert.equal(isAllowed(name, env), true, `${name} registered on approval opt-in`);
+    }
+  });
+
+  it('never permits removed tools', () => {
+    for (const name of REMOVED_TOOLS) {
+      assert.equal(isAllowed(name, {}), false);
+      assert.equal(isAllowed(name, { TV_ALLOW_DANGEROUS: '1', TV_ALLOW_UI_EVALUATE: '1' }), false);
     }
   });
 
@@ -74,12 +108,14 @@ describe('wrapRegistrar', () => {
     assert.deepEqual(server.registered, ['tv_update', 'batch_run']);
   });
 
-  it('never registers ui_evaluate regardless of gate state', () => {
-    for (const env of [{}, { TV_ALLOW_DANGEROUS: '1' }]) {
-      const server = wrapRegistrar(stubServer(), { env, log: stubLog() });
-      server.tool('ui_evaluate', 'desc', {}, async () => {});
-      assert.deepEqual(server.registered, []);
-    }
+  it('skips ui_evaluate unless TV_ALLOW_UI_EVALUATE=1', () => {
+    const closed = wrapRegistrar(stubServer(), { env: { TV_ALLOW_DANGEROUS: '1' }, log: stubLog() });
+    closed.tool('ui_evaluate', 'desc', {}, async () => {});
+    assert.deepEqual(closed.registered, []);
+
+    const open = wrapRegistrar(stubServer(), { env: { TV_ALLOW_UI_EVALUATE: '1' }, log: stubLog() });
+    open.tool('ui_evaluate', 'desc', {}, async () => {});
+    assert.deepEqual(open.registered, ['ui_evaluate']);
   });
 
   it('logs every skipped registration to stderr for audit', () => {
@@ -89,7 +125,7 @@ describe('wrapRegistrar', () => {
     server.tool('ui_evaluate', 'desc', {}, async () => {});
     assert.equal(log.lines.length, 2);
     assert.match(log.lines[0], /tv_launch.*gated/);
-    assert.match(log.lines[1], /ui_evaluate.*removed/);
+    assert.match(log.lines[1], /ui_evaluate.*approval-gated/);
   });
 
   it('passes registration through to the underlying server untouched', () => {

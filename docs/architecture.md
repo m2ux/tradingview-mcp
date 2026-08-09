@@ -172,7 +172,7 @@ The core is split by feature area. Each `core/X.js` has a matching `tools/X.js` 
 | Batch | `core/batch.js` | 1 | **batch_run (gated)** — multi-symbol fan-out |
 | Stream | `core/stream.js` | — (CLI only) | live quote streaming |
 
-*(Tool counts are the always-on surface. The five gated power tools — `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run` — register only on `TV_ALLOW_DANGEROUS=1`. The old `ui_evaluate` wildcard is removed entirely.)*
+*(Tool counts are the always-on surface. The five gated power tools — `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run` — register only on `TV_ALLOW_DANGEROUS=1`. `ui_evaluate` registers only on `TV_ALLOW_UI_EVALUATE=1` and still requires a human confirmation on every call.)*
 
 ## The Surface-Layer Guards
 
