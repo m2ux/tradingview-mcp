@@ -39,6 +39,27 @@ const FIND_MONACO_CONTAINER = `
       && rect.width >= 40 && rect.height >= 40;
   })()
 `;
+// Overlay mode exposes labeled Publish/Add controls. Docked bottom-panel Monaco is
+// "open" but often icon-only, which breaks pine_add_to_chart / pine_publish.
+const FIND_PINE_OVERLAY_READY = `
+  (function() {
+    var el = document.querySelector('.monaco-editor.pine-editor-monaco');
+    if (!el) return false;
+    var rect = el.getBoundingClientRect();
+    if (!((el.offsetParent !== null || el.getClientRects().length > 0)
+      && rect.width >= 40 && rect.height >= 40)) return false;
+    var btns = document.querySelectorAll('button, [role="button"]');
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      if (b.offsetParent === null && b.getClientRects().length === 0) continue;
+      var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')
+        + ' ' + (b.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
+      if (/publish script/i.test(t) || /move overlay/i.test(t) || /^add to chart/i.test(t)
+        || /^update on chart/i.test(t)) return true;
+    }
+    return false;
+  })()
+`;
 const FIND_MONACO = `
   (function findMonacoEditor() {
     var container = document.querySelector('.monaco-editor.pine-editor-monaco');
@@ -69,14 +90,39 @@ const FIND_MONACO = `
 `;
 
 /**
- * Opens the Pine Editor panel and waits for Monaco to become available.
+ * Opens the Pine Editor and waits for Monaco to become available.
+ * Prefers the floating overlay (pine-dialog-button) over bottomWidgetBar docking:
+ * docked panel mode hides labeled Publish/Add toolbar actions.
  * Returns true if editor is accessible, false on timeout.
  */
 export async function ensurePineEditorOpen() {
-  const already = await evaluate(FIND_MONACO_CONTAINER);
-  if (already) return true;
+  const overlayReady = await evaluate(FIND_PINE_OVERLAY_READY);
+  if (overlayReady) return true;
 
+  // Prefer overlay dialog open path — never dock first.
   for (let attempt = 0; attempt < 3; attempt++) {
+    await evaluate(`
+      (function() {
+        var btn = document.querySelector('[data-name="pine-dialog-button"]')
+          || document.querySelector('[aria-label="Pine"]');
+        if (btn) btn.click();
+      })()
+    `);
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const ready = await evaluate(FIND_PINE_OVERLAY_READY);
+      if (ready) return true;
+      // Accept plain Monaco once overlay chrome is unlikely to appear this attempt.
+      if (i >= 10) {
+        const monacoOnly = await evaluate(FIND_MONACO_CONTAINER);
+        if (monacoOnly) return true;
+      }
+    }
+  }
+
+  // Last resort: docked bottom panel (icon-only toolbar; weaker for smoke paths).
+  for (let attempt = 0; attempt < 2; attempt++) {
     await evaluate(`
       (function() {
         var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
@@ -84,13 +130,9 @@ export async function ensurePineEditorOpen() {
           if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
           else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
         }
-        var btn = document.querySelector('[aria-label="Pine"]')
-          || document.querySelector('[data-name="pine-dialog-button"]');
-        if (btn) btn.click();
       })()
     `);
-
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 15; i++) {
       await new Promise(r => setTimeout(r, 200));
       const ready = await evaluate(FIND_MONACO_CONTAINER);
       if (ready) return true;

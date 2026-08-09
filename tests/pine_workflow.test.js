@@ -223,3 +223,20 @@ describe('setSource script_name guard', () => {
     );
   });
 });
+
+describe('ensurePineEditorOpen overlay preference', () => {
+  it('opens via pine-dialog-button before bottomWidgetBar docking', async () => {
+    const src = await import('node:fs').then((fs) =>
+      fs.readFileSync(new URL('../src/core/pine.js', import.meta.url), 'utf8'),
+    );
+    const ensureStart = src.indexOf('export async function ensurePineEditorOpen');
+    assert.ok(ensureStart >= 0);
+    const body = src.slice(ensureStart, ensureStart + 1800);
+    const dialogBtn = body.indexOf('pine-dialog-button');
+    const dockCall = body.indexOf('activateScriptEditorTab');
+    assert.ok(dialogBtn >= 0, 'must target pine-dialog-button for overlay open');
+    assert.ok(dockCall >= 0, 'docked fallback must remain');
+    assert.ok(dialogBtn < dockCall, 'overlay open must come before docked bottomWidgetBar fallback');
+    assert.match(body, /FIND_PINE_OVERLAY_READY|publish script/i);
+  });
+});
