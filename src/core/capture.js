@@ -10,10 +10,18 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(dirname(dirname(__dirname)), 'screenshots');
 
-export async function captureScreenshot({ region, filename, method, waitForRender = false } = {}) {
+export async function captureScreenshot({
+  region, filename, method, waitForRender = false, stabilize_ms,
+} = {}) {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-  if (waitForRender) await waitForChartRender();
+  let renderStabilized = null;
+  if (waitForRender) {
+    // Softer default budget (3s) so MCP clients don't hit -32001; override via stabilize_ms
+    const budget = typeof stabilize_ms === 'number' && stabilize_ms >= 0 ? stabilize_ms : 3000;
+    renderStabilized = await waitForChartRender(budget);
+    // Proceed even on timeout — better a slightly stale frame than a hard tool failure
+  }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const fname = (filename || `tv_${region || 'full'}_${ts}`).replace(/[\/\\]/g, '_').replace(/\.\./g, '_');
@@ -25,6 +33,7 @@ export async function captureScreenshot({ region, filename, method, waitForRende
       await evaluate(`${colPath}.takeScreenshot()`);
       return {
         success: true, method: 'api', waited_for_render: !!waitForRender,
+        render_stabilized: renderStabilized,
         note: 'takeScreenshot() triggered — TradingView will save/show the screenshot via its own UI',
       };
     } catch {
@@ -69,6 +78,7 @@ export async function captureScreenshot({ region, filename, method, waitForRende
   return {
     success: true, method: 'cdp', file_path: filePath, region,
     waited_for_render: !!waitForRender,
+    render_stabilized: renderStabilized,
     size_bytes: Buffer.from(data, 'base64').length,
   };
 }

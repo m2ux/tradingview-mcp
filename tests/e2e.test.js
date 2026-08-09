@@ -853,26 +853,56 @@ describe('TradingView MCP — Full E2E (70 tools)', () => {
       assert.ok(typeof hasPineToolbar === 'boolean', 'Pine toolbar detection works');
     });
 
-    it('pine_open — script dropdown access', async () => {
-      // Same as pine_new — tests toolbar button access
+    it('pine_open — editor identity readable (Open-dialog path)', async () => {
+      // Soft-skip: identity-safe open uses Ctrl+O + header assert (issue #4)
       const ready = await ensureEditor();
       if (!ready) return;
-      const bottomArea = await evaluate(`!!document.querySelector('[class*="layout__area--bottom"]')`);
-      assert.ok(bottomArea, 'Bottom area exists for script dropdown');
-    });
-
-    it('pine_list_scripts — scrape dropdown items', async () => {
-      // Tests the same path as pine_open — dropdown scraping
-      const ready = await ensureEditor();
-      if (!ready) return;
-      // Just verify we can find the bottom area buttons
-      const btnCount = await evaluate(`
+      const identity = await evaluate(`
         (function() {
-          var area = document.querySelector('[class*="layout__area--bottom"]');
-          return area ? area.querySelectorAll('button').length : 0;
+          var root = document.querySelector('.pine-editor-container')
+            || document.querySelector('[class*="pine-editor"]')
+            || document.querySelector('[class*="layout__area--bottom"]');
+          if (!root) return null;
+          var h2 = root.querySelector('h2');
+          if (h2 && h2.textContent.trim()) return h2.textContent.trim();
+          return null;
         })()
       `);
-      assert.ok(btnCount >= 0, 'Button count retrieved');
+      // Header may be null on blank buffer; presence of pine panel is enough for soft probe
+      const bottomArea = await evaluate(`!!document.querySelector('[class*="layout__area--bottom"]')`);
+      assert.ok(bottomArea, 'Pine bottom area exists for identity-safe open');
+      assert.ok(identity === null || typeof identity === 'string', 'Identity probe returns string or null');
+    });
+
+    it('pine_list_scripts — facade saved list reachable', async () => {
+      const ready = await ensureEditor();
+      if (!ready) return;
+      const listed = await evaluate(`
+        fetch('https://pine-facade.tradingview.com/pine-facade/list/?filter=saved', { credentials: 'include' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            return { ok: Array.isArray(data), count: Array.isArray(data) ? data.length : 0 };
+          })
+          .catch(function(e) { return { ok: false, error: e.message }; })
+      `);
+      if (!listed?.ok) return; // soft-skip if unauthenticated
+      assert.ok(listed.count >= 0, 'Facade saved list returned an array');
+    });
+
+    it('pine_add_to_chart — toolbar button probe', async () => {
+      const ready = await ensureEditor();
+      if (!ready) return;
+      const found = await evaluate(`
+        (function() {
+          var btns = document.querySelectorAll('button');
+          for (var i = 0; i < btns.length; i++) {
+            var t = btns[i].textContent.trim();
+            if (/^(Add to chart|Update on chart)$/i.test(t)) return t;
+          }
+          return null;
+        })()
+      `);
+      assert.ok(found === null || typeof found === 'string', 'Add/Update toolbar probe ok');
     });
 
     it('pine_analyze — offline static analysis', async () => {

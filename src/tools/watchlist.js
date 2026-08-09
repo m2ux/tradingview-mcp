@@ -15,11 +15,9 @@ export function registerWatchlistTools(server) {
     catch (err) {
       // Try to close any open search/input on error
       try {
-        const { getClient } = await import('../connection.js');
-        const c = await getClient();
-        await c.Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-        await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-      } catch (_) {}
+        const { pressKey } = await import('../core/dom.js');
+        await pressKey('Escape', 0);
+      } catch { /* ignore */ }
       return jsonResult({ success: false, error: err.message }, true);
     }
   });

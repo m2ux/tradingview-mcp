@@ -27,12 +27,19 @@ export function registerIndicatorTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('indicator_add', 'Search the Indicators dialog and add a result to the chart by name. Works for strategies and community scripts, not just built-ins. Returns the new study entity_id.', {
+  server.tool('indicator_add', 'Search the Indicators dialog and add a result to the chart by name. Works for strategies and community scripts, not just built-ins. Retries when My scripts lag after save; for freshly open Pine scripts prefer pine_add_to_chart.', {
     query: z.string().describe('Search keyword to find the indicator/strategy'),
     match: z.string().optional().describe('Exact title to add (default: the query). Case-insensitive; falls back to first title containing it.'),
     section: z.string().optional().describe('Restrict to a section: "Technicals", "Community", "My scripts", etc.'),
   }, async ({ query, match, section }) => {
     try { return jsonResult(await core.addStudyFromSearch({ query, match, section })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('indicator_get_inputs', 'List study input ids/values/titles for align-before-verify. Omits huge encrypted text blobs.', {
+    entity_id: z.string().describe('Entity ID of the study (from chart_get_state)'),
+  }, async ({ entity_id }) => {
+    try { return jsonResult(await core.getInputs({ entity_id })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 }

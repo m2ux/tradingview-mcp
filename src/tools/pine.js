@@ -2,16 +2,24 @@ import { z } from 'zod';
 import { jsonResult } from './_format.js';
 import * as core from '../core/pine.js';
 
+const copySchema = {
+  from_name: z.string().optional().describe('Source script name (Open-dialog / saved name)'),
+  from_id: z.string().optional().describe('Source scriptIdPart from pine_list_scripts'),
+  new_name: z.string().describe('Name for the new registered copy'),
+  replace: z.coerce.boolean().optional().describe('If true, replace an existing script with the same new_name'),
+};
+
 export function registerPineTools(server) {
   server.tool('pine_get_source', 'Get current Pine Script source code from the editor', {}, async () => {
     try { return jsonResult(await core.getSource()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_set_source', 'Set Pine Script source code in the editor', {
+  server.tool('pine_set_source', 'Set Pine Script source code in the editor. Pass script_name to refuse when the editor header identity does not match (prevents overwriting the wrong script).', {
     source: z.string().describe('Pine Script source code to inject'),
-  }, async ({ source }) => {
-    try { return jsonResult(await core.setSource({ source })); }
+    script_name: z.string().optional().describe('Expected editor header name; refuse setValue if identity differs'),
+  }, async ({ source, script_name }) => {
+    try { return jsonResult(await core.setSource({ source, script_name })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
@@ -35,27 +43,56 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes', {}, async () => {
-    try { return jsonResult(await core.smartCompile()); }
+  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes. Surfaces import-resolve / unpublished-library failures in import_errors.', {
+    require_published_imports: z.coerce.boolean().optional().describe('If true, success=false when import-resolve errors are present'),
+  }, async ({ require_published_imports } = {}) => {
+    try { return jsonResult(await core.smartCompile({ require_published_imports })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_new', 'Create a new blank Pine Script', {
+  server.tool('pine_new', 'Create a new blank Pine Script template in the editor (does not register a cloud identity — use pine_copy or Save as for a publishable script)', {
     type: z.enum(['indicator', 'strategy', 'library']).describe('Type of script to create'),
   }, async ({ type }) => {
     try { return jsonResult(await core.newScript({ type })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_open', 'Open a saved Pine Script by name', {
-    name: z.string().describe('Name of the saved script to open (case-insensitive match)'),
+  server.tool('pine_open', 'Open a saved Pine Script by registered identity (Open script dialog). Switches Save/Publish target to that script and refuses if the editor header does not match. Does not Monaco-inject into another script.', {
+    name: z.string().describe('Name of the saved script to open (exact match preferred)'),
   }, async ({ name }) => {
     try { return jsonResult(await core.openScript({ name })); }
-    catch (err) { return jsonResult({ success: false, source: 'internal_api', error: err.message }, true); }
+    catch (err) { return jsonResult({ success: false, source: 'open_dialog', error: err.message }, true); }
   });
 
-  server.tool('pine_list_scripts', 'List saved Pine Scripts', {}, async () => {
-    try { return jsonResult(await core.listScripts()); }
+  server.tool('pine_copy', 'Make a registered copy of a Pine script via the UI Make a copy… flow (appears in Open script / My scripts). Never uses orphan pine-facade save/new alone.', copySchema, async (args) => {
+    try { return jsonResult(await core.copyScript(args)); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_save_as', 'Alias for pine_copy: create a registered Save-as / Make-a-copy of an existing script under new_name.', copySchema, async (args) => {
+    try { return jsonResult(await core.saveAsScript(args)); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_add_to_chart', 'Add or update the currently open Pine script on the active chart (toolbar Add to chart / Update on chart). Prefer this over indicator_add for freshly saved My scripts.', {}, async () => {
+    try { return jsonResult(await core.addToChart()); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_publish', 'Publish the open (or named) Pine script via the Publish wizard. Handles Add-to-chart gate. Returns pubId + version for import user/Lib/N. Cloud side effect.', {
+    name: z.string().optional().describe('Script name to open and publish (default: currently open identity)'),
+    id: z.string().optional().describe('scriptIdPart to resolve and publish'),
+    privacy: z.enum(['private', 'public']).optional().describe('Publish privacy (default private)'),
+    description: z.string().optional().describe('Plain-language library/script description for the publish form'),
+  }, async (args) => {
+    try { return jsonResult(await core.publishScript(args)); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_list_scripts', 'List saved Pine Scripts with kind, published_version, and ui_visible / in_open_dialog (orphan detection when missing from Open dialog).', {
+    check_ui_visible: z.coerce.boolean().optional().describe('Scrape Open dialog for ui_visible flags (default true)'),
+  }, async ({ check_ui_visible } = {}) => {
+    try { return jsonResult(await core.listScripts({ check_ui_visible: check_ui_visible !== false })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 

@@ -217,7 +217,7 @@ Claude reads [`CLAUDE.md`](CLAUDE.md) automatically when working in this project
 | "Draw a level at 24500" | `draw_shape` (horizontal_line) |
 | "Take a screenshot" | `capture_screenshot` |
 
-## Tool Reference (83 MCP tools by default; 78 read/control tools always on)
+## Tool Reference (91 MCP tools by default; 86 read/control tools always on)
 
 ### Chart Reading
 
@@ -275,16 +275,20 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 
 | Tool | Step |
 |------|------|
-| `pine_set_source` | 1. Inject code into editor |
-| `pine_smart_compile` | 2. Compile with auto-detection + error check |
-| `pine_get_errors` | 3. Read compilation errors if any |
-| `pine_get_console` | 4. Read log.info() output |
-| `pine_save` | 5. Save to TradingView cloud |
+| `pine_open` | Open by registered identity (Open dialog; Safe/Publish target) |
+| `pine_copy` / `pine_save_as` | Registered Make a copy (publishable; not orphan facade create) |
+| `pine_set_source` | Inject code (`script_name` guard optional) |
+| `pine_smart_compile` | Compile + error check (`import_errors` for unpublished libs) |
+| `pine_add_to_chart` | Toolbar Add for the open script |
+| `pine_publish` | Publish wizard → `{pubId, version}` |
+| `pine_get_errors` / `pine_get_console` | Compilation errors / log.info() |
+| `pine_save` | Save to TradingView cloud |
+| `pine_list_scripts` | List with orphan / publish flags |
 | `pine_get_source` | Read current script (**warning: can be 200KB+ for complex scripts**) |
-| `pine_new` | Create blank indicator/strategy/library |
-| `pine_open` / `pine_list_scripts` | Open or list saved scripts |
+| `pine_new` | Blank template only (no cloud identity) |
 | `pine_analyze` | Offline static analysis (no chart needed) |
 | `pine_check` | Server-side compile check (no chart needed) |
+| `indicator_get_inputs` | List `in_*` ids/values for align-before-verify |
 
 ### Replay Mode
 
@@ -372,7 +376,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (82 tools by default; 87 with `TV_ALLOW_DANGEROUS=1`) + CLI (`tv` command, 30 commands with 66 subcommands)
+- **Transport**: MCP over stdio (86 tools by default; 93 with `TV_ALLOW_DANGEROUS=1`) + CLI (`tv` command, 30 commands with 66 subcommands)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`

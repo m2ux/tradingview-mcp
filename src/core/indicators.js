@@ -2,6 +2,7 @@
  * Core indicator settings logic.
  */
 import { evaluate, safeString } from '../connection.js';
+import { setNativeValueExpression } from './dom.js';
 
 const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
 const DIALOG = '[data-name="indicators-dialog"]';
@@ -60,11 +61,7 @@ async function typeQuery(query) {
     (function() {
       var inp = document.querySelector('${DIALOG} input');
       if (!inp) return false;
-      inp.focus();
-      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(inp, ${safeString(query)});
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
+      return (${setNativeValueExpression(query, 'inp')});
     })()
   `);
   await delay(1200);
@@ -103,45 +100,65 @@ export async function searchStudies({ query, limit } = {}) {
  * Search then add a study by clicking its result row. `match` (default =
  * query) is matched case-insensitively against result titles; the first
  * matching row is added. Verifies a new study landed on the chart.
+ * Retries a few times — freshly saved My scripts often lag in the dialog.
+ * For brand-new Pine scripts prefer pine_add_to_chart from the editor.
  */
-export async function addStudyFromSearch({ query, match, section } = {}) {
+export async function addStudyFromSearch({ query, match, section, retries = 3 } = {}) {
   if (!query || !String(query).trim()) throw new Error('query is required.');
   const want = String(match || query).trim();
+  const attempts = Math.max(1, Number(retries) || 3);
 
   const before = await evaluate(`${CHART_API}.getAllStudies().map(function(s){return s.id;})`);
 
-  await openDialog();
-  await typeQuery(query);
+  let lastError = null;
+  let clicked = null;
 
-  const clicked = await evaluate(`
-    (function() {
-      var dlg = document.querySelector('${DIALOG}');
-      if (!dlg) return { error: 'dialog closed' };
-      var scroll = dlg.querySelector('[class*="scroll"]') || dlg;
-      var want = ${safeString(want.toLowerCase())};
-      var wantSection = ${section ? safeString(String(section).toLowerCase()) : 'null'};
-      var rows = scroll.querySelectorAll('[class*="container"]');
-      var section = null, exact = null, contains = null;
-      for (var i = 0; i < rows.length; i++) {
-        var r = rows[i];
-        var h3 = r.querySelector('h3');
-        if (h3 && h3.parentElement === r) { section = (h3.textContent || '').trim().toLowerCase(); continue; }
-        if (wantSection && section !== wantSection) continue;
-        var titleEl = r.querySelector('[class*="title"]');
-        if (!titleEl) continue;
-        var t = (titleEl.textContent || '').trim();
-        var tl = t.toLowerCase();
-        if (tl === want && !exact) exact = { row: r, title: t, section: section };
-        if (tl.indexOf(want) !== -1 && !contains) contains = { row: r, title: t, section: section };
-      }
-      var pick = exact || contains;
-      if (!pick) return { error: 'No result matching "' + want + '" found.' };
-      pick.row.click();
-      return { clicked: pick.title, section: pick.section };
-    })()
-  `);
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await openDialog();
+    await typeQuery(query);
 
-  if (clicked && clicked.error) { await closeDialog(); throw new Error(clicked.error); }
+    clicked = await evaluate(`
+      (function() {
+        var dlg = document.querySelector('${DIALOG}');
+        if (!dlg) return { error: 'dialog closed' };
+        var scroll = dlg.querySelector('[class*="scroll"]') || dlg;
+        var want = ${safeString(want.toLowerCase())};
+        var wantSection = ${section ? safeString(String(section).toLowerCase()) : 'null'};
+        var rows = scroll.querySelectorAll('[class*="container"]');
+        var section = null, exact = null, contains = null;
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var h3 = r.querySelector('h3');
+          if (h3 && h3.parentElement === r) { section = (h3.textContent || '').trim().toLowerCase(); continue; }
+          if (wantSection && section !== wantSection) continue;
+          var titleEl = r.querySelector('[class*="title"]');
+          if (!titleEl) continue;
+          var t = (titleEl.textContent || '').trim();
+          var tl = t.toLowerCase();
+          if (tl === want && !exact) exact = { row: r, title: t, section: section };
+          if (tl.indexOf(want) !== -1 && !contains) contains = { row: r, title: t, section: section };
+        }
+        var pick = exact || contains;
+        if (!pick) return { error: 'No result matching "' + want + '" found.' };
+        pick.row.click();
+        return { clicked: pick.title, section: pick.section };
+      })()
+    `);
+
+    if (clicked && !clicked.error) break;
+
+    lastError = clicked?.error || 'No match';
+    await closeDialog();
+    if (attempt < attempts) await delay(1200);
+  }
+
+  if (clicked && clicked.error) {
+    await closeDialog();
+    throw new Error(
+      `${lastError} (after ${attempts} attempt(s)). `
+      + 'Fresh My scripts often lag — use pine_add_to_chart from the Pine editor instead.'
+    );
+  }
 
   await delay(1500);
   await closeDialog();
@@ -157,6 +174,39 @@ export async function addStudyFromSearch({ query, match, section } = {}) {
     entity_id: added[0]?.id || null,
     added_count: added.length,
   };
+}
+
+/**
+ * Usable input ids/titles/values for a chart study — omits huge encrypted text blobs.
+ */
+export async function getInputs({ entity_id } = {}) {
+  if (!entity_id) throw new Error('entity_id is required. Use chart_get_state to find study IDs.');
+
+  const result = await evaluate(`
+    (function() {
+      var chart = ${CHART_API};
+      var study = chart.getStudyById(${safeString(entity_id)});
+      if (!study) return { error: 'Study not found: ' + ${safeString(entity_id)} };
+      var raw = [];
+      try { raw = study.getInputValues() || []; } catch(e) { return { error: e.message }; }
+      var inputs = [];
+      for (var i = 0; i < raw.length; i++) {
+        var inp = raw[i];
+        if (!inp || !inp.id) continue;
+        if (inp.id === 'text' && typeof inp.value === 'string' && inp.value.length > 200) continue;
+        if (typeof inp.value === 'string' && inp.value.length > 500) continue;
+        inputs.push({
+          id: inp.id,
+          value: inp.value,
+          title: inp.name || inp.title || inp.id || null,
+        });
+      }
+      return { inputs: inputs };
+    })()
+  `);
+
+  if (result && result.error) throw new Error(result.error);
+  return { success: true, entity_id, inputs: result?.inputs || [] };
 }
 
 export async function setInputs({ entity_id, inputs: inputsRaw }) {

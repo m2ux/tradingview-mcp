@@ -3,12 +3,98 @@
  * All functions accept plain options objects and return plain JS objects.
  * They throw on error (callers catch and format).
  */
-import { evaluate, evaluateAsync, getClient } from '../connection.js';
+import { evaluate } from '../connection.js';
+import { pressKey, setNativeValueExpression } from './dom.js';
+import {
+  assertEditorIdentity,
+  classifyCompileErrors,
+  clickVisibleButton,
+  confirmReplaceIfNeeded,
+  delay,
+  fetchFacadeList,
+  fillDialogInput,
+  getEditorIdentity,
+  isNameInOpenDialog,
+  lookupFacadeScript,
+  mergeScriptLists,
+  openViaOpenDialog,
+  scrapeOpenDialogNames,
+  studyCount,
+} from './pine_ui.js';
 
-// ── Monaco finder (injected into TV page) ──
+// Monaco finder (injected into TV page) ──
+// Note: TradingView's newer Pine editor (React 18+/createRoot) does not expose
+// a __reactFiber$ backlink on the Monaco container, so fiber walking fails.
+// Presence alone is not enough: a collapsed/zero-size Monaco is not usable.
+// IMPORTANT: TV often keeps a zero-size docked .pine-editor-monaco in the DOM
+// while the real overlay Monaco is a later .monaco-editor sibling. Never use
+// querySelector alone — scan all candidates and pick a usable-sized one.
+const FIND_MONACO_CONTAINER = `
+  (function() {
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var preferred = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+    for (var i = 0; i < preferred.length; i++) {
+      if (usable(preferred[i])) return true;
+    }
+    var any = document.querySelectorAll('.monaco-editor');
+    for (var j = 0; j < any.length; j++) {
+      if (usable(any[j])) return true;
+    }
+    return false;
+  })()
+`;
+// Overlay mode exposes labeled Publish/Add controls. Docked bottom-panel Monaco is
+// "open" but often icon-only, which breaks pine_add_to_chart / pine_publish.
+const FIND_PINE_OVERLAY_READY = `
+  (function() {
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var monacoOk = false;
+    var nodes = document.querySelectorAll('.monaco-editor.pine-editor-monaco, .monaco-editor');
+    for (var n = 0; n < nodes.length; n++) {
+      if (usable(nodes[n])) { monacoOk = true; break; }
+    }
+    if (!monacoOk) return false;
+    var btns = document.querySelectorAll('button, [role="button"]');
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      if (b.offsetParent === null && b.getClientRects().length === 0) continue;
+      var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')
+        + ' ' + (b.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
+      if (/publish script/i.test(t) || /move overlay/i.test(t) || /^add to chart/i.test(t)
+        || /^update on chart/i.test(t)) return true;
+    }
+    return false;
+  })()
+`;
 const FIND_MONACO = `
   (function findMonacoEditor() {
-    var container = document.querySelector('.monaco-editor.pine-editor-monaco');
+    function usable(el) {
+      if (!el) return false;
+      var rect = el.getBoundingClientRect();
+      return (el.offsetParent !== null || el.getClientRects().length > 0)
+        && rect.width >= 40 && rect.height >= 40;
+    }
+    var container = null;
+    var preferred = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+    for (var p = 0; p < preferred.length; p++) {
+      if (usable(preferred[p])) { container = preferred[p]; break; }
+    }
+    if (!container) {
+      var any = document.querySelectorAll('.monaco-editor');
+      for (var a = 0; a < any.length; a++) {
+        if (usable(any[a])) { container = any[a]; break; }
+      }
+    }
     if (!container) return null;
     var el = container;
     var fiberKey;
@@ -36,39 +122,53 @@ const FIND_MONACO = `
 `;
 
 /**
- * Opens the Pine Editor panel and waits for Monaco to become available.
+ * Opens the Pine Editor and waits for Monaco to become available.
+ * Prefers the floating overlay (pine-dialog-button) over bottomWidgetBar docking:
+ * docked panel mode hides labeled Publish/Add toolbar actions.
  * Returns true if editor is accessible, false on timeout.
  */
 export async function ensurePineEditorOpen() {
-  const already = await evaluate(`
-    (function() {
-      var m = ${FIND_MONACO};
-      return m !== null;
-    })()
-  `);
-  if (already) return true;
+  const overlayReady = await evaluate(FIND_PINE_OVERLAY_READY);
+  if (overlayReady) return true;
 
-  await evaluate(`
-    (function() {
-      var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
-      if (!bwb) return;
-      if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
-      else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
-    })()
-  `);
+  // Prefer overlay dialog open path — never dock first.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await evaluate(`
+      (function() {
+        var btn = document.querySelector('[data-name="pine-dialog-button"]')
+          || document.querySelector('[aria-label="Pine"]');
+        if (btn) btn.click();
+      })()
+    `);
 
-  await evaluate(`
-    (function() {
-      var btn = document.querySelector('[aria-label="Pine"]')
-        || document.querySelector('[data-name="pine-dialog-button"]');
-      if (btn) btn.click();
-    })()
-  `);
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const ready = await evaluate(FIND_PINE_OVERLAY_READY);
+      if (ready) return true;
+      // Accept plain Monaco once overlay chrome is unlikely to appear this attempt.
+      if (i >= 10) {
+        const monacoOnly = await evaluate(FIND_MONACO_CONTAINER);
+        if (monacoOnly) return true;
+      }
+    }
+  }
 
-  for (let i = 0; i < 50; i++) {
-    await new Promise(r => setTimeout(r, 200));
-    const ready = await evaluate(`(function() { return ${FIND_MONACO} !== null; })()`);
-    if (ready) return true;
+  // Last resort: docked bottom panel (icon-only toolbar; weaker for smoke paths).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await evaluate(`
+      (function() {
+        var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
+        if (bwb) {
+          if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
+          else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
+        }
+      })()
+    `);
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 200));
+      const ready = await evaluate(FIND_MONACO_CONTAINER);
+      if (ready) return true;
+    }
   }
   return false;
 }
@@ -272,9 +372,13 @@ export async function getSource() {
   return { success: true, source, line_count: source.split('\n').length, char_count: source.length };
 }
 
-export async function setSource({ source }) {
+export async function setSource({ source, script_name } = {}) {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
+
+  if (script_name) {
+    await assertEditorIdentity(script_name);
+  }
 
   const escaped = JSON.stringify(source);
   const set = await evaluate(`
@@ -287,7 +391,11 @@ export async function setSource({ source }) {
   `);
 
   if (!set) throw new Error('Monaco found but setValue() failed.');
-  return { success: true, lines_set: source.split('\n').length };
+  return {
+    success: true,
+    lines_set: source.split('\n').length,
+    script_name: script_name || undefined,
+  };
 }
 
 export async function compile() {
@@ -319,9 +427,7 @@ export async function compile() {
   `);
 
   if (!clicked) {
-    const c = await getClient();
-    await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+    await pressKey('Enter', 2);
   }
 
   await new Promise(r => setTimeout(r, 2000));
@@ -357,9 +463,7 @@ export async function save() {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const c = await getClient();
-  await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 's', code: 'KeyS', windowsVirtualKeyCode: 83 });
-  await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 's', code: 'KeyS' });
+  await pressKey('s', 2);
   await new Promise(r => setTimeout(r, 800));
 
   // Handle "Save Script" name dialog that appears for new/unsaved scripts
@@ -435,19 +539,11 @@ export async function getConsole() {
   return { success: true, entries: entries || [], entry_count: entries?.length || 0 };
 }
 
-export async function smartCompile() {
+export async function smartCompile({ require_published_imports = false } = {}) {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const studiesBefore = await evaluate(`
-    (function() {
-      try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
-        if (chart && typeof chart.getAllStudies === 'function') return chart.getAllStudies().length;
-      } catch(e) {}
-      return null;
-    })()
-  `);
+  const studiesBefore = await studyCount();
 
   const buttonClicked = await evaluate(`
     (function() {
@@ -461,8 +557,8 @@ export async function smartCompile() {
           btns[i].click();
           return 'Save and add to chart';
         }
-        if (!addBtn && /^add to chart$/i.test(text)) addBtn = btns[i];
-        if (!updateBtn && /^update on chart$/i.test(text)) updateBtn = btns[i];
+        if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
+        if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
         if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) saveBtn = btns[i];
       }
       if (addBtn) { addBtn.click(); return 'Add to chart'; }
@@ -473,12 +569,10 @@ export async function smartCompile() {
   `);
 
   if (!buttonClicked) {
-    const c = await getClient();
-    await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+    await pressKey('Enter', 2);
   }
 
-  await new Promise(r => setTimeout(r, 2500));
+  await delay(2500);
 
   const errors = await evaluate(`
     (function() {
@@ -493,23 +587,65 @@ export async function smartCompile() {
     })()
   `);
 
-  const studiesAfter = await evaluate(`
+  const studiesAfter = await studyCount();
+  const studyAdded = (studiesBefore !== null && studiesAfter !== null) ? studiesAfter > studiesBefore : null;
+  const { import_errors, errors: otherErrors } = classifyCompileErrors(errors || []);
+  const hasImportErrors = import_errors.length > 0;
+  const success = !(require_published_imports && hasImportErrors);
+
+  return {
+    success,
+    button_clicked: buttonClicked || 'keyboard_shortcut',
+    has_errors: (errors?.length || 0) > 0,
+    has_import_errors: hasImportErrors,
+    import_errors,
+    errors: otherErrors,
+    all_errors: errors || [],
+    study_added: studyAdded,
+    require_published_imports: !!require_published_imports,
+    error: success ? undefined : 'Import resolve failures detected (unpublished or missing libraries). Publish libraries first.',
+  };
+}
+
+/**
+ * Add / update the currently open Pine script on the active chart (toolbar).
+ * Prefers "Add to chart" / "Update on chart" — not "Save and add…".
+ * Dialog-heavy paths belong in the pine-publish skill (observe → act via ui_evaluate).
+ */
+export async function addToChart() {
+  const editorReady = await ensurePineEditorOpen();
+  if (!editorReady) throw new Error('Could not open Pine Editor.');
+
+  const before = await studyCount();
+  const buttonClicked = await evaluate(`
     (function() {
-      try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
-        if (chart && typeof chart.getAllStudies === 'function') return chart.getAllStudies().length;
-      } catch(e) {}
+      var btns = document.querySelectorAll('button');
+      var addBtn = null;
+      var updateBtn = null;
+      for (var i = 0; i < btns.length; i++) {
+        var text = btns[i].textContent.trim();
+        if (btns[i].offsetParent === null && btns[i].getClientRects().length === 0) continue;
+        // Doubled labels: "Add to chartAdd to chart"
+        if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
+        if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
+      }
+      if (addBtn) { addBtn.click(); return 'Add to chart'; }
+      if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
       return null;
     })()
   `);
 
-  const studyAdded = (studiesBefore !== null && studiesAfter !== null) ? studiesAfter > studiesBefore : null;
+  if (!buttonClicked) {
+    throw new Error('Add to chart / Update on chart button not found in Pine toolbar.');
+  }
+
+  await delay(2000);
+  const after = await studyCount();
+  const studyAdded = (before !== null && after !== null) ? after > before : null;
 
   return {
     success: true,
-    button_clicked: buttonClicked || 'keyboard_shortcut',
-    has_errors: errors?.length > 0,
-    errors: errors || [],
+    button_clicked: buttonClicked,
     study_added: studyAdded,
   };
 }
@@ -543,86 +679,302 @@ export async function newScript({ type }) {
   return { success: true, type, action: 'new_script_created', template: typeMap[type] };
 }
 
+/**
+ * Open a saved script by registered UI identity (Open script dialog).
+ * Does NOT inject Monaco into the current buffer — Save/Publish target the opened script.
+ */
 export async function openScript({ name }) {
+  if (!name || !String(name).trim()) throw new Error('Script name is required.');
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const escapedName = JSON.stringify(name.toLowerCase());
-
-  const result = await evaluateAsync(`
-    (function() {
-      var target = ${escapedName};
-      return fetch('https://pine-facade.tradingview.com/pine-facade/list/?filter=saved', { credentials: 'include' })
-        .then(function(r) { return r.json(); })
-        .then(function(scripts) {
-          if (!Array.isArray(scripts)) return {error: 'pine-facade returned unexpected data'};
-          var match = null;
-          for (var i = 0; i < scripts.length; i++) {
-            var sn = (scripts[i].scriptName || '').toLowerCase();
-            var st = (scripts[i].scriptTitle || '').toLowerCase();
-            if (sn === target || st === target) { match = scripts[i]; break; }
-          }
-          if (!match) {
-            for (var j = 0; j < scripts.length; j++) {
-              var sn2 = (scripts[j].scriptName || '').toLowerCase();
-              var st2 = (scripts[j].scriptTitle || '').toLowerCase();
-              if (sn2.indexOf(target) !== -1 || st2.indexOf(target) !== -1) { match = scripts[j]; break; }
-            }
-          }
-          if (!match) return {error: 'Script "' + target + '" not found. Use pine_list_scripts to see available scripts.'};
-
-          var id = match.scriptIdPart;
-          var ver = match.version || 1;
-          return fetch('https://pine-facade.tradingview.com/pine-facade/get/' + id + '/' + ver, { credentials: 'include' })
-            .then(function(r2) { return r2.json(); })
-            .then(function(data) {
-              var source = data.source || '';
-              if (!source) return {error: 'Script source is empty', name: match.scriptName || match.scriptTitle};
-              var m = ${FIND_MONACO};
-              if (m) {
-                m.editor.setValue(source);
-                return {success: true, name: match.scriptName || match.scriptTitle, id: id, lines: source.split('\\n').length};
-              }
-              return {error: 'Monaco editor not found to inject source', name: match.scriptName || match.scriptTitle};
-            });
-        })
-        .catch(function(e) { return {error: e.message}; });
-    })()
-  `);
-
-  if (result?.error) {
-    throw new Error(result.error);
+  const wanted = String(name).trim();
+  let facadeMeta = null;
+  try {
+    facadeMeta = await lookupFacadeScript({ name: wanted });
+  } catch {
+    // Open dialog may still find UI-registered scripts; continue.
   }
 
-  return { success: true, name: result.name, script_id: result.id, lines: result.lines, source: 'internal_api', opened: true };
-}
+  const openedRes = await openViaOpenDialog(wanted);
+  const selected = openedRes?.name || openedRes?.selected || wanted;
+  const scriptIdPart = facadeMeta?.scriptIdPart || openedRes?.scriptIdPart || null;
+  const version = facadeMeta?.version ?? null;
 
-export async function listScripts() {
-  const scripts = await evaluateAsync(`
-    fetch('https://pine-facade.tradingview.com/pine-facade/list/?filter=saved', { credentials: 'include' })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (!Array.isArray(data)) return {scripts: [], error: 'Unexpected response from pine-facade'};
-        return {
-          scripts: data.map(function(s) {
-            return {
-              id: s.scriptIdPart || null,
-              name: s.scriptName || s.scriptTitle || 'Untitled',
-              title: s.scriptTitle || null,
-              version: s.version || null,
-              modified: s.modified || null,
-            };
-          })
-        };
-      })
-      .catch(function(e) { return {scripts: [], error: e.message}; })
-  `);
+  if (!openedRes?.opened) {
+    throw new Error(
+      `Could not open "${wanted}" in the Pine editor (current: "${openedRes?.name || 'unknown'}").`
+    );
+  }
+
+  const facadeName = facadeMeta
+    ? (facadeMeta.scriptName || facadeMeta.scriptTitle || wanted)
+    : wanted;
+  const header = openedRes.name;
+  const ok = [wanted, selected, facadeName]
+    .filter(Boolean)
+    .some((n) => String(n).toLowerCase() === String(header).toLowerCase());
+  if (!ok) {
+    throw new Error(
+      `Pine editor identity is "${header}", not "${wanted}". `
+      + 'Refuse Save/Publish until the correct script is open (use pine_open).'
+    );
+  }
 
   return {
     success: true,
-    scripts: scripts?.scripts || [],
-    count: scripts?.scripts?.length || 0,
-    source: 'internal_api',
-    error: scripts?.error,
+    name: header,
+    scriptIdPart,
+    script_id: scriptIdPart,
+    version,
+    source: openedRes.via || 'open_dialog',
+    opened: true,
   };
 }
+
+/**
+ * Make a registered copy of a script via Pine UI (never pine-facade save/new alone).
+ */
+export async function copyScript({ from_name, from_id, new_name, replace = false } = {}) {
+  if (!new_name || !String(new_name).trim()) throw new Error('new_name is required.');
+  if (!from_name && !from_id) throw new Error('from_name or from_id is required.');
+
+  const editorReady = await ensurePineEditorOpen();
+  if (!editorReady) throw new Error('Could not open Pine Editor.');
+
+  const sourceMeta = await lookupFacadeScript({ name: from_name, id: from_id });
+  const fromName = sourceMeta.scriptName || sourceMeta.scriptTitle;
+  await openScript({ name: fromName });
+
+  // Open script-name menu → Make a copy… (name button = [class*="nameButton"])
+  let menuOpened = await evaluate(`
+    (function() {
+      var widget = document.querySelector('.tv-script-widget');
+      if (widget) {
+        var nameBtn = widget.querySelector('[class*="nameButton"]');
+        if (nameBtn) { nameBtn.click(); return true; }
+      }
+      var nb = document.querySelector('[class*="nameButton"]');
+      if (nb) { nb.click(); return true; }
+      var root = document.querySelector('.pine-editor-container')
+        || document.querySelector('[class*="pine-editor"]')
+        || document.querySelector('[class*="layout__area--bottom"]');
+      if (!root) return false;
+      var titleBtn = root.querySelector('[data-name="pine-script-title"]')
+        || root.querySelector('button[class*="scriptTitle"]')
+        || root.querySelector('[class*="scriptName"]');
+      if (titleBtn) { titleBtn.click(); return true; }
+      return false;
+    })()
+  `);
+  if (!menuOpened) throw new Error('Could not open Pine script name menu.');
+  await delay(700);
+
+  const copyClicked = await clickVisibleButton(/make a copy/i);
+  if (!copyClicked) throw new Error('"Make a copy…" menu item not found.');
+  await delay(600);
+
+  // "Make a copy…" reveals an inline rename input prefilled "<name> copy".
+  // Set it to new_name and submit with Enter (no separate confirm button).
+  const newName = String(new_name).trim();
+  const submitted = await evaluate(`
+    (function() {
+      var inputs = Array.prototype.slice.call(document.querySelectorAll('input'));
+      var inp = inputs.find(function(i) {
+        return (i.offsetParent !== null || i.getClientRects().length > 0) && /copy$/i.test((i.value || '').trim());
+      }) || inputs.find(function(i) { return i.offsetParent !== null || i.getClientRects().length > 0; });
+      if (!inp) return { err: 'rename input not found' };
+      (${setNativeValueExpression(newName, 'inp')});
+      var mk = function(type) { return new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }); };
+      inp.dispatchEvent(mk('keydown'));
+      inp.dispatchEvent(mk('keypress'));
+      inp.dispatchEvent(mk('keyup'));
+      return { ok: true };
+    })()
+  `);
+  if (submitted?.err) throw new Error(`Could not set new script name: ${submitted.err}`);
+  await delay(800);
+
+  // Trusted Enter as a fallback submit
+  try {
+    await pressKey('Enter', 0);
+  } catch { /* non-fatal */ }
+  await delay(900);
+
+  await confirmReplaceIfNeeded(!!replace);
+  await delay(1000);
+
+  await assertEditorIdentity(String(new_name).trim());
+
+  let uiVisible = false;
+  try {
+    uiVisible = await isNameInOpenDialog(String(new_name).trim());
+  } catch {
+    uiVisible = false;
+  }
+
+  let scriptIdPart = null;
+  try {
+    const meta = await lookupFacadeScript({ name: String(new_name).trim() });
+    scriptIdPart = meta.scriptIdPart || null;
+  } catch {
+    // New copy may lag in facade list briefly
+  }
+
+  return {
+    success: true,
+    name: String(new_name).trim(),
+    from: fromName,
+    scriptIdPart,
+    ui_visible: uiVisible,
+    replace: !!replace,
+  };
+}
+
+/** Alias for copyScript (issue #4 pine_save_as). */
+export async function saveAsScript(opts) {
+  return copyScript(opts);
+}
+
+/**
+ * Publish the open (or named) script via the Publish wizard.
+ * privacy: 'private' | 'public' (default private).
+ *
+ * Best-effort mechanical path. For dialog-heavy / update-existing flows use the
+ * pine-publish skill with tv_ui_state + ui_evaluate (observe → act → re-observe).
+ */
+export async function publishScript({ name, id, privacy = 'private', description } = {}) {
+  const editorReady = await ensurePineEditorOpen();
+  if (!editorReady) throw new Error('Could not open Pine Editor.');
+
+  if (privacy !== 'private' && privacy !== 'public') {
+    throw new Error('privacy must be "private" or "public".');
+  }
+
+  let scriptName = name;
+  if (name || id) {
+    const meta = await lookupFacadeScript({ name, id });
+    scriptName = meta.scriptName || meta.scriptTitle;
+    await openScript({ name: scriptName });
+  } else {
+    const identity = await getEditorIdentity();
+    if (!identity?.name) throw new Error('No script identity in editor. Pass name/id or open a script first.');
+    scriptName = identity.name;
+  }
+
+  await assertEditorIdentity(scriptName);
+
+  let publishClicked = await clickVisibleButton(/publish script/i);
+  if (!publishClicked) throw new Error('Publish script button not found.');
+  await delay(800);
+
+  // Gate: script not on chart
+  const notOnChart = await evaluate(`
+    (function() {
+      var body = document.body ? document.body.innerText : '';
+      return /not on the chart|add to chart/i.test(body)
+        && !!document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
+    })()
+  `);
+  if (notOnChart) {
+    const interstitialAdd = await clickVisibleButton(/add to chart/i, { withinDialog: true });
+    if (!interstitialAdd) {
+      try { await addToChart(); } catch { /* continue */ }
+    }
+    await delay(1000);
+    publishClicked = await clickVisibleButton(/publish script/i);
+    if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
+    await delay(800);
+  }
+
+  // Wizard continue
+  await clickVisibleButton(/^(continue|next)$/i, { withinDialog: true });
+  await delay(500);
+
+  // Privacy
+  if (privacy === 'private') {
+    const priv = await clickVisibleButton(/^private$/i, { withinDialog: true });
+    if (!priv) {
+      await evaluate(`
+        (function() {
+          var labels = document.querySelectorAll('label, [role="radio"], button, span');
+          for (var i = 0; i < labels.length; i++) {
+            var t = (labels[i].textContent || '').trim();
+            if (/^private$/i.test(t)) { labels[i].click(); return true; }
+          }
+          return false;
+        })()
+      `);
+    }
+  } else {
+    await clickVisibleButton(/^public$/i, { withinDialog: true });
+  }
+  await delay(400);
+
+  if (description) {
+    await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
+    await delay(300);
+  }
+
+  const finalBtn = privacy === 'private'
+    ? await clickVisibleButton(/publish private/i, { withinDialog: true })
+    : await clickVisibleButton(/publish public|publish$/i, { withinDialog: true });
+
+  if (!finalBtn) {
+    const any = await clickVisibleButton(/publish/i, { withinDialog: true });
+    if (!any) throw new Error('Final Publish button not found in wizard.');
+  }
+
+  await delay(2500);
+
+  const published = await fetchFacadeList('published');
+  const want = String(scriptName).toLowerCase();
+  const entry = (published.scripts || []).find((s) => {
+    const sn = (s.scriptName || '').toLowerCase();
+    const st = (s.scriptTitle || '').toLowerCase();
+    return sn === want || st === want;
+  });
+
+  if (!entry) {
+    throw new Error(
+      `Publish wizard completed but "${scriptName}" not found in pine-facade published list. `
+      + (published.error || 'Check the UI for errors. Private pubs may need the pine-publish skill.')
+    );
+  }
+
+  return {
+    success: true,
+    name: entry.scriptName || entry.scriptTitle || scriptName,
+    pubId: entry.scriptIdPart || null,
+    version: entry.version ?? null,
+    privacy,
+  };
+}
+
+export async function listScripts({ check_ui_visible = true } = {}) {
+  const saved = await fetchFacadeList('saved');
+  const published = await fetchFacadeList('published');
+
+  let uiNames = null;
+  if (check_ui_visible) {
+    try {
+      const editorReady = await ensurePineEditorOpen();
+      if (editorReady) uiNames = await scrapeOpenDialogNames();
+    } catch {
+      uiNames = null;
+    }
+  }
+
+  const scripts = mergeScriptLists(saved.scripts || [], published.scripts || [], uiNames);
+  return {
+    success: true,
+    scripts,
+    count: scripts.length,
+    source: 'internal_api',
+    ui_visibility_checked: uiNames !== null,
+    error: saved.error || published.error,
+  };
+}
+
+// Re-export pure helpers for tests
+export { classifyCompileErrors, mergeScriptLists, isImportResolveError } from './pine_ui.js';

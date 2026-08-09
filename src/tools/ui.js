@@ -3,11 +3,51 @@ import { jsonResult } from './_format.js';
 import * as core from '../core/ui.js';
 
 export function registerUiTools(server) {
-  server.tool('ui_click', 'Click a UI element by aria-label, data-name, text content, or class substring', {
+  server.tool('ui_click', 'Click a UI element by aria-label, data-name, text content, or class substring. Set trusted=true to escalate to a trusted CDP click when a synthetic click is ignored (React handlers that disregard untrusted events).', {
     by: z.enum(['aria-label', 'data-name', 'text', 'class-contains']).describe('Selector strategy'),
     value: z.string().describe('Value to match against the chosen selector strategy'),
-  }, async ({ by, value }) => {
-    try { return jsonResult(await core.click({ by, value })); }
+    trusted: z.coerce.boolean().optional().describe('Escalate to a trusted CDP click if the synthetic click does not activate the control (default false)'),
+  }, async ({ by, value, trusted }) => {
+    try { return jsonResult(await core.click({ by, value, trusted })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('ui_set_input', 'Set a React-controlled input/textarea value (bypasses the value tracker so React registers it). Resolves the input by placeholder/aria-label/name regex.', {
+    value: z.string().describe('Text to set'),
+    match: z.string().optional().describe('Regex matched against placeholder/aria-label/name (default: name|script|title|search|description)'),
+    within_dialog: z.coerce.boolean().optional().describe('Scope to the open dialog (default true)'),
+  }, async ({ value, match, within_dialog }) => {
+    try { return jsonResult(await core.setInput({ value, match, within_dialog })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('ui_wait_for', 'Poll a page-context expression until it returns truthy or times out. Use instead of fixed sleeps to wait for UI state.', {
+    expression: z.string().describe('JS expression that evaluates truthy when the desired state is reached'),
+    timeout_ms: z.coerce.number().optional().describe('Max wait in ms (default 5000)'),
+    interval_ms: z.coerce.number().optional().describe('Poll interval in ms (default 150)'),
+  }, async ({ expression, timeout_ms, interval_ms }) => {
+    try { return jsonResult(await core.waitFor({ expression, timeout_ms, interval_ms })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('ui_fiber_action', 'Invoke a component\'s own action handler (e.g. onClick) by walking the React fiber chain of a resolved element. Reliable when raw DOM gestures are swallowed. Gated behind TV_ALLOW_DANGEROUS=1.', {
+    by: z.enum(['aria-label', 'data-name', 'text', 'class-contains']).describe('Selector strategy'),
+    value: z.string().describe('Value to match'),
+    prop: z.string().optional().describe('memoizedProps handler name to invoke (default "onClick")'),
+    args: z.array(z.any()).optional().describe('Arguments to pass to the handler'),
+  }, async ({ by, value, prop, args }) => {
+    try { return jsonResult(await core.fiberAction({ by, value, prop, args })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('net_request', 'Authenticated page-context fetch — bypass DOM driving where a backend endpoint exists (e.g. pine-facade REST). Runs fetch() in the page with session cookies. https: only. Gated behind TV_ALLOW_DANGEROUS=1.', {
+    url: z.string().describe('Absolute https: URL to request'),
+    method: z.string().optional().describe('HTTP method (default GET)'),
+    body: z.string().optional().describe('Request body (for POST/PUT)'),
+    headers: z.record(z.string()).optional().describe('Extra request headers'),
+    timeout_ms: z.coerce.number().optional().describe('Timeout in ms (default 8000)'),
+  }, async ({ url, method, body, headers, timeout_ms }) => {
+    try { return jsonResult(await core.netRequest({ url, method, body, headers, timeout_ms })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
