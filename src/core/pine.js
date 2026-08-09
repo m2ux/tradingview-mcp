@@ -22,6 +22,7 @@ import {
   resolveAddToChartDialog,
   resolvePublishSaveDialog,
   resolvePublishedIdentity,
+  facadeScriptMatches,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -842,6 +843,31 @@ export function shouldOpenScript(currentName, requestedName) {
 }
 
 /**
+ * Choose publish wizard entry mode from visible controls.
+ * TradingView exposes "Update existing script" only when a prior publication
+ * exists (public or private). Prefer that over "Publish new script" so smoke
+ * re-runs and already-published targets do not create a second publication.
+ * Pure helper for unit tests.
+ *
+ * @param {{ updateAvailable?: boolean, newAvailable?: boolean, alreadyPublished?: boolean }} opts
+ * @returns {'update'|'new'|null}
+ */
+export function selectPublishWizardMode({
+  updateAvailable = false,
+  newAvailable = false,
+  alreadyPublished = false,
+} = {}) {
+  // Facade/UI agree the script was published → must update when that control exists.
+  if (alreadyPublished || updateAvailable) {
+    if (updateAvailable) return 'update';
+    if (newAvailable) return 'new'; // update control missing; last resort
+    return null;
+  }
+  if (newAvailable) return 'new';
+  return null;
+}
+
+/**
  * Publish the open (or named) script via the Publish wizard.
  * privacy: 'private' | 'public' (default private).
  */
@@ -929,11 +955,60 @@ export async function publishScript({ name, id, privacy = 'private', description
     await delay(800);
   }
 
-  // Wizard entry: prefer "Publish new script"; allow "Update existing script" when
-  // the target is already privately published (common for smoke re-runs).
-  let publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
-  if (!publishMode) {
+  // Prior publication: public list is authoritative; private pubs often omit it.
+  // UI "Update existing script" is the reliable private signal (only shown when
+  // a prior publication exists). Never treat mere presence on the saved list
+  // as published — every saved script has a scriptIdPart.
+  let alreadyPublished = false;
+  try {
+    const published = await fetchFacadeList('published');
+    alreadyPublished = !!(published.scripts || []).some((s) => facadeScriptMatches(s, scriptName));
+  } catch {
+    alreadyPublished = false;
+  }
+
+  // Probe which wizard modes are visible without clicking yet.
+  const modeProbe = await evaluate(`
+    (function() {
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]';
+      var btns = document.querySelectorAll('button, [role="button"], [role="menuitem"]');
+      var updateAvailable = false;
+      var newAvailable = false;
+      for (var i = 0; i < btns.length; i++) {
+        var b = btns[i];
+        if (b.offsetParent === null && b.getClientRects().length === 0) continue;
+        var container = b.closest(dialogSelector);
+        if (!container || (container.offsetParent === null && container.getClientRects().length === 0)) continue;
+        var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')
+          + ' ' + (b.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
+        if (/^update existing script/i.test(t)) updateAvailable = true;
+        if (/^publish new script/i.test(t)) newAvailable = true;
+      }
+      return { updateAvailable: updateAvailable, newAvailable: newAvailable };
+    })()
+  `) || {};
+
+  const mode = selectPublishWizardMode({
+    updateAvailable: !!modeProbe.updateAvailable,
+    newAvailable: !!modeProbe.newAvailable,
+    alreadyPublished,
+  });
+  if (!mode) {
+    throw new Error('Publish wizard is open, but neither "Publish new script" nor "Update existing script" was found.');
+  }
+
+  // Already published / Update control present → Update first. Else Publish new.
+  let publishMode = null;
+  if (mode === 'update') {
     publishMode = await clickVisibleButton(/^update existing script(?:update existing script)?$/i, { withinDialog: true });
+    if (!publishMode) {
+      publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
+    }
+  } else {
+    publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
+    if (!publishMode) {
+      publishMode = await clickVisibleButton(/^update existing script(?:update existing script)?$/i, { withinDialog: true });
+    }
   }
   if (!publishMode) {
     throw new Error('Publish wizard is open, but neither "Publish new script" nor "Update existing script" was found.');

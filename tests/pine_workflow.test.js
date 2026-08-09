@@ -14,7 +14,7 @@ import {
   resolvePublishedIdentity,
   facadeScriptMatches,
 } from '../src/core/pine_ui.js';
-import { shouldOpenScript } from '../src/core/pine.js';
+import { shouldOpenScript, selectPublishWizardMode } from '../src/core/pine.js';
 
 describe('isImportResolveError', () => {
   it('detects unpublished library messages', () => {
@@ -96,6 +96,49 @@ describe('publish identity selection', () => {
   it('opens the requested script when identity is absent or different', () => {
     assert.equal(shouldOpenScript(null, 'TVSmokeLib'), true);
     assert.equal(shouldOpenScript('Other Script', 'TVSmokeLib'), true);
+  });
+});
+
+describe('selectPublishWizardMode', () => {
+  it('prefers update when the script is already published', () => {
+    assert.equal(selectPublishWizardMode({
+      updateAvailable: true,
+      newAvailable: true,
+      alreadyPublished: true,
+    }), 'update');
+  });
+
+  it('prefers update when the Update control is visible (private re-publish)', () => {
+    // Private pubs often omit filter=published; TV still shows Update existing.
+    assert.equal(selectPublishWizardMode({
+      updateAvailable: true,
+      newAvailable: true,
+      alreadyPublished: false,
+    }), 'update');
+  });
+
+  it('uses publish new only when Update is not available', () => {
+    assert.equal(selectPublishWizardMode({
+      updateAvailable: false,
+      newAvailable: true,
+      alreadyPublished: false,
+    }), 'new');
+  });
+
+  it('falls back to publish new if already published but Update control is missing', () => {
+    assert.equal(selectPublishWizardMode({
+      updateAvailable: false,
+      newAvailable: true,
+      alreadyPublished: true,
+    }), 'new');
+  });
+
+  it('returns null when neither wizard mode is available', () => {
+    assert.equal(selectPublishWizardMode({
+      updateAvailable: false,
+      newAvailable: false,
+      alreadyPublished: true,
+    }), null);
   });
 });
 
