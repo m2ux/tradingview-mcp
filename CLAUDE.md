@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-91 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+86 tools by default (93 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -88,6 +88,7 @@ Use friendly types (`fibonacci channel`, `parallel channel`, `trend line`) or ra
 ### "Navigate the UI"
 - `ui_open_panel` → open/close pine-editor, strategy-tester, watchlist, alerts, trading
 - `ui_click` → click buttons by aria-label, text, or data-name
+- `ui_evaluate` → run arbitrary JavaScript in the page context (prefer discrete tools when one exists)
 - `layout_switch` → load a saved layout by name
 - `ui_fullscreen` → toggle fullscreen
 - `capture_screenshot` → take a screenshot (regions: "full", "chart", "strategy_tester")

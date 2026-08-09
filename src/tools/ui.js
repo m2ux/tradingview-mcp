@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { jsonResult } from './_format.js';
-import { requestUiEvaluateApproval } from './ui_evaluate_approval.js';
 import * as core from '../core/ui.js';
 
 export function registerUiTools(server) {
@@ -126,34 +125,10 @@ export function registerUiTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  // Restored from PR #1 removal: registers only with TV_ALLOW_UI_EVALUATE=1,
-  // and each invocation elicits an explicit human approval before Runtime.evaluate.
-  server.tool(
-    'ui_evaluate',
-    'Execute JavaScript in the TradingView page context. Requires TV_ALLOW_UI_EVALUATE=1 and a manual human approval on every call (MCP elicitation). Prefer discrete tools when one exists.',
-    {
-      expression: z.string().describe('JavaScript expression to evaluate in the page context. Wrap in IIFE for complex logic.'),
-    },
-    {
-      title: 'Evaluate page JavaScript',
-      readOnlyHint: false,
-      destructiveHint: true,
-      openWorldHint: true,
-      idempotentHint: false,
-    },
-    async ({ expression }) => {
-      try {
-        const decision = await requestUiEvaluateApproval({
-          elicitor: server.server,
-          expression,
-        });
-        if (!decision.approved) {
-          return jsonResult({ success: false, error: decision.reason || 'ui_evaluate not approved' }, true);
-        }
-        return jsonResult(await core.uiEvaluate({ expression }));
-      } catch (err) {
-        return jsonResult({ success: false, error: err.message }, true);
-      }
-    },
-  );
+  server.tool('ui_evaluate', 'Execute JavaScript code in the TradingView page context for advanced automation', {
+    expression: z.string().describe('JavaScript expression to evaluate in the page context. Wrap in IIFE for complex logic.'),
+  }, async ({ expression }) => {
+    try { return jsonResult(await core.uiEvaluate({ expression })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }

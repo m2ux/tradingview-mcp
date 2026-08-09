@@ -1,7 +1,7 @@
 /**
  * Integration tests for registrar-level gating: the composed server surface
  * denies power tools by default, registers them on TV_ALLOW_DANGEROUS=1,
- * and exposes ui_evaluate only on TV_ALLOW_UI_EVALUATE=1.
+ * and keeps ui_evaluate on the always-on surface.
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,18 +32,13 @@ function toolNames(server) {
 
 describe('registrar gating (composed server)', () => {
   let savedDangerous;
-  let savedUiEval;
   beforeEach(() => {
     savedDangerous = process.env.TV_ALLOW_DANGEROUS;
-    savedUiEval = process.env.TV_ALLOW_UI_EVALUATE;
     delete process.env.TV_ALLOW_DANGEROUS;
-    delete process.env.TV_ALLOW_UI_EVALUATE;
   });
   afterEach(() => {
     if (savedDangerous === undefined) delete process.env.TV_ALLOW_DANGEROUS;
     else process.env.TV_ALLOW_DANGEROUS = savedDangerous;
-    if (savedUiEval === undefined) delete process.env.TV_ALLOW_UI_EVALUATE;
-    else process.env.TV_ALLOW_UI_EVALUATE = savedUiEval;
   });
 
   it('denies all five power tools by default', () => {
@@ -55,7 +50,7 @@ describe('registrar gating (composed server)', () => {
 
   it('keeps the read surface registered by default', () => {
     const names = toolNames(buildServer());
-    for (const name of ['tv_health_check', 'ui_click', 'alert_create', 'draw_shape']) {
+    for (const name of ['tv_health_check', 'ui_click', 'ui_evaluate', 'alert_create', 'draw_shape']) {
       assert.ok(names.includes(name), `${name} present by default`);
     }
   });
@@ -66,19 +61,5 @@ describe('registrar gating (composed server)', () => {
     for (const name of GATED) {
       assert.ok(names.includes(name), `${name} present on opt-in`);
     }
-  });
-
-  it('does not expose ui_evaluate with only TV_ALLOW_DANGEROUS', () => {
-    process.env.TV_ALLOW_DANGEROUS = '1';
-    assert.ok(!toolNames(buildServer()).includes('ui_evaluate'));
-  });
-
-  it('exposes ui_evaluate when TV_ALLOW_UI_EVALUATE=1', () => {
-    process.env.TV_ALLOW_UI_EVALUATE = '1';
-    const names = toolNames(buildServer());
-    assert.ok(names.includes('ui_evaluate'));
-    const tool = buildServer()._registeredTools.ui_evaluate;
-    assert.equal(tool.annotations?.destructiveHint, true);
-    assert.equal(tool.annotations?.readOnlyHint, false);
   });
 });

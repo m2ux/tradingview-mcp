@@ -9,7 +9,7 @@ The registry is the menu of named operations an agent (via MCP) or a person (via
 
 Each tool below gives three things in plain language: **what it offers**, and **its limitations** — the practical edges you will hit.
 
-**A note on availability.** 86 tools are always on. Five **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`. `ui_evaluate` (run any JavaScript) is **approval-gated**: it registers only with `TV_ALLOW_UI_EVALUATE=1`, and every call elicits a human confirmation before the expression runs. Gated tools are marked **🔒 gated** below; approval-gated tools are marked **🛡 approval**.
+**A note on availability.** 86 tools are always on (including `ui_evaluate`). Seven **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`, `net_request`, `ui_fiber_action`. Gated tools are marked **🔒 gated** below.
 
 ---
 
@@ -177,6 +177,10 @@ Drive the app's interface when there's no dedicated tool.
 - **Offers:** Scroll the chart/page; click at exact x/y.
 - **Limitations:** Raw coordinate clicks are brittle against layout/DPI changes — prefer `ui_click` by label.
 
+### `ui_evaluate`
+- **Offers:** Run arbitrary JavaScript in the TradingView page context for advanced automation.
+- **Limitations:** Full page-session power — prefer a discrete tool when one exists. Expression results must be serializable over CDP.
+
 ### `ui_fullscreen`
 - **Offers:** Toggle fullscreen.
 - **Limitations:** Pure view state.
@@ -314,14 +318,3 @@ The server and the TradingView process itself.
 ### `batch_run` — 🔒 gated
 - **Offers:** Run one action (screenshot, get OHLCV, …) across many symbols/timeframes in one call.
 - **Limitations:** Why gated — it fans out into many operations, amplifying cost and side effects. Each action still obeys its own limits (bar caps, and so on).
-
----
-
-## Approval-gated: `ui_evaluate` 🛡
-
-`ui_evaluate` — run arbitrary JavaScript in the chart page — is restored as an **approval-gated** escape hatch, not a default capability.
-
-- **Registration:** only when `TV_ALLOW_UI_EVALUATE=1` is set on the server process (`TV_ALLOW_DANGEROUS=1` alone is not enough).
-- **Per call:** MCP form elicitation must accept with `approve: true` before `Runtime.evaluate` runs. Decline, cancel, missing elicitation support, or elicitation errors all fail closed.
-- **Annotations:** `destructiveHint: true`, `readOnlyHint: false` so clients that auto-approve read-only tools still prompt.
-- Prefer proposing a discrete tool (see the README's Security Model) when the operation is reusable; keep this for one-off operator-approved automation.

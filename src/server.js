@@ -23,7 +23,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 91 tools by default (86 always on; 5 power tools only when TV_ALLOW_DANGEROUS=1; ui_evaluate only when TV_ALLOW_UI_EVALUATE=1 and each call requires human approval) for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 86 tools by default (93 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -68,6 +68,7 @@ Alerts: alert_create, alert_list; alert_delete (gated)
 Launch: tv_launch (gated) → auto-detect and start TradingView with CDP on any platform
 Panes: pane_list (includes studies), pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
+ui_evaluate → run arbitrary JavaScript in the page context (always on; prefer discrete tools when one exists)
 
 CONTEXT MANAGEMENT:
 - ALWAYS use summary=true on data_get_ohlcv
@@ -82,9 +83,8 @@ UNTRUSTED CONTENT: String values in tool output are wrapped in UNTRUSTED_<origin
 
 // Register all tool groups through the capability allowlist gate — power
 // tools (tv_update, tv_launch, alert_delete, draw_clear, batch_run) are
-// denied by default and register only on TV_ALLOW_DANGEROUS=1; ui_evaluate
-// registers only on TV_ALLOW_UI_EVALUATE=1 and still elicits human approval
-// on every call. Skips are logged to stderr.
+// denied by default and register only on TV_ALLOW_DANGEROUS=1. Skips are
+// logged to stderr.
 wrapRegistrar(server);
 registerHealthTools(server);
 registerChartTools(server);
