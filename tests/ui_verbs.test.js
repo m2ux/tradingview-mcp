@@ -102,34 +102,35 @@ describe('netRequest() — validation before any network', () => {
   });
 });
 
-describe('fetchFacadeList() — Node-side facade read (injected fetchImpl)', () => {
+describe('fetchFacadeList() — page-context facade read (injected evaluateAsync)', () => {
   it('returns parsed scripts from an array response', async () => {
     const scripts = [{ scriptIdPart: 'abc', scriptName: 'My Lib' }];
-    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => scripts });
-    const r = await fetchFacadeList('saved', { fetchImpl });
+    const evaluateAsync = async () => ({ scripts });
+    const r = await fetchFacadeList('saved', { evaluateAsync });
     assert.deepEqual(r.scripts, scripts);
     assert.equal(r.error, undefined);
   });
 
-  it('returns an error when the response is not an array', async () => {
-    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ nope: true }) });
-    const r = await fetchFacadeList('saved', { fetchImpl });
+  it('returns an error when the page response is not an array', async () => {
+    const evaluateAsync = async () => ({ scripts: [], error: 'Unexpected response from pine-facade' });
+    const r = await fetchFacadeList('saved', { evaluateAsync });
     assert.deepEqual(r.scripts, []);
     assert.match(r.error, /Unexpected response/);
   });
 
-  it('surfaces a network failure as an error without throwing', async () => {
-    const fetchImpl = async () => { throw new Error('ECONNREFUSED'); };
-    const r = await fetchFacadeList('saved', { fetchImpl });
+  it('surfaces a page-side failure as an error without throwing', async () => {
+    const evaluateAsync = async () => ({ scripts: [], error: 'NetworkError when attempting to fetch resource.' });
+    const r = await fetchFacadeList('saved', { evaluateAsync });
     assert.deepEqual(r.scripts, []);
-    assert.match(r.error, /ECONNREFUSED/);
+    assert.match(r.error, /NetworkError/);
   });
 
-  it('encodes the filter into the request URL', async () => {
+  it('embeds the filter in the evaluated fetch URL', async () => {
     let seen;
-    const fetchImpl = async (url) => { seen = url; return { ok: true, status: 200, json: async () => [] }; };
-    await fetchFacadeList('saved', { fetchImpl });
+    const evaluateAsync = async (expr) => { seen = expr; return { scripts: [] }; };
+    await fetchFacadeList('saved', { evaluateAsync });
     assert.match(seen, /filter=saved/);
+    assert.match(seen, /credentials: 'include'/);
   });
 });
 
