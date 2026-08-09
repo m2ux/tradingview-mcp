@@ -14,15 +14,10 @@ import {
   fetchFacadeList,
   fillDialogInput,
   getEditorIdentity,
-  getVisibleDialogs,
   isNameInOpenDialog,
   lookupFacadeScript,
   mergeScriptLists,
   openViaOpenDialog,
-  resolveAddToChartDialog,
-  resolvePublishSaveDialog,
-  resolvePublishedIdentity,
-  facadeScriptMatches,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -615,75 +610,43 @@ export async function smartCompile({ require_published_imports = false } = {}) {
 /**
  * Add / update the currently open Pine script on the active chart (toolbar).
  * Prefers "Add to chart" / "Update on chart" — not "Save and add…".
+ * Dialog-heavy paths belong in the pine-publish skill (observe → act via ui_evaluate).
  */
 export async function addToChart() {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const dialogsBefore = await getVisibleDialogs();
-  if (dialogsBefore.length > 0) {
-    throw new Error(
-      'Refusing Add to chart while a dialog is already open: '
-      + dialogsBefore[dialogsBefore.length - 1].text,
-    );
-  }
-
   const before = await studyCount();
-  let buttonClicked = null;
-  for (let attempt = 0; attempt < 10 && !buttonClicked; attempt++) {
-    buttonClicked = await evaluate(`
-      (function() {
-        var btns = document.querySelectorAll('button');
-        var addBtn = null;
-        var updateBtn = null;
-        for (var i = 0; i < btns.length; i++) {
-          var text = btns[i].textContent.trim();
-          if (btns[i].offsetParent === null && btns[i].getClientRects().length === 0) continue;
-          if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
-          if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
-        }
-        if (addBtn) { addBtn.click(); return 'Add to chart'; }
-        if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
-        return null;
-      })()
-    `);
-    if (!buttonClicked) await delay(200);
-  }
+  const buttonClicked = await evaluate(`
+    (function() {
+      var btns = document.querySelectorAll('button');
+      var addBtn = null;
+      var updateBtn = null;
+      for (var i = 0; i < btns.length; i++) {
+        var text = btns[i].textContent.trim();
+        if (btns[i].offsetParent === null && btns[i].getClientRects().length === 0) continue;
+        // Doubled labels: "Add to chartAdd to chart"
+        if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
+        if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
+      }
+      if (addBtn) { addBtn.click(); return 'Add to chart'; }
+      if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
+      return null;
+    })()
+  `);
 
   if (!buttonClicked) {
-    throw new Error(
-      'Add to chart / Update on chart button did not become visible in Pine toolbar within 2 seconds.',
-    );
+    throw new Error('Add to chart / Update on chart button not found in Pine toolbar.');
   }
 
-  await delay(500);
-  const gate = await resolveAddToChartDialog();
-  await delay(1500);
-
-  const dialogsAfter = await getVisibleDialogs();
-  if (dialogsAfter.length > 0) {
-    throw new Error(
-      `Add to chart is blocked by an open dialog: ${dialogsAfter[dialogsAfter.length - 1].text}`,
-    );
-  }
-
+  await delay(2000);
   const after = await studyCount();
   const studyAdded = (before !== null && after !== null) ? after > before : null;
-  const updated = /^Update on chart$/i.test(buttonClicked);
-
-  if (!updated && studyAdded === false) {
-    throw new Error(
-      `TradingView accepted "${buttonClicked}" but the chart study count did not increase `
-      + `(${before} before, ${after} after).`,
-    );
-  }
 
   return {
     success: true,
     button_clicked: buttonClicked,
     study_added: studyAdded,
-    study_updated: updated,
-    save_dialog_handled: gate.handled,
   };
 }
 
@@ -873,39 +836,12 @@ export async function saveAsScript(opts) {
   return copyScript(opts);
 }
 
-export function shouldOpenScript(currentName, requestedName) {
-  if (!currentName || !requestedName) return true;
-  return String(currentName).trim().toLowerCase() !== String(requestedName).trim().toLowerCase();
-}
-
-/**
- * Choose publish wizard entry mode from visible controls.
- * TradingView exposes "Update existing script" only when a prior publication
- * exists (public or private). Prefer that over "Publish new script" so smoke
- * re-runs and already-published targets do not create a second publication.
- * Pure helper for unit tests.
- *
- * @param {{ updateAvailable?: boolean, newAvailable?: boolean, alreadyPublished?: boolean }} opts
- * @returns {'update'|'new'|null}
- */
-export function selectPublishWizardMode({
-  updateAvailable = false,
-  newAvailable = false,
-  alreadyPublished = false,
-} = {}) {
-  // Facade/UI agree the script was published → must update when that control exists.
-  if (alreadyPublished || updateAvailable) {
-    if (updateAvailable) return 'update';
-    if (newAvailable) return 'new'; // update control missing; last resort
-    return null;
-  }
-  if (newAvailable) return 'new';
-  return null;
-}
-
 /**
  * Publish the open (or named) script via the Publish wizard.
  * privacy: 'private' | 'public' (default private).
+ *
+ * Best-effort mechanical path. For dialog-heavy / update-existing flows use the
+ * pine-publish skill with tv_ui_state + ui_evaluate (observe → act → re-observe).
  */
 export async function publishScript({ name, id, privacy = 'private', description } = {}) {
   const editorReady = await ensurePineEditorOpen();
@@ -919,10 +855,7 @@ export async function publishScript({ name, id, privacy = 'private', description
   if (name || id) {
     const meta = await lookupFacadeScript({ name, id });
     scriptName = meta.scriptName || meta.scriptTitle;
-    const identity = await getEditorIdentity();
-    if (shouldOpenScript(identity?.name, scriptName)) {
-      await openScript({ name: scriptName });
-    }
+    await openScript({ name: scriptName });
   } else {
     const identity = await getEditorIdentity();
     if (!identity?.name) throw new Error('No script identity in editor. Pass name/id or open a script first.');
@@ -931,46 +864,9 @@ export async function publishScript({ name, id, privacy = 'private', description
 
   await assertEditorIdentity(scriptName);
 
-  const clickPublishEntry = async () => {
-    // Pine-specific label only — never the global community "Publish" control
-    // ("Share your idea with the trade community").
-    return clickVisibleButton(/publish script/i);
-  };
-
-  let publishClicked = await clickPublishEntry();
+  let publishClicked = await clickVisibleButton(/publish script/i);
   if (!publishClicked) throw new Error('Publish script button not found.');
-
-  let publishDialogs = [];
-  let saveHandled = false;
-  for (let attempt = 0; attempt < 15; attempt++) {
-    const saveGate = await resolvePublishSaveDialog();
-    if (saveGate.handled) {
-      saveHandled = true;
-      await assertEditorIdentity(scriptName);
-      publishClicked = await clickPublishEntry();
-      if (!publishClicked) throw new Error('Publish script button not found after saving.');
-    } else if (saveGate.dialogs.length > 0) {
-      publishDialogs = saveGate.dialogs;
-      break;
-    }
-    await delay(200);
-  }
-
-  if (publishDialogs.length === 0) {
-    throw new Error(
-      `Publish did not expose a dialog within 3 seconds${saveHandled ? ' after saving' : ''}.`,
-    );
-  }
-
-  if (publishDialogs.some((dialog) => (
-    !/publish (?:new |existing )?script/i.test(dialog.text)
-    && !/not on the chart|add to chart/i.test(dialog.text)
-  ))) {
-    throw new Error(
-      'Publish is blocked by an unexpected dialog: '
-      + publishDialogs[publishDialogs.length - 1].text,
-    );
-  }
+  await delay(800);
 
   // Gate: script not on chart
   const notOnChart = await evaluate(`
@@ -986,90 +882,19 @@ export async function publishScript({ name, id, privacy = 'private', description
       try { await addToChart(); } catch { /* continue */ }
     }
     await delay(1000);
-    publishClicked = await clickPublishEntry();
+    publishClicked = await clickVisibleButton(/publish script/i);
     if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
     await delay(800);
   }
 
-  // Prior publication: public list is authoritative; private pubs often omit it.
-  // UI "Update existing script" is the reliable private signal (only shown when
-  // a prior publication exists). Never treat mere presence on the saved list
-  // as published — every saved script has a scriptIdPart.
-  let alreadyPublished = false;
-  try {
-    const published = await fetchFacadeList('published');
-    alreadyPublished = !!(published.scripts || []).some((s) => facadeScriptMatches(s, scriptName));
-  } catch {
-    alreadyPublished = false;
-  }
-
-  // Probe which wizard modes are visible without clicking yet.
-  const modeProbe = await evaluate(`
-    (function() {
-      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]';
-      var btns = document.querySelectorAll('button, [role="button"], [role="menuitem"]');
-      var updateAvailable = false;
-      var newAvailable = false;
-      for (var i = 0; i < btns.length; i++) {
-        var b = btns[i];
-        if (b.offsetParent === null && b.getClientRects().length === 0) continue;
-        var container = b.closest(dialogSelector);
-        if (!container || (container.offsetParent === null && container.getClientRects().length === 0)) continue;
-        var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')
-          + ' ' + (b.getAttribute('title') || '')).replace(/\\s+/g, ' ').trim();
-        if (/^update existing script/i.test(t)) updateAvailable = true;
-        if (/^publish new script/i.test(t)) newAvailable = true;
-      }
-      return { updateAvailable: updateAvailable, newAvailable: newAvailable };
-    })()
-  `) || {};
-
-  const mode = selectPublishWizardMode({
-    updateAvailable: !!modeProbe.updateAvailable,
-    newAvailable: !!modeProbe.newAvailable,
-    alreadyPublished,
-  });
-  if (!mode) {
-    throw new Error('Publish wizard is open, but neither "Publish new script" nor "Update existing script" was found.');
-  }
-
-  // Already published / Update control present → Update first. Else Publish new.
-  let publishMode = null;
-  if (mode === 'update') {
-    publishMode = await clickVisibleButton(/^update existing script(?:update existing script)?$/i, { withinDialog: true });
-    if (!publishMode) {
-      publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
-    }
-  } else {
-    publishMode = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
-    if (!publishMode) {
-      publishMode = await clickVisibleButton(/^update existing script(?:update existing script)?$/i, { withinDialog: true });
-    }
-  }
-  if (!publishMode) {
-    throw new Error('Publish wizard is open, but neither "Publish new script" nor "Update existing script" was found.');
-  }
-  const isUpdate = /update existing script/i.test(publishMode);
-
-  if (description) {
-    const descriptionSet = await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
-    if (!descriptionSet && !isUpdate) {
-      throw new Error('Publish wizard description field was not found in a visible dialog.');
-    }
-    if (descriptionSet) await delay(300);
-  }
-
-  const continued = await clickVisibleButton(/^(continue|next)(?:\1)?$/i, { withinDialog: true });
-  if (!continued) {
-    throw new Error('Publish wizard did not expose a Continue/Next button.');
-  }
+  // Wizard continue
+  await clickVisibleButton(/^(continue|next)$/i, { withinDialog: true });
   await delay(500);
 
   // Privacy
   if (privacy === 'private') {
     const priv = await clickVisibleButton(/^private$/i, { withinDialog: true });
     if (!priv) {
-      // Sometimes a radio/label
       await evaluate(`
         (function() {
           var labels = document.querySelectorAll('label, [role="radio"], button, span');
@@ -1086,60 +911,43 @@ export async function publishScript({ name, id, privacy = 'private', description
   }
   await delay(400);
 
+  if (description) {
+    await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
+    await delay(300);
+  }
+
   const finalBtn = privacy === 'private'
     ? await clickVisibleButton(/publish private/i, { withinDialog: true })
     : await clickVisibleButton(/publish public|publish$/i, { withinDialog: true });
 
   if (!finalBtn) {
-    throw new Error(`Final Publish ${privacy} button not found in wizard.`);
+    const any = await clickVisibleButton(/publish/i, { withinDialog: true });
+    if (!any) throw new Error('Final Publish button not found in wizard.');
   }
 
-  // Private publications can lag the facade; poll while confirming the wizard closed.
-  let identity = null;
-  let lastPublishedError = null;
-  let lastSavedError = null;
-  for (let attempt = 0; attempt < 12; attempt++) {
-    await delay(attempt === 0 ? 800 : 400);
-    const dialogsAfterPublish = await getVisibleDialogs();
-    const publishDialog = dialogsAfterPublish.find((dialog) => (
-      /publish (?:new |existing )?script/i.test(dialog.text)
-      || /publish private|publish public/i.test(dialog.text)
-    ));
-    if (publishDialog && attempt < 8) continue;
-    if (publishDialog) {
-      throw new Error(
-        'Publish wizard is still open after the final Publish action: '
-        + publishDialog.text,
-      );
-    }
+  await delay(2500);
 
-    const published = await fetchFacadeList('published');
-    const saved = await fetchFacadeList('saved');
-    lastPublishedError = published.error || null;
-    lastSavedError = saved.error || null;
-    identity = resolvePublishedIdentity(scriptName, {
-      published: published.scripts || [],
-      saved: saved.scripts || [],
-    });
-    if (identity?.pubId) break;
-  }
+  const published = await fetchFacadeList('published');
+  const want = String(scriptName).toLowerCase();
+  const entry = (published.scripts || []).find((s) => {
+    const sn = (s.scriptName || '').toLowerCase();
+    const st = (s.scriptTitle || '').toLowerCase();
+    return sn === want || st === want;
+  });
 
-  if (!identity?.pubId) {
+  if (!entry) {
     throw new Error(
-      `Publish wizard completed but "${scriptName}" was not found in pine-facade `
-      + 'published or saved lists. '
-      + (lastPublishedError || lastSavedError || 'Check the UI for errors.'),
+      `Publish wizard completed but "${scriptName}" not found in pine-facade published list. `
+      + (published.error || 'Check the UI for errors. Private pubs may need the pine-publish skill.')
     );
   }
 
   return {
     success: true,
-    name: identity.name,
-    pubId: identity.pubId,
-    version: identity.version,
+    name: entry.scriptName || entry.scriptTitle || scriptName,
+    pubId: entry.scriptIdPart || null,
+    version: entry.version ?? null,
     privacy,
-    verification_source: identity.source,
-    update_existing: isUpdate,
   };
 }
 

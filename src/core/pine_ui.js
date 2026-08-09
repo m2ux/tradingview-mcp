@@ -98,48 +98,6 @@ export function mergeScriptLists(saved = [], published = [], uiVisibleNames = nu
   });
 }
 
-/** True when a facade row matches the requested script name/title (case-insensitive). */
-export function facadeScriptMatches(entry, scriptName) {
-  if (!entry || !scriptName) return false;
-  const want = String(scriptName).trim().toLowerCase();
-  const names = [
-    entry.scriptName,
-    entry.scriptTitle,
-    entry.name,
-    entry.title,
-  ].filter(Boolean).map((n) => String(n).trim().toLowerCase());
-  return names.includes(want);
-}
-
-/**
- * Resolve a post-publish identity from facade lists.
- * Private publications often never appear in filter=published; fall back to saved.
- * Pure helper for unit tests.
- */
-export function resolvePublishedIdentity(scriptName, { published = [], saved = [] } = {}) {
-  const fromPublished = (published || []).find((s) => facadeScriptMatches(s, scriptName));
-  if (fromPublished) {
-    return {
-      entry: fromPublished,
-      source: 'published',
-      name: fromPublished.scriptName || fromPublished.scriptTitle || scriptName,
-      pubId: fromPublished.scriptIdPart || fromPublished.id || null,
-      version: fromPublished.version ?? fromPublished.published_version ?? null,
-    };
-  }
-  const fromSaved = (saved || []).find((s) => facadeScriptMatches(s, scriptName));
-  if (fromSaved) {
-    return {
-      entry: fromSaved,
-      source: 'saved',
-      name: fromSaved.scriptName || fromSaved.scriptTitle || scriptName,
-      pubId: fromSaved.scriptIdPart || fromSaved.id || null,
-      version: fromSaved.version ?? null,
-    };
-  }
-  return null;
-}
-
 export async function getEditorIdentity(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   const result = await evalFn(`
@@ -352,72 +310,6 @@ export async function getVisibleDialogs(_deps = {}) {
     })()
   `);
   return Array.isArray(dialogs) ? dialogs : [];
-}
-
-export async function resolveAddToChartDialog(_deps = {}) {
-  const dialogs = await getVisibleDialogs(_deps);
-  if (dialogs.length === 0) return { handled: false, dialogs: [] };
-
-  const saveGate = dialogs.find((dialog) => /save this script before adding/i.test(dialog.text));
-  if (!saveGate) return { handled: false, dialogs };
-
-  const evalFn = _deps.evaluate || evaluate;
-  const clicked = await evalFn(`
-    (function() {
-      var dialogs = document.querySelectorAll(
-        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
-      );
-      for (var i = dialogs.length - 1; i >= 0; i--) {
-        var dlg = dialogs[i];
-        if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
-        if (!/save this script before adding/i.test(dlg.textContent || '')) continue;
-        var btns = dlg.querySelectorAll('button, [role="button"]');
-        for (var b = 0; b < btns.length; b++) {
-          var btn = btns[b];
-          if (btn.offsetParent === null && btn.getClientRects().length === 0) continue;
-          var text = (btn.textContent || btn.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
-          if (/^(save|save script|save and add to chart)(?:\\1)?$/i.test(text)) {
-            btn.click();
-            return text;
-          }
-        }
-      }
-      return null;
-    })()
-  `);
-  if (!clicked) {
-    throw new Error(
-      'The "Save this script before adding?" dialog is open, but its Save button was not found. '
-      + `Visible dialog buttons: ${saveGate.buttons.join(', ') || '(none)'}.`,
-    );
-  }
-  await delay(500);
-  return { handled: true, action: clicked, dialogs };
-}
-
-export async function resolvePublishSaveDialog(_deps = {}) {
-  const dialogs = await getVisibleDialogs(_deps);
-  if (dialogs.length === 0) return { handled: false, dialogs: [] };
-
-  const saveGate = dialogs.find(
-    (dialog) => /save this script\?/i.test(dialog.text)
-      && /unsaved changes can(?:not|'t) be published/i.test(dialog.text),
-  );
-  if (!saveGate) return { handled: false, dialogs };
-
-  const clicked = await clickVisibleButton(
-    /^save(?:save)?$/i,
-    { withinDialog: true },
-    _deps,
-  );
-  if (!clicked) {
-    throw new Error(
-      'The save-before-publish dialog is open, but its Save button was not found. '
-      + `Visible dialog buttons: ${saveGate.buttons.join(', ') || '(none)'}.`,
-    );
-  }
-  await delay(800);
-  return { handled: true, action: clicked, dialogs };
 }
 
 export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = {}) {

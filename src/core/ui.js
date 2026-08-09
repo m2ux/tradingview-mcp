@@ -430,6 +430,8 @@ export async function findElement({ query, strategy }) {
 }
 
 export async function uiEvaluate({ expression }) {
-  const result = await evaluate(expression);
+  // Always await thenables so agent scripts can use async IIFEs / delays.
+  // Sync expressions are unaffected (awaitPromise resolves immediately).
+  const result = await evaluate(expression, { awaitPromise: true });
   return { success: true, result };
 }
