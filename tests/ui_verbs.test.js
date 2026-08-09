@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { findElementExpression, clickAt } from '../src/core/dom.js';
 import { netRequest, waitFor } from '../src/core/ui.js';
-import { fetchFacadeList, fillDialogInput } from '../src/core/pine_ui.js';
+import { clickVisibleButton, fetchFacadeList, fillDialogInput } from '../src/core/pine_ui.js';
 import { GATED_TOOLS, isAllowed } from '../src/capabilities.js';
 
 describe('findElementExpression() — pure builder', () => {
@@ -134,15 +134,34 @@ describe('fetchFacadeList() — page-context facade read (injected evaluateAsync
   });
 });
 
-describe('fillDialogInput() — delegates to generic setInput', () => {
+describe('dialog-scoped Pine controls', () => {
+  it('requires button candidates to belong to a visible dialog-like container', async () => {
+    let expression;
+    const clicked = await clickVisibleButton(/^continue$/i, { withinDialog: true }, {
+      evaluate: async (value) => {
+        expression = value;
+        return 'Continue';
+      },
+    });
+    assert.equal(clicked, 'Continue');
+    assert.match(expression, /closest\(dialogSelector\)/);
+    assert.doesNotMatch(expression, /\|\| document/);
+  });
+
   it('returns true when an input is set', async () => {
-    const evaluate = async () => ({ set: true, matched: 'Script name' });
+    let expression;
+    const evaluate = async (value) => {
+      expression = value;
+      return true;
+    };
     const r = await fillDialogInput('My Script', {}, { evaluate });
     assert.equal(r, true);
+    assert.match(expression, /closest\(dialogSelector\)/);
+    assert.match(expression, /\[contenteditable="true"\]/);
   });
 
   it('returns false when no input is found', async () => {
-    const evaluate = async () => ({ set: false });
+    const evaluate = async () => false;
     const r = await fillDialogInput('My Script', {}, { evaluate });
     assert.equal(r, false);
   });

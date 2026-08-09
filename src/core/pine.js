@@ -838,8 +838,15 @@ export async function publishScript({ name, id, privacy = 'private', description
     await delay(800);
   }
 
-  // Wizard continue
-  await clickVisibleButton(/^(continue|next)$/i, { withinDialog: true });
+  // Wizard entry: select "Publish new script" explicitly, then require Continue.
+  const publishNew = await clickVisibleButton(/^publish new script(?:publish new script)?$/i, { withinDialog: true });
+  if (!publishNew) {
+    throw new Error('Publish wizard is open, but "Publish new script" was not found.');
+  }
+  const continued = await clickVisibleButton(/^(continue|next)(?:\1)?$/i, { withinDialog: true });
+  if (!continued) {
+    throw new Error('Publish wizard did not expose a Continue/Next button.');
+  }
   await delay(500);
 
   // Privacy
@@ -864,7 +871,10 @@ export async function publishScript({ name, id, privacy = 'private', description
   await delay(400);
 
   if (description) {
-    await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
+    const descriptionSet = await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
+    if (!descriptionSet) {
+      throw new Error('Publish wizard description field was not found in a visible dialog.');
+    }
     await delay(300);
   }
 
@@ -879,6 +889,15 @@ export async function publishScript({ name, id, privacy = 'private', description
   }
 
   await delay(2500);
+
+  const dialogsAfterPublish = await getVisibleDialogs();
+  const publishDialog = dialogsAfterPublish.find((dialog) => /publish (?:new |existing )?script/i.test(dialog.text));
+  if (publishDialog) {
+    throw new Error(
+      'Publish wizard is still open after the final Publish action: '
+      + publishDialog.text,
+    );
+  }
 
   // Confirm via published list
   const published = await fetchFacadeList('published');

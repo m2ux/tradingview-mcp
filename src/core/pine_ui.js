@@ -8,7 +8,6 @@ import {
   setNativeValueExpression,
   readFiberPropExpression,
 } from './dom.js';
-import { setInput as uiSetInput } from './ui.js';
 
 export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
 
@@ -188,15 +187,16 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
   return evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(source)}, ${JSON.stringify(flags)});
-      var scope = document;
-      if (${withinDialog ? 'true' : 'false'}) {
-        scope = document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]') || document;
-      }
-      var btns = scope.querySelectorAll('button, [role="button"], [role="menuitem"], a[class*="button"], [class*="menuItem"], [class*="item"] [class*="label"]');
-      for (var i = 0; i < btns.length; i++) {
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [class*="dialog"], [class*="modal"]';
+      var btns = document.querySelectorAll('button, [role="button"], [role="menuitem"], a[class*="button"], [class*="menuItem"], [class*="item"] [class*="label"]');
+      for (var i = btns.length - 1; i >= 0; i--) {
         var b = btns[i];
         if (b.offsetParent === null && b.getClientRects().length === 0) continue;
-        var text = (b.textContent || b.getAttribute('aria-label') || '').trim();
+        if (${withinDialog ? 'true' : 'false'}) {
+          var container = b.closest(dialogSelector);
+          if (!container || (container.offsetParent === null && container.getClientRects().length === 0)) continue;
+        }
+        var text = (b.textContent || b.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
         if (re.test(text)) { b.click(); return text; }
       }
       return null;
@@ -285,15 +285,36 @@ export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = 
   const ph = placeholderRegex instanceof RegExp
     ? placeholderRegex.source
     : (placeholderRegex || 'name|script|title|description');
-  try {
-    const r = await uiSetInput(
-      { value: String(value), match: ph, within_dialog: true },
-      { evaluate: _deps.evaluate || evaluate },
-    );
-    return r.set === true;
-  } catch {
-    return false; // no matching input → setInput threw
-  }
+  const evalFn = _deps.evaluate || evaluate;
+  const result = await evalFn(`
+    (function() {
+      var re = new RegExp(${JSON.stringify(ph)}, 'i');
+      var dialogSelector = '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [class*="dialog"], [class*="modal"]';
+      var inputs = document.querySelectorAll('input, textarea, [contenteditable="true"]');
+      function visible(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
+      function setValue(inp) {
+        inp.focus();
+        if (inp.isContentEditable) {
+          inp.textContent = ${JSON.stringify(String(value))};
+        } else {
+          var proto = inp.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(proto, 'value').set.call(inp, ${JSON.stringify(String(value))});
+        }
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      for (var i = inputs.length - 1; i >= 0; i--) {
+        var inp = inputs[i];
+        var container = inp.closest(dialogSelector);
+        if (!visible(inp) || !visible(container)) continue;
+        var meta = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.getAttribute('name') || '');
+        if (re.test(meta)) return setValue(inp);
+      }
+      return false;
+    })()
+  `);
+  return result === true;
 }
 
 export async function confirmReplaceIfNeeded(replace, _deps = {}) {
