@@ -9,7 +9,7 @@
  */
 
 /** Tools removed from the agent-facing surface entirely — never registered. */
-export const REMOVED_TOOLS = new Set(['ui_evaluate']);
+export const REMOVED_TOOLS = new Set();
 
 /**
  * Power tools gated off by default. Each registers only when its gate opens.
@@ -25,21 +25,44 @@ export const GATED_TOOLS = new Set([
   'batch_run',
 ]);
 
+/**
+ * Tools that require both an env opt-in to register and a human confirmation
+ * on every invocation (MCP elicitation). Blast radius: ui_evaluate = arbitrary
+ * JS in the authenticated TradingView page context.
+ */
+export const APPROVAL_TOOLS = new Set(['ui_evaluate']);
+
 const GATE_ENV = 'TV_ALLOW_DANGEROUS';
+const APPROVAL_ENV = 'TV_ALLOW_UI_EVALUATE';
 
 /** True when the operator has opted in to the gated tool surface. */
 export function isGateOpen(env = process.env) {
   return env[GATE_ENV] === '1';
 }
 
+/** True when the operator has opted in to approval-required tools. */
+export function isApprovalGateOpen(env = process.env) {
+  return env[APPROVAL_ENV] === '1';
+}
+
 /**
  * Registration decision for one tool name. Removed tools never register;
- * gated tools register only with the gate open; everything else registers.
+ * gated tools register only with TV_ALLOW_DANGEROUS=1; approval tools
+ * register only with TV_ALLOW_UI_EVALUATE=1; everything else registers.
  */
 export function isAllowed(name, env = process.env) {
   if (REMOVED_TOOLS.has(name)) return false;
+  if (APPROVAL_TOOLS.has(name)) return isApprovalGateOpen(env);
   if (GATED_TOOLS.has(name)) return isGateOpen(env);
   return true;
+}
+
+function skipReason(name) {
+  if (REMOVED_TOOLS.has(name)) return 'removed from the tool surface';
+  if (APPROVAL_TOOLS.has(name)) {
+    return `approval-gated (set ${APPROVAL_ENV}=1 to enable; each call still requires human confirmation)`;
+  }
+  return `gated (set ${GATE_ENV}=1 to enable)`;
 }
 
 /**
@@ -51,8 +74,7 @@ export function wrapRegistrar(server, { env = process.env, log = process.stderr 
   const original = server.tool.bind(server);
   server.tool = (name, ...rest) => {
     if (!isAllowed(name, env)) {
-      const reason = REMOVED_TOOLS.has(name) ? 'removed from the tool surface' : `gated (set ${GATE_ENV}=1 to enable)`;
-      log.write(`⚠  tradingview-mcp  |  tool "${name}" not registered: ${reason}\n`);
+      log.write(`⚠  tradingview-mcp  |  tool "${name}" not registered: ${skipReason(name)}\n`);
       return undefined;
     }
     return original(name, ...rest);

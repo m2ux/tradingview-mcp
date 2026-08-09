@@ -308,15 +308,18 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | `batch_run` | Run action across multiple symbols/timeframes |
 | `watchlist_get` / `watchlist_add` | Read/modify watchlist |
 | `layout_list` / `layout_switch` | Manage saved layouts |
-| `ui_open_panel` / `ui_click` | UI automation |
+| `ui_open_panel` / `ui_click` / `ui_evaluate` (approval-gated) | UI automation |
 | `tv_launch` / `tv_health_check` / `tv_discover` | Connection management |
 
 ## Security Model
 
 The server is **safe by default**: the read-only chart-analysis surface is always on, and power tools are gated allowlist entries that do not exist for the agent unless you explicitly opt in. Enforcement lives in the tool registrar (`src/capabilities.js`), which the agent cannot bypass.
 
-**Removed from the agent-facing surface:**
-- `ui_evaluate` — arbitrary JavaScript in the authenticated page context. Removed, not gated. If you need a capability it used to provide, propose it as a discrete tool: open a PR adding one explicitly-declared tool per operation (human review → merge → it joins the allowlist).
+**Approval-gated** (registered only with `TV_ALLOW_UI_EVALUATE=1`; every call still requires a human confirmation via MCP elicitation before any page JS runs):
+
+| Tool | Why it's approval-gated |
+|------|-------------------------|
+| `ui_evaluate` | Arbitrary JavaScript in the authenticated page context. Prefer a discrete tool when one exists; use this only as an escape hatch. Marked `destructiveHint` so clients that auto-approve read-only tools still prompt. |
 
 **Gated off by default** (registered only with `TV_ALLOW_DANGEROUS=1` set on the server process):
 

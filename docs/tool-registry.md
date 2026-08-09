@@ -9,7 +9,7 @@ The registry is the menu of named operations an agent (via MCP) or a person (via
 
 Each tool below gives three things in plain language: **what it offers**, and **its limitations** — the practical edges you will hit.
 
-**A note on availability.** 78 tools are always on. Five **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`. The old `ui_evaluate` (run any JavaScript) is removed entirely. Gated tools are marked **🔒 gated** below.
+**A note on availability.** 78 tools are always on. Five **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`. `ui_evaluate` (run any JavaScript) is **approval-gated**: it registers only with `TV_ALLOW_UI_EVALUATE=1`, and every call elicits a human confirmation before the expression runs. Gated tools are marked **🔒 gated** below; approval-gated tools are marked **🛡 approval**.
 
 ---
 
@@ -297,6 +297,11 @@ The server and the TradingView process itself.
 
 ---
 
-## Removed: `ui_evaluate`
+## Approval-gated: `ui_evaluate` 🛡
 
-The old `ui_evaluate` tool — run arbitrary JavaScript in the chart page — is **removed, not gated**. It was the largest injection/RCE surface in the audit: it executed with your full authenticated session. In its place, new capabilities are added one discrete, human-reviewed tool at a time via a proposal → approval → PR path (see the README's Security Model). If you need an operation that doesn't exist yet, that's the route — not a wildcard.
+`ui_evaluate` — run arbitrary JavaScript in the chart page — is restored as an **approval-gated** escape hatch, not a default capability.
+
+- **Registration:** only when `TV_ALLOW_UI_EVALUATE=1` is set on the server process (`TV_ALLOW_DANGEROUS=1` alone is not enough).
+- **Per call:** MCP form elicitation must accept with `approve: true` before `Runtime.evaluate` runs. Decline, cancel, missing elicitation support, or elicitation errors all fail closed.
+- **Annotations:** `destructiveHint: true`, `readOnlyHint: false` so clients that auto-approve read-only tools still prompt.
+- Prefer proposing a discrete tool (see the README's Security Model) when the operation is reusable; keep this for one-off operator-approved automation.

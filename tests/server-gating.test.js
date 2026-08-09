@@ -1,7 +1,7 @@
 /**
  * Integration tests for registrar-level gating: the composed server surface
  * denies power tools by default, registers them on TV_ALLOW_DANGEROUS=1,
- * and never exposes ui_evaluate.
+ * and exposes ui_evaluate only on TV_ALLOW_UI_EVALUATE=1.
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,9 +31,20 @@ function toolNames(server) {
 }
 
 describe('registrar gating (composed server)', () => {
-  let saved;
-  beforeEach(() => { saved = process.env.TV_ALLOW_DANGEROUS; delete process.env.TV_ALLOW_DANGEROUS; });
-  afterEach(() => { if (saved === undefined) delete process.env.TV_ALLOW_DANGEROUS; else process.env.TV_ALLOW_DANGEROUS = saved; });
+  let savedDangerous;
+  let savedUiEval;
+  beforeEach(() => {
+    savedDangerous = process.env.TV_ALLOW_DANGEROUS;
+    savedUiEval = process.env.TV_ALLOW_UI_EVALUATE;
+    delete process.env.TV_ALLOW_DANGEROUS;
+    delete process.env.TV_ALLOW_UI_EVALUATE;
+  });
+  afterEach(() => {
+    if (savedDangerous === undefined) delete process.env.TV_ALLOW_DANGEROUS;
+    else process.env.TV_ALLOW_DANGEROUS = savedDangerous;
+    if (savedUiEval === undefined) delete process.env.TV_ALLOW_UI_EVALUATE;
+    else process.env.TV_ALLOW_UI_EVALUATE = savedUiEval;
+  });
 
   it('denies all five power tools by default', () => {
     const names = toolNames(buildServer());
@@ -57,9 +68,17 @@ describe('registrar gating (composed server)', () => {
     }
   });
 
-  it('never exposes ui_evaluate regardless of gate state', () => {
-    assert.ok(!toolNames(buildServer()).includes('ui_evaluate'));
+  it('does not expose ui_evaluate with only TV_ALLOW_DANGEROUS', () => {
     process.env.TV_ALLOW_DANGEROUS = '1';
     assert.ok(!toolNames(buildServer()).includes('ui_evaluate'));
+  });
+
+  it('exposes ui_evaluate when TV_ALLOW_UI_EVALUATE=1', () => {
+    process.env.TV_ALLOW_UI_EVALUATE = '1';
+    const names = toolNames(buildServer());
+    assert.ok(names.includes('ui_evaluate'));
+    const tool = buildServer()._registeredTools.ui_evaluate;
+    assert.equal(tool.annotations?.destructiveHint, true);
+    assert.equal(tool.annotations?.readOnlyHint, false);
   });
 });
