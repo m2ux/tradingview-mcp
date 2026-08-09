@@ -1,8 +1,9 @@
 import { register } from '../router.js';
 import * as core from '../../core/drawing.js';
+import * as templates from '../../core/drawing_templates.js';
 
 register('draw', {
-  description: 'Drawing tools (shape, list, get, remove, clear)',
+  description: 'Drawing tools (shape, list, get, remove, clear, templates)',
   subcommands: new Map([
     ['shape', {
       description: 'Draw a shape on the chart',
@@ -36,6 +37,36 @@ register('draw', {
     ['clear', {
       description: 'Remove all drawings',
       handler: () => core.clearAll(),
+    }],
+    ['templates', {
+      description: 'List/get/save drawing templates (use: list|get|save)',
+      options: {
+        type: { type: 'string', short: 't', description: 'Drawing type alias or LineTool* id' },
+        name: { type: 'string', short: 'n', description: 'Template name' },
+        content: { type: 'string', short: 'c', description: 'Template JSON content (for save)' },
+        from: { type: 'string', description: 'Clone from existing template name (for save)' },
+      },
+      handler: (opts, positionals) => {
+        const action = (positionals[0] || 'list').toLowerCase();
+        if (action === 'list' || action === 'types') {
+          return templates.listTemplates({ drawing_type: opts.type });
+        }
+        if (action === 'get') {
+          return templates.getTemplate({
+            drawing_type: opts.type || positionals[1],
+            name: opts.name || positionals[2],
+          });
+        }
+        if (action === 'save') {
+          return templates.saveTemplate({
+            drawing_type: opts.type || positionals[1],
+            name: opts.name || positionals[2],
+            content: opts.content,
+            from_template: opts.from,
+          });
+        }
+        throw new Error('Unknown templates action. Use: list, get, or save');
+      },
     }],
   ]),
 });

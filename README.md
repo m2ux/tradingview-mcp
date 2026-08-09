@@ -303,6 +303,7 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 |------|-------------|
 | `draw_shape` | Draw horizontal_line, trend_line, rectangle, text |
 | `draw_list` / `draw_remove_one` / `draw_clear` | Manage drawings |
+| `draw_template_list` / `draw_template_get` / `draw_template_save` | List/fetch/create drawing templates by type + name |
 | `alert_create` / `alert_list` / `alert_delete` | Manage price alerts |
 | `capture_screenshot` | Screenshot (regions: full, chart, strategy_tester) |
 | `batch_run` | Run action across multiple symbols/timeframes |
@@ -377,7 +378,7 @@ npm test
 Claude Code  ←→  MCP Server (stdio)  ←→  CDP (port 9222)  ←→  TradingView Desktop (Electron)
 ```
 
-- **Transport**: MCP over stdio (84 tools) + CLI (`tv` command, 30 commands with 66 subcommands)
+- **Transport**: MCP over stdio (87 tools) + CLI (`tv` command, 30 commands with 66 subcommands)
 - **Connection**: Chrome DevTools Protocol on localhost:9222
 - **Streaming**: Poll-and-diff loop with deduplication, JSONL output to stdout
 - **No dependencies** beyond `@modelcontextprotocol/sdk` and `chrome-remote-interface`
