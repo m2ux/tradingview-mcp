@@ -11,6 +11,7 @@ import {
   getVisibleDialogs,
   resolveAddToChartDialog,
 } from '../src/core/pine_ui.js';
+import { shouldOpenScript } from '../src/core/pine.js';
 
 describe('isImportResolveError', () => {
   it('detects unpublished library messages', () => {
@@ -80,6 +81,18 @@ describe('assertEditorIdentity', () => {
       evaluate: async () => ({ name: 'mylib' }),
     });
     assert.equal(r.name, 'mylib');
+  });
+});
+
+describe('publish identity selection', () => {
+  it('does not reopen the requested script when it is already current', () => {
+    assert.equal(shouldOpenScript('TVSmokeLib', 'TVSmokeLib'), false);
+    assert.equal(shouldOpenScript(' tvsmokelib ', 'TVSmokeLib'), false);
+  });
+
+  it('opens the requested script when identity is absent or different', () => {
+    assert.equal(shouldOpenScript(null, 'TVSmokeLib'), true);
+    assert.equal(shouldOpenScript('Other Script', 'TVSmokeLib'), true);
   });
 });
 

@@ -790,6 +790,11 @@ export async function saveAsScript(opts) {
   return copyScript(opts);
 }
 
+export function shouldOpenScript(currentName, requestedName) {
+  if (!currentName || !requestedName) return true;
+  return String(currentName).trim().toLowerCase() !== String(requestedName).trim().toLowerCase();
+}
+
 /**
  * Publish the open (or named) script via the Publish wizard.
  * privacy: 'private' | 'public' (default private).
@@ -806,7 +811,10 @@ export async function publishScript({ name, id, privacy = 'private', description
   if (name || id) {
     const meta = await lookupFacadeScript({ name, id });
     scriptName = meta.scriptName || meta.scriptTitle;
-    await openScript({ name: scriptName });
+    const identity = await getEditorIdentity();
+    if (shouldOpenScript(identity?.name, scriptName)) {
+      await openScript({ name: scriptName });
+    }
   } else {
     const identity = await getEditorIdentity();
     if (!identity?.name) throw new Error('No script identity in editor. Pass name/id or open a script first.');
