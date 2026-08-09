@@ -183,6 +183,33 @@ export async function uiState() {
           }
         }
       }
+      ui.dialogs = [];
+      var dialogNodes = document.querySelectorAll(
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
+      );
+      var seenDialogs = [];
+      for (var d = 0; d < dialogNodes.length; d++) {
+        var dlg = dialogNodes[d];
+        if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
+        if (seenDialogs.indexOf(dlg) !== -1) continue;
+        seenDialogs.push(dlg);
+        var dlgText = (dlg.innerText || dlg.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (!dlgText) continue;
+        var dlgButtons = [];
+        var dlgButtonNodes = dlg.querySelectorAll('button, [role="button"]');
+        for (var db = 0; db < dlgButtonNodes.length; db++) {
+          var dlgButton = dlgButtonNodes[db];
+          if (dlgButton.offsetParent === null && dlgButton.getClientRects().length === 0) continue;
+          var dlgButtonText = (dlgButton.textContent || dlgButton.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+          if (dlgButtonText && dlgButtons.indexOf(dlgButtonText) === -1) dlgButtons.push(dlgButtonText.substring(0, 80));
+        }
+        ui.dialogs.push({
+          text: dlgText.substring(0, 500),
+          buttons: dlgButtons,
+          input_count: dlg.querySelectorAll('input, textarea').length,
+        });
+      }
+      ui.blocking_dialog = ui.dialogs.length > 0 ? ui.dialogs[ui.dialogs.length - 1] : null;
       try {
         var chart = window.TradingViewApi._activeChartWidgetWV.value();
         ui.chart = { symbol: chart.symbol(), resolution: chart.resolution(), chartType: chart.chartType(), study_count: chart.getAllStudies().length };

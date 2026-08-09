@@ -204,6 +204,83 @@ export async function clickVisibleButton(pattern, { withinDialog = false } = {},
   `);
 }
 
+export async function getVisibleDialogs(_deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const dialogs = await evalFn(`
+    (function() {
+      var nodes = document.querySelectorAll(
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
+      );
+      var out = [];
+      var seen = [];
+      for (var i = 0; i < nodes.length; i++) {
+        var dlg = nodes[i];
+        if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
+        if (seen.indexOf(dlg) !== -1) continue;
+        seen.push(dlg);
+        var text = (dlg.innerText || dlg.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (!text) continue;
+        var buttons = [];
+        var btns = dlg.querySelectorAll('button, [role="button"]');
+        for (var b = 0; b < btns.length; b++) {
+          var btn = btns[b];
+          if (btn.offsetParent === null && btn.getClientRects().length === 0) continue;
+          var label = (btn.textContent || btn.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+          if (label && buttons.indexOf(label) === -1) buttons.push(label.substring(0, 80));
+        }
+        out.push({
+          text: text.substring(0, 500),
+          buttons: buttons,
+          input_count: dlg.querySelectorAll('input, textarea').length,
+        });
+      }
+      return out;
+    })()
+  `);
+  return Array.isArray(dialogs) ? dialogs : [];
+}
+
+export async function resolveAddToChartDialog(_deps = {}) {
+  const dialogs = await getVisibleDialogs(_deps);
+  if (dialogs.length === 0) return { handled: false, dialogs: [] };
+
+  const saveGate = dialogs.find((dialog) => /save this script before adding/i.test(dialog.text));
+  if (!saveGate) return { handled: false, dialogs };
+
+  const evalFn = _deps.evaluate || evaluate;
+  const clicked = await evalFn(`
+    (function() {
+      var dialogs = document.querySelectorAll(
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"]'
+      );
+      for (var i = dialogs.length - 1; i >= 0; i--) {
+        var dlg = dialogs[i];
+        if (dlg.offsetParent === null && dlg.getClientRects().length === 0) continue;
+        if (!/save this script before adding/i.test(dlg.textContent || '')) continue;
+        var btns = dlg.querySelectorAll('button, [role="button"]');
+        for (var b = 0; b < btns.length; b++) {
+          var btn = btns[b];
+          if (btn.offsetParent === null && btn.getClientRects().length === 0) continue;
+          var text = (btn.textContent || btn.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+          if (/^(save|save script|save and add to chart)(?:\\1)?$/i.test(text)) {
+            btn.click();
+            return text;
+          }
+        }
+      }
+      return null;
+    })()
+  `);
+  if (!clicked) {
+    throw new Error(
+      'The "Save this script before adding?" dialog is open, but its Save button was not found. '
+      + `Visible dialog buttons: ${saveGate.buttons.join(', ') || '(none)'}.`,
+    );
+  }
+  await delay(500);
+  return { handled: true, action: clicked, dialogs };
+}
+
 export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = {}) {
   const ph = placeholderRegex instanceof RegExp
     ? placeholderRegex.source

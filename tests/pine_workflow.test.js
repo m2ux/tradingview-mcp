@@ -8,6 +8,8 @@ import {
   isImportResolveError,
   mergeScriptLists,
   assertEditorIdentity,
+  getVisibleDialogs,
+  resolveAddToChartDialog,
 } from '../src/core/pine_ui.js';
 
 describe('isImportResolveError', () => {
@@ -78,6 +80,40 @@ describe('assertEditorIdentity', () => {
       evaluate: async () => ({ name: 'mylib' }),
     });
     assert.equal(r.name, 'mylib');
+  });
+});
+
+describe('dialog-aware Add to chart helpers', () => {
+  it('returns structured visible dialog state', async () => {
+    const dialogs = [{ text: 'Save this script before adding?', buttons: ['Cancel', 'Save'], input_count: 0 }];
+    const result = await getVisibleDialogs({ evaluate: async () => dialogs });
+    assert.deepEqual(result, dialogs);
+  });
+
+  it('handles the Save-before-adding gate within its dialog', async () => {
+    const expressions = [];
+    const result = await resolveAddToChartDialog({
+      evaluate: async (expression) => {
+        expressions.push(expression);
+        if (expressions.length === 1) {
+          return [{ text: 'Save this script before adding?', buttons: ['Cancel', 'Save'], input_count: 0 }];
+        }
+        return 'Save';
+      },
+    });
+    assert.equal(result.handled, true);
+    assert.equal(result.action, 'Save');
+    assert.match(expressions[0], /\[data-name="confirm-dialog"\]/);
+    assert.match(expressions[1], /save this script before adding/i);
+    assert.match(expressions[1], /\[data-name="confirm-dialog"\]/);
+    assert.match(expressions[1], /btn\.click\(\)/);
+  });
+
+  it('does not dismiss or guess at unknown dialogs', async () => {
+    const dialogs = [{ text: 'Publishing house rules', buttons: ['Cancel', 'Continue'], input_count: 0 }];
+    const result = await resolveAddToChartDialog({ evaluate: async () => dialogs });
+    assert.equal(result.handled, false);
+    assert.deepEqual(result.dialogs, dialogs);
   });
 });
 

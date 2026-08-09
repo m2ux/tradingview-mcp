@@ -14,10 +14,12 @@ import {
   fetchFacadeList,
   fillDialogInput,
   getEditorIdentity,
+  getVisibleDialogs,
   isNameInOpenDialog,
   lookupFacadeScript,
   mergeScriptLists,
   openViaOpenDialog,
+  resolveAddToChartDialog,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -477,8 +479,8 @@ export async function smartCompile({ require_published_imports = false } = {}) {
           btns[i].click();
           return 'Save and add to chart';
         }
-        if (!addBtn && /^add to chart$/i.test(text)) addBtn = btns[i];
-        if (!updateBtn && /^update on chart$/i.test(text)) updateBtn = btns[i];
+        if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
+        if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
         if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) saveBtn = btns[i];
       }
       if (addBtn) { addBtn.click(); return 'Add to chart'; }
@@ -535,36 +537,70 @@ export async function addToChart() {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const before = await studyCount();
-  const buttonClicked = await evaluate(`
-    (function() {
-      var btns = document.querySelectorAll('button');
-      var addBtn = null;
-      var updateBtn = null;
-      for (var i = 0; i < btns.length; i++) {
-        var text = btns[i].textContent.trim();
-        if (btns[i].offsetParent === null && btns[i].getClientRects().length === 0) continue;
-        if (!addBtn && /^add to chart$/i.test(text)) addBtn = btns[i];
-        if (!updateBtn && /^update on chart$/i.test(text)) updateBtn = btns[i];
-      }
-      if (addBtn) { addBtn.click(); return 'Add to chart'; }
-      if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
-      return null;
-    })()
-  `);
-
-  if (!buttonClicked) {
-    throw new Error('Add to chart / Update on chart button not found in Pine toolbar.');
+  const dialogsBefore = await getVisibleDialogs();
+  if (dialogsBefore.length > 0) {
+    throw new Error(
+      'Refusing Add to chart while a dialog is already open: '
+      + dialogsBefore[dialogsBefore.length - 1].text,
+    );
   }
 
-  await delay(2000);
+  const before = await studyCount();
+  let buttonClicked = null;
+  for (let attempt = 0; attempt < 10 && !buttonClicked; attempt++) {
+    buttonClicked = await evaluate(`
+      (function() {
+        var btns = document.querySelectorAll('button');
+        var addBtn = null;
+        var updateBtn = null;
+        for (var i = 0; i < btns.length; i++) {
+          var text = btns[i].textContent.trim();
+          if (btns[i].offsetParent === null && btns[i].getClientRects().length === 0) continue;
+          if (!addBtn && /^add to chart/i.test(text)) addBtn = btns[i];
+          if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
+        }
+        if (addBtn) { addBtn.click(); return 'Add to chart'; }
+        if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
+        return null;
+      })()
+    `);
+    if (!buttonClicked) await delay(200);
+  }
+
+  if (!buttonClicked) {
+    throw new Error(
+      'Add to chart / Update on chart button did not become visible in Pine toolbar within 2 seconds.',
+    );
+  }
+
+  await delay(500);
+  const gate = await resolveAddToChartDialog();
+  await delay(1500);
+
+  const dialogsAfter = await getVisibleDialogs();
+  if (dialogsAfter.length > 0) {
+    throw new Error(
+      `Add to chart is blocked by an open dialog: ${dialogsAfter[dialogsAfter.length - 1].text}`,
+    );
+  }
+
   const after = await studyCount();
   const studyAdded = (before !== null && after !== null) ? after > before : null;
+  const updated = /^Update on chart$/i.test(buttonClicked);
+
+  if (!updated && studyAdded === false) {
+    throw new Error(
+      `TradingView accepted "${buttonClicked}" but the chart study count did not increase `
+      + `(${before} before, ${after} after).`,
+    );
+  }
 
   return {
     success: true,
     button_clicked: buttonClicked,
     study_added: studyAdded,
+    study_updated: updated,
+    save_dialog_handled: gate.handled,
   };
 }
 
