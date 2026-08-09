@@ -2,6 +2,7 @@
  * Core UI automation logic.
  */
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
+import { pressKey } from './dom.js';
 
 export async function click({ by, value }) {
   const escaped = JSON.stringify(value);
@@ -170,26 +171,7 @@ export async function layoutSwitch({ name }) {
 }
 
 export async function keyboard({ key, modifiers }) {
-  const c = await getClient();
-  let mod = 0;
-  if (modifiers) {
-    if (modifiers.includes('alt')) mod |= 1;
-    if (modifiers.includes('ctrl')) mod |= 2;
-    if (modifiers.includes('meta')) mod |= 4;
-    if (modifiers.includes('shift')) mod |= 8;
-  }
-  const keyMap = {
-    'Enter': { code: 'Enter', vk: 13 }, 'Escape': { code: 'Escape', vk: 27 }, 'Tab': { code: 'Tab', vk: 9 },
-    'Backspace': { code: 'Backspace', vk: 8 }, 'Delete': { code: 'Delete', vk: 46 },
-    'ArrowUp': { code: 'ArrowUp', vk: 38 }, 'ArrowDown': { code: 'ArrowDown', vk: 40 },
-    'ArrowLeft': { code: 'ArrowLeft', vk: 37 }, 'ArrowRight': { code: 'ArrowRight', vk: 39 },
-    'Space': { code: 'Space', vk: 32 }, 'Home': { code: 'Home', vk: 36 }, 'End': { code: 'End', vk: 35 },
-    'PageUp': { code: 'PageUp', vk: 33 }, 'PageDown': { code: 'PageDown', vk: 34 },
-    'F1': { code: 'F1', vk: 112 }, 'F2': { code: 'F2', vk: 113 }, 'F5': { code: 'F5', vk: 116 },
-  };
-  const mapped = keyMap[key] || { code: 'Key' + key.toUpperCase(), vk: key.toUpperCase().charCodeAt(0) };
-  await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: mod, key, code: mapped.code, windowsVirtualKeyCode: mapped.vk });
-  await c.Input.dispatchKeyEvent({ type: 'keyUp', key, code: mapped.code });
+  await pressKey(key, modifiers || 0);
   return { success: true, key, modifiers: modifiers || [] };
 }
 

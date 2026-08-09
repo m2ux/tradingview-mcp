@@ -2,11 +2,34 @@
  * Pine Editor DOM helpers — identity, Open dialog, toolbar/dialog clicks.
  * Shared by pine_open / copy / publish / list enrichment.
  */
-import { evaluate, evaluateAsync, getClient, safeString } from '../connection.js';
+import { evaluate, evaluateAsync, safeString } from '../connection.js';
+import {
+  pressKey,
+  setNativeValueExpression,
+  readFiberPropExpression,
+  IS_VISIBLE_EXPR,
+} from './dom.js';
 
 export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── Pine Open-script picker helpers (local, consolidated) ───────────────────
+
+/** Page-context: find the visible "Open my script" dialog (falls back to last dialog with an input). */
+const FIND_OPEN_DIALOG_EXPR = `
+  var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
+    .find(function(d) { return /open my script/i.test(d.textContent || ''); })
+    || Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
+      .filter(function(d) { return d.querySelector('input'); }).pop()
+    || null;
+`;
+
+/** Page-context: selector set for visible picker rows. */
+const OPEN_DIALOG_ROW_SELECTOR = '[class*="itemRow"], [class*="itemInfo"], [class*="listItem"], [class*="ListItem"], [class*="item"], [class*="row"], [role="option"], li, tr';
+
+/** Page-context: derive a row's script title (leading text before "Version:"). */
+const ROW_TITLE_EXPR = `(r.textContent || '').trim().split(/version:/i)[0].split('\\n')[0].trim()`;
 
 /** True when a message is an unpublished / import-resolve failure. */
 export function isImportResolveError(message) {
@@ -193,30 +216,17 @@ export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = 
       var inputs = dlg.querySelectorAll('input, textarea');
       for (var i = 0; i < inputs.length; i++) {
         var inp = inputs[i];
-        if (inp.offsetParent === null && inp.getClientRects().length === 0) continue;
+        if (!${IS_VISIBLE_EXPR}) continue;
         var ph = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.name || '');
         if (!re.test(ph) && inputs.length > 1) continue;
-        inp.focus();
-        var setter = Object.getOwnPropertyDescriptor(
-          inp.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
-        ).set;
-        setter.call(inp, ${safeString(value)});
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
+        return (${setNativeValueExpression(value, 'inp')});
       }
       // Fallback: first visible text input in dialog
       for (var j = 0; j < inputs.length; j++) {
         var inp2 = inputs[j];
         if (inp2.type && inp2.type !== 'text' && inp2.type !== 'search' && inp2.tagName !== 'TEXTAREA') continue;
-        if (inp2.offsetParent === null && inp2.getClientRects().length === 0) continue;
-        inp2.focus();
-        var setter2 = Object.getOwnPropertyDescriptor(
-          inp2.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
-        ).set;
-        setter2.call(inp2, ${safeString(value)});
-        inp2.dispatchEvent(new Event('input', { bubbles: true }));
-        return true;
+        if (!(inp2.offsetParent !== null || inp2.getClientRects().length > 0)) continue;
+        return (${setNativeValueExpression(value, 'inp2')});
       }
       return false;
     })()
@@ -243,23 +253,6 @@ export async function confirmReplaceIfNeeded(replace, _deps = {}) {
   if (!yes) throw new Error('Replace confirmation dialog found but Yes/Replace button missing.');
   await delay(500);
   return { prompted: true, replaced: true };
-}
-
-async function pressKey(key, modifiers = 0, _deps = {}) {
-  const clientFn = _deps.getClient || getClient;
-  const c = await clientFn();
-  const codeMap = {
-    o: { key: 'o', code: 'KeyO', vk: 79 },
-    Escape: { key: 'Escape', code: 'Escape', vk: 27 },
-    Enter: { key: 'Enter', code: 'Enter', vk: 13 },
-  };
-  const info = codeMap[key] || { key, code: key, vk: 0 };
-  await c.Input.dispatchKeyEvent({
-    type: 'keyDown', modifiers, key: info.key, code: info.code, windowsVirtualKeyCode: info.vk,
-  });
-  await c.Input.dispatchKeyEvent({
-    type: 'keyUp', key: info.key, code: info.code, windowsVirtualKeyCode: info.vk,
-  });
 }
 
 /**
@@ -328,17 +321,11 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   // Focus search within the "Open my script" picker and type name
   const typed = await evalFn(`
     (function() {
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || '') && d.querySelector('input'); })
-        || Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-          .filter(function(d) { return d.querySelector('input'); }).pop();
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return { error: 'Open script dialog not found' };
       var inp = dlg.querySelector('input[type="search"], input[type="text"], input:not([type])');
       if (!inp) return { error: 'Search input not found in Open script dialog' };
-      inp.focus();
-      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(inp, ${safeString(target)});
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      (${setNativeValueExpression(target, 'inp')});
       return { ok: true };
     })()
   `);
@@ -351,22 +338,16 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   const pick = await evalFn(`
     (function() {
       var target = ${safeString(target.toLowerCase())};
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || ''); })
-        || Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-          .filter(function(d) { return d.querySelector('input'); }).pop();
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return { error: 'Open script dialog closed unexpectedly' };
-      var rows = dlg.querySelectorAll('[class*="itemRow"], [class*="itemInfo"], [class*="listItem"], [class*="ListItem"], [class*="item"], [class*="row"], [role="option"], li, tr');
+      var rows = dlg.querySelectorAll(${JSON.stringify(OPEN_DIALOG_ROW_SELECTOR)});
       var candidates = [];
       var exact = null;
       var contains = [];
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        if (r.offsetParent === null && r.getClientRects().length === 0) continue;
-        var full = (r.textContent || '').trim();
-        if (!full) continue;
-        // Title is the leading part before version/meta text
-        var t = full.split(/version:/i)[0].split('\\n')[0].trim();
+        if (!(r.offsetParent !== null || r.getClientRects().length > 0)) continue;
+        var t = ${ROW_TITLE_EXPR};
         if (!t || t.length > 120) continue;
         if (/^(open|cancel|close|my scripts|built-in)/i.test(t)) continue;
         var tl = t.toLowerCase();
@@ -389,26 +370,17 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
       pick.el.click();
       // Pull scriptItem metadata (id, openAction availability) off the row fiber
       var meta = null;
-      try {
-        var fiberKey = Object.getOwnPropertyNames(pick.el).find(function(k){ return k.indexOf('__reactFiber$') === 0; });
-        var cur = fiberKey ? pick.el[fiberKey] : null;
-        for (var d = 0; d < 10 && cur; d++) {
-          var mp = cur.memoizedProps;
-          if (mp && mp.scriptItem) {
-            var si = mp.scriptItem;
-            meta = {
-              id: si.id || null,
-              scriptIdPart: si.id ? String(si.id).replace(/^USER;/, '') : null,
-              name: si.name || null,
-              scriptTitle: si.scriptTitle || null,
-              lastVersion: si.lastVersion || null,
-              hasOpenAction: typeof si.openAction === 'function',
-            };
-            break;
-          }
-          cur = cur.return;
-        }
-      } catch (e) { meta = null; }
+      var si = (${readFiberPropExpression('scriptItem', 'pick.el')});
+      if (si) {
+        meta = {
+          id: si.id || null,
+          scriptIdPart: si.id ? String(si.id).replace(/^USER;/, '') : null,
+          name: si.name || null,
+          scriptTitle: si.scriptTitle || null,
+          lastVersion: si.lastVersion || null,
+          hasOpenAction: typeof si.openAction === 'function',
+        };
+      }
       return { selected: pick.title, candidates: candidates, meta: meta };
     })()
   `);
@@ -427,13 +399,12 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   const confirmed = await evalFn(`
     (function() {
       var target = ${safeString((pick.selected || target).toLowerCase())};
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || ''); });
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return { confirmed: false, reason: 'dialog gone' };
-      var rows = dlg.querySelectorAll('[class*="itemInfo"], [class*="itemRow"], [class*="listItem"], [role="option"], li, tr');
+      var rows = dlg.querySelectorAll(${JSON.stringify(OPEN_DIALOG_ROW_SELECTOR)});
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        var t = (r.textContent || '').trim().split(/version:/i)[0].split('\\n')[0].trim().toLowerCase();
+        var t = (${ROW_TITLE_EXPR}).toLowerCase();
         if (t !== target) continue;
         var opts = { bubbles: true, cancelable: true, view: window };
         r.dispatchEvent(new MouseEvent('mousedown', opts));
@@ -489,23 +460,17 @@ export async function openViaOpenDialog(name, _deps = {}) {
   const invoked = await evalFn(`
     (function() {
       var target = ${safeString(target.toLowerCase())};
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || ''); });
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return { err: 'no dialog' };
-      var rows = dlg.querySelectorAll('[class*="itemRow"], [class*="itemInfo"], [class*="listItem"], [role="option"], li, tr');
+      var rows = dlg.querySelectorAll(${JSON.stringify(OPEN_DIALOG_ROW_SELECTOR)});
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        var t = (r.textContent || '').trim().split(/version:/i)[0].split('\\n')[0].trim().toLowerCase();
+        var t = (${ROW_TITLE_EXPR}).toLowerCase();
         if (t !== target) continue;
-        var fiberKey = Object.getOwnPropertyNames(r).find(function(k){ return k.indexOf('__reactFiber$') === 0; });
-        var cur = fiberKey ? r[fiberKey] : null;
-        for (var d = 0; d < 10 && cur; d++) {
-          var mp = cur.memoizedProps;
-          if (mp && mp.scriptItem && typeof mp.scriptItem.openAction === 'function') {
-            try { mp.scriptItem.openAction(); return { invoked: true, id: mp.scriptItem.id || null }; }
-            catch (e) { return { err: 'openAction failed: ' + (e.message || '').slice(0, 60) }; }
-          }
-          cur = cur.return;
+        var si = (${readFiberPropExpression('scriptItem', 'r')});
+        if (si && typeof si.openAction === 'function') {
+          try { si.openAction(); return { invoked: true, id: si.id || null }; }
+          catch (e) { return { err: 'openAction failed: ' + (e.message || '').slice(0, 60) }; }
         }
         return { err: 'no openAction on row' };
       }
@@ -567,35 +532,25 @@ export async function scrapeOpenDialogNames(_deps = {}) {
   // then harvest the visible itemRow titles.
   await evalFn(`
     (function() {
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || ''); });
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return;
       var inp = dlg.querySelector('input');
-      if (inp) {
-        inp.focus();
-        var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-        setter.call(inp, ' ');
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (inp) (${setNativeValueExpression(' ', 'inp')});
     })()
   `);
   await delay(900);
 
   const names = await evalFn(`
     (function() {
-      var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [class*="dialog"], [class*="modal"]'))
-        .find(function(d) { return /open my script/i.test(d.textContent || ''); })
-        || document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return [];
-      var rows = dlg.querySelectorAll('[class*="itemRow"], [class*="itemInfo"], [class*="listItem"], [class*="item"], [role="option"], li');
+      var rows = dlg.querySelectorAll(${JSON.stringify(OPEN_DIALOG_ROW_SELECTOR)});
       var out = [];
       var seen = {};
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        if (r.offsetParent === null && r.getClientRects().length === 0) continue;
-        var full = (r.textContent || '').trim();
-        if (!full) continue;
-        var t = full.split(/version:/i)[0].split('\\n')[0].trim();
+        if (!(r.offsetParent !== null || r.getClientRects().length > 0)) continue;
+        var t = ${ROW_TITLE_EXPR};
         if (!t || t.length > 100) continue;
         if (/^(open|cancel|close|my scripts|built-in|search)/i.test(t)) continue;
         var k = t.toLowerCase();
@@ -620,14 +575,11 @@ export async function isNameInOpenDialog(name, _deps = {}) {
   await delay(500);
   await evalFn(`
     (function() {
-      var dlg = document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return false;
       var inp = dlg.querySelector('input[type="search"], input[type="text"], input:not([type])');
       if (!inp) return false;
-      inp.focus();
-      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(inp, ${safeString(name)});
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      (${setNativeValueExpression(String(name), 'inp')});
       return true;
     })()
   `);
@@ -635,7 +587,7 @@ export async function isNameInOpenDialog(name, _deps = {}) {
   const found = await evalFn(`
     (function() {
       var target = ${safeString(String(name).toLowerCase())};
-      var dlg = document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
+      ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return false;
       var text = (dlg.textContent || '').toLowerCase();
       return text.indexOf(target) !== -1;

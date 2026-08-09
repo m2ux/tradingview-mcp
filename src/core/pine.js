@@ -3,7 +3,8 @@
  * All functions accept plain options objects and return plain JS objects.
  * They throw on error (callers catch and format).
  */
-import { evaluate, getClient } from '../connection.js';
+import { evaluate } from '../connection.js';
+import { pressKey, setNativeValueExpression } from './dom.js';
 import {
   assertEditorIdentity,
   classifyCompileErrors,
@@ -16,7 +17,6 @@ import {
   isNameInOpenDialog,
   lookupFacadeScript,
   mergeScriptLists,
-  openScriptDialogAndSelect,
   openViaOpenDialog,
   scrapeOpenDialogNames,
   studyCount,
@@ -347,9 +347,7 @@ export async function compile() {
   `);
 
   if (!clicked) {
-    const c = await getClient();
-    await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+    await pressKey('Enter', 2);
   }
 
   await new Promise(r => setTimeout(r, 2000));
@@ -385,9 +383,7 @@ export async function save() {
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const c = await getClient();
-  await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 's', code: 'KeyS', windowsVirtualKeyCode: 83 });
-  await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 's', code: 'KeyS' });
+  await pressKey('s', 2);
   await new Promise(r => setTimeout(r, 800));
 
   // Handle "Save Script" name dialog that appears for new/unsaved scripts
@@ -493,9 +489,7 @@ export async function smartCompile({ require_published_imports = false } = {}) {
   `);
 
   if (!buttonClicked) {
-    const c = await getClient();
-    await c.Input.dispatchKeyEvent({ type: 'keyDown', modifiers: 2, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+    await pressKey('Enter', 2);
   }
 
   await delay(2500);
@@ -708,11 +702,7 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
         return (i.offsetParent !== null || i.getClientRects().length > 0) && /copy$/i.test((i.value || '').trim());
       }) || inputs.find(function(i) { return i.offsetParent !== null || i.getClientRects().length > 0; });
       if (!inp) return { err: 'rename input not found' };
-      inp.focus();
-      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(inp, ${JSON.stringify(newName)});
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
-      inp.dispatchEvent(new Event('change', { bubbles: true }));
+      (${setNativeValueExpression(newName, 'inp')});
       var mk = function(type) { return new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }); };
       inp.dispatchEvent(mk('keydown'));
       inp.dispatchEvent(mk('keypress'));
@@ -725,9 +715,7 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
 
   // Trusted Enter as a fallback submit
   try {
-    const c = await getClient();
-    await c.Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await c.Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter' });
+    await pressKey('Enter', 0);
   } catch { /* non-fatal */ }
   await delay(900);
 

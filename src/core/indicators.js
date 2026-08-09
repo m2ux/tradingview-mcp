@@ -2,6 +2,7 @@
  * Core indicator settings logic.
  */
 import { evaluate, safeString } from '../connection.js';
+import { setNativeValueExpression } from './dom.js';
 
 const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
 const DIALOG = '[data-name="indicators-dialog"]';
@@ -60,11 +61,7 @@ async function typeQuery(query) {
     (function() {
       var inp = document.querySelector('${DIALOG} input');
       if (!inp) return false;
-      inp.focus();
-      var setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(inp, ${safeString(query)});
-      inp.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
+      return (${setNativeValueExpression(query, 'inp')});
     })()
   `);
   await delay(1200);
