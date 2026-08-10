@@ -13,8 +13,25 @@ register('pine', {
   description: 'Pine Script tools',
   subcommands: new Map([
     ['get', {
-      description: 'Get current Pine Script source from editor',
-      handler: () => core.getSource(),
+      description: 'Get Pine Script source (current editor, or a saved script by name/id without opening it)',
+      options: {
+        name: { type: 'string', description: 'Saved script name to read without opening' },
+        id: { type: 'string', description: 'scriptIdPart to read without opening' },
+      },
+      handler: (opts) => (opts.name || opts.id
+        ? core.readScript({ name: opts.name, script_id: opts.id })
+        : core.getSource()),
+    }],
+    ['read', {
+      description: 'Read a saved script source by name/id WITHOUT opening it (no editor/dialog side effects)',
+      options: {
+        id: { type: 'string', description: 'scriptIdPart (takes precedence over name)' },
+      },
+      handler: (opts, positionals) => {
+        const name = positionals.join(' ') || undefined;
+        if (!name && !opts.id) throw new Error('Usage: tv pine read "Script Name"  |  tv pine read --id USER;xxxx');
+        return core.readScript({ name, script_id: opts.id });
+      },
     }],
     ['set', {
       description: 'Set Pine Script source (reads stdin or --file)',

@@ -23,7 +23,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 86 tools by default (93 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 87 tools by default (94 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -58,6 +58,7 @@ Pine Script development (create → publish → render → verify):
 - pine_list_scripts → kind / published_version / ui_visible orphan flags
 - pine_smart_compile → compile + import_errors; optional require_published_imports
 - pine_get_errors / pine_get_console → read errors and log output
+- pine_read_script → read a saved script's source by name/id WITHOUT opening it (no editor/dialog side effects); prefer over pine_open+pine_get_source for read-only access
 - WARNING: pine_get_source can return 200KB+ for complex scripts — avoid unless editing
 
 Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester" (stabilize_ms soft wait)

@@ -9,7 +9,7 @@ The registry is the menu of named operations an agent (via MCP) or a person (via
 
 Each tool below gives three things in plain language: **what it offers**, and **its limitations** — the practical edges you will hit.
 
-**A note on availability.** 86 tools are always on (including `ui_evaluate`). Seven **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`, `net_request`, `ui_fiber_action`. Gated tools are marked **🔒 gated** below.
+**A note on availability.** 87 tools are always on (including `ui_evaluate`). Seven **power tools** are gated off by default and only appear when the operator sets `TV_ALLOW_DANGEROUS=1`: `tv_update`, `tv_launch`, `alert_delete`, `draw_clear`, `batch_run`, `net_request`, `ui_fiber_action`. Gated tools are marked **🔒 gated** below.
 
 ---
 
@@ -97,9 +97,9 @@ Prices, indicators, strategy results, and the drawings your Pine scripts make.
 
 Develop, compile, and debug Pine in the editor.
 
-### `pine_get_source` / `pine_set_source`
-- **Offers:** Read the editor's code, or inject new code. Optional `script_name` on set refuses when the editor header identity differs.
-- **Limitations:** `pine_get_source` can return 200KB+ on big scripts — avoid unless you're editing. Never set+save when the header shows a different script.
+### `pine_get_source` / `pine_set_source` / `pine_read_script`
+- **Offers:** Read the editor's code, or inject new code. Optional `script_name` on set refuses when the editor header identity differs. `pine_read_script` (also `pine_get_source` with `name`/`script_id`) reads a **saved** script's full source by name/id **without** opening it — no editor identity switch, no dialog, no Monaco — returning `{name, script_id, version, kind, source, line_count, char_count}`.
+- **Limitations:** `pine_get_source` can return 200KB+ on big scripts — avoid unless you're editing. Never set+save when the header shows a different script. `pine_read_script` resolves identity from `pine_list_scripts` metadata, so the script must appear there (saved or published).
 
 ### `pine_compile` / `pine_smart_compile`
 - **Offers:** Add the script to the chart; `smart_compile` detects the button, compiles, checks errors, reports study changes. Import-resolve / unpublished-library failures are returned in `import_errors`; pass `require_published_imports: true` to fail on those.

@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-86 tools by default (93 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+87 tools by default (94 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -57,6 +57,7 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 10. `pine_get_errors` / `pine_get_console` → compilation errors and log.info()
 11. `pine_get_source` → read current code back (WARNING: can be very large for complex scripts)
 12. `pine_new` → blank template only (does not register cloud identity)
+13. `pine_read_script` → read a saved script's source by name/id **without opening it** (no editor/dialog side effects); prefer over `pine_open` + `pine_get_source` for read-only access to a dependency
 
 ### "Practice trading with replay"
 1. `replay_start` with `date: "2025-03-01"` → enter replay mode
