@@ -7,8 +7,11 @@ const srcPath = new URL('../scripts/current.pine', import.meta.url).pathname.rep
 const src = readFileSync(srcPath, 'utf-8');
 
 const targets = await (await fetch('http://localhost:9222/json/list')).json();
-const t = targets.find(t => t.url?.includes('tradingview.com'));
-if (!t) { console.error('No TradingView target'); process.exit(1); }
+const sel = process.env.TARGET;
+const t = sel
+  ? targets.find(t => t.url?.includes(sel))
+  : targets.find(t => t.url?.includes('tradingview.com'));
+if (!t) { console.error('No TradingView target' + (sel ? ` matching "${sel}"` : '')); process.exit(1); }
 const c = await CDP({ host: 'localhost', port: 9222, target: t.id });
 await c.Runtime.enable();
 
