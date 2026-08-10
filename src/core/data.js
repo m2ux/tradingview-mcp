@@ -4,7 +4,13 @@
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
 
-const MAX_OHLCV_BARS = 500;
+// Bar-depth caps. Both read from the same in-memory mainSeries().bars() list,
+// so they share one ceiling — TV_MAX_BARS raises/lowers both together. Kept at
+// 500 by default for context safety; raise (e.g. TV_MAX_BARS=5000) when a caller
+// needs price history aligned to a deep study fetch. count is clamped to this.
+const MAX_BARS = Math.max(1, parseInt(process.env.TV_MAX_BARS, 10) || 500);
+const MAX_OHLCV_BARS = MAX_BARS;
+const MAX_STUDY_SERIES_BARS = MAX_BARS;
 const MAX_TRADES = 20;
 
 // Round to 8 dp — enough to kill float noise (29899.999999997 → 29900) without
@@ -534,8 +540,6 @@ export async function getStudyValues() {
   `);
   return { success: true, study_count: data?.length || 0, studies: data || [] };
 }
-
-const MAX_STUDY_SERIES_BARS = 5000;
 
 // Historical plot series for one study, read straight from the in-memory
 // plot-row list (s._data._items) — one evaluate() call instead of a replay
