@@ -544,9 +544,10 @@ const MAX_STUDY_SERIES_BARS = 5000;
 // valueAt() on the list returned null for tail rows in probing, so we iterate
 // _items directly. NaN/undefined plot values are coerced to null because
 // JSON.stringify(NaN) → null silently and NaN breaks strict parsers.
-export async function getStudySeries({ study, count, plots, include_price, summary } = {}) {
+export async function getStudySeries({ study, count, plots, include_price, summary, _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
   const limit = Math.min(count || 100, MAX_STUDY_SERIES_BARS);
-  const data = await evaluate(`
+  const data = await evalFn(`
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
       var sources = chart.model().model().dataSources();
