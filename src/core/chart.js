@@ -1,7 +1,7 @@
 /**
  * Core chart control logic.
  */
-import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, safeString, requireFinite } from '../connection.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, safeString, requireFinite, withTargetEvaluate } from '../connection.js';
 import { waitForChartReady as _waitForChartReady } from '../wait.js';
 
 const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
@@ -14,8 +14,19 @@ function _resolve(deps) {
   };
 }
 
-export async function getState({ _deps } = {}) {
-  const { evaluate } = _resolve(_deps);
+// Like _resolve but honors an optional `target` (chart_id / URL substring):
+// returns a scoped evaluate against that tab instead of the shared client.
+// NOTE: withTargetEvaluate closes its scoped connection when its callback
+// returns, so resolve to an executor that opens a fresh scoped connection per
+// call rather than a bare (dead) evaluate.
+async function _resolveTarget({ target, _deps } = {}) {
+  if (_deps?.evaluate) return _deps.evaluate;
+  if (target) return (expression, opts) => withTargetEvaluate(target, (ev) => ev(expression, opts));
+  return _evaluate;
+}
+
+export async function getState({ target, _deps } = {}) {
+  const evaluate = await _resolveTarget({ target, _deps });
   const state = await evaluate(`
     (function() {
       var chart = ${CHART_API};

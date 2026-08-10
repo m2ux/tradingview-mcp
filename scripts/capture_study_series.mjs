@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // Capture a frozen reference plot (price + study signal series) from the live
-// chart via CDP. Used as the regression/performance baseline before optimizing
-// the detector. Injects the SAME evaluate-expression as core/data.js
-// getStudySeries so the baseline matches the tool's behavior exactly.
+// chart. Used as the regression/performance baseline before optimizing the
+// detector. Reads through the MCP core (core/data.js getStudySeries) via the
+// `target` param, so it can aim at a specific chart tab WITHOUT opening its own
+// raw CDP socket (issue #13). The read path matches the data_get_study_series
+// tool exactly.
 //
 // Usage:
 //   node scripts/capture_study_series.mjs --study "RSI Zone Divergence" \
-//        --count 300 --price --out scripts/reference/rszonediv_4d_300.json
-import CDP from 'chrome-remote-interface';
+//        --target od9I4OCz --count 300 --price --out scripts/reference/rszonediv_4d_300.json
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { getStudySeries, getQuote } from '../src/core/data.js';
+import { getState } from '../src/core/chart.js';
 
 function arg(name, dflt) {
   const i = process.argv.indexOf('--' + name);
@@ -22,98 +25,46 @@ const count = parseInt(arg('count', '300'), 10);
 const includePrice = process.argv.includes('--price');
 const outPath = arg('out', null);
 const rsiStudy = arg('rsi', 'Relative Strength Index');
+const targetSel = arg('target', null); // chart_id or URL substring to pick the tab
 
-const BARS_PATH = 'window.TradingViewApi._activeChartWidgetWV.value()._chartWidget.model().mainSeries().bars()';
+const opts = { count, include_price: includePrice };
+if (targetSel) opts.target = targetSel;
 
-function seriesExpr(studyName, maxBars, wantPrice) {
-  return `(function() {
-    var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
-    var sources = chart.model().model().dataSources();
-    var filter = ${JSON.stringify(studyName)};
-    var maxBars = ${maxBars};
-    var target = null;
-    for (var si = 0; si < sources.length; si++) {
-      var s = sources[si];
-      if (!s.metaInfo) continue;
-      try {
-        var meta = s.metaInfo();
-        var name = meta.description || meta.shortDescription || '';
-        if (!name) continue;
-        if (!filter || name.indexOf(filter) !== -1) { target = s; break; }
-      } catch(e) {}
-    }
-    if (!target) return { found:false, error:'No study matching "' + filter + '"' };
-    var meta2 = target.metaInfo();
-    var plotIds = (meta2.plots||[]).map(function(p){return p.id;});
-    var entityId = null; try { entityId = target.id ? target.id() : null; } catch(e) {}
-    var items = (target._data && target._data._items) ? target._data._items : [];
-    var total = items.length;
-    var startIdx = Math.max(0, total - maxBars);
-    var bars = [];
-    for (var i = startIdx; i < total; i++) {
-      var it = items[i];
-      if (!it || !it.value) continue;
-      var plotsOut = {};
-      for (var vi = 0; vi < plotIds.length; vi++) {
-        var raw = it.value[vi+1];
-        plotsOut[plotIds[vi]] = (typeof raw === 'number' && isFinite(raw)) ? raw : null;
-      }
-      bars.push({ time: it.value[0], plots: plotsOut });
-    }
-    var price = null;
-    if (${wantPrice ? 'true' : 'false'}) {
-      try {
-        var mainBars = ${BARS_PATH};
-        var byTime = {}; for (var bi=0;bi<bars.length;bi++) byTime[bars[bi].time]=true;
-        price = [];
-        var end = mainBars.lastIndex(), first = mainBars.firstIndex();
-        for (var gi = first; gi <= end; gi++) {
-          var v = mainBars.valueAt(gi);
-          if (v && byTime[v[0]]) price.push({ time:v[0], open:v[1], high:v[2], low:v[3], close:v[4], volume:v[5]||0 });
-        }
-      } catch(e) { price = null; }
-    }
-    var sym=''; try { sym = chart.model().mainSeries().symbol(); } catch(e){}
-    var res=''; try { res = chart.model().mainSeries().interval(); } catch(e){}
-    return { found:true, study: meta2.description||'', entity_id: entityId, plot_ids: plotIds,
-             symbol: sym, interval: res, bar_count: bars.length, total_available: total, bars: bars, price: price };
-  })()`;
-}
-
-const targetSel = arg('target', null); // chart_id or URL substring to pick the CDP tab
-const targets = await (await fetch('http://localhost:9222/json/list')).json();
-const charts = targets.filter(t => t.url?.includes('tradingview.com/chart'));
-let t = targetSel ? charts.find(x => x.url.includes(targetSel)) : charts[0];
-if (!t) {
-  console.error('No matching TradingView chart target. Available:');
-  charts.forEach(x => console.error('  ' + x.url));
+let main;
+try {
+  main = await getStudySeries({ study, ...opts });
+} catch (e) {
+  console.error(e.message || 'study not found');
   process.exit(1);
 }
-const c = await CDP({ host: 'localhost', port: 9222, target: t.id });
-await c.Runtime.enable();
 
-async function evalExpr(expr) {
-  const r = await c.Runtime.evaluate({ expression: expr, returnByValue: true });
-  if (r.exceptionDetails) throw new Error('evaluate failed: ' + JSON.stringify(r.exceptionDetails.exception?.description || r.exceptionDetails.text));
-  return r.result?.value;
-}
-
-const main = await evalExpr(seriesExpr(study, count, includePrice));
-if (!main || !main.found) { console.error(main?.error || 'study not found'); await c.close(); process.exit(1); }
+// getStudySeries doesn't carry symbol/resolution — pull them from a targeted
+// chart read so the reference still records them for the diff harness.
+let symbol = null, interval = null;
+try {
+  const state = await getState({ target: targetSel });
+  symbol = state.symbol ?? null;
+  interval = state.resolution ?? null;
+} catch { /* best-effort */ }
 
 // Companion RSI series (for divergence grading), aligned by time.
-const rsi = await evalExpr(seriesExpr(rsiStudy, count, false));
+let rsi = null;
+try {
+  rsi = await getStudySeries({ study: rsiStudy, count, target: targetSel });
+} catch { rsi = null; }
+
 const rsiByTime = new Map();
-if (rsi && rsi.found) {
-  for (const b of rsi.bars) {
+if (rsi) {
+  for (const b of rsi.bars || []) {
     const v = b.plots.RelativeStrengthIndex ?? b.plots.plot_0;
     rsiByTime.set(b.time, (typeof v === 'number' && isFinite(v)) ? v : null);
   }
 }
 
 // Flatten to an aligned, analysis-ready row set.
-const rows = main.bars.map(b => {
-  const p = (main.price || []).find(x => x.time === b.time) || null;
+const priceByTime = new Map((main.price || []).map(p => [p.time, p]));
+const rows = (main.bars || []).map(b => {
+  const p = priceByTime.get(b.time) || null;
   const r = { time: b.time, iso: new Date(b.time * 1000).toISOString(), rsi: rsiByTime.get(b.time) ?? null };
   for (const pid of main.plot_ids) r[pid] = b.plots[pid];
   if (p) { r.open = p.open; r.high = p.high; r.low = p.low; r.close = p.close; r.volume = p.volume; }
@@ -122,9 +73,9 @@ const rows = main.bars.map(b => {
 
 const out = {
   captured_at: new Date().toISOString(),
-  symbol: main.symbol, interval: main.interval,
+  symbol, interval,
   study: main.study, entity_id: main.entity_id, plot_ids: main.plot_ids,
-  rsi_study: rsi && rsi.found ? rsi.study : null,
+  rsi_study: rsi ? rsi.study : null,
   bar_count: main.bar_count, total_available: main.total_available,
   rows,
 };
@@ -133,7 +84,7 @@ const text = JSON.stringify(out, null, 2);
 if (outPath) {
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, text);
-  console.log(`Captured ${rows.length} bars [${main.symbol} ${main.interval}] ${main.study} -> ${outPath}`);
+  console.log(`Captured ${rows.length} bars [${symbol} ${interval}] ${main.study} -> ${outPath}`);
 } else {
   console.log(text);
 }
@@ -146,4 +97,3 @@ if (outPath) {
   writeFileSync(csvPath, csv);
   console.log(`CSV -> ${csvPath}`);
 }
-await c.close();

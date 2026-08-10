@@ -271,6 +271,9 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | `tab_list` | List open chart tabs |
 | `tab_new` / `tab_close` | Open/close tabs |
 | `tab_switch` | Switch to a tab by index |
+| `tv_attach` | Attach the CDP client to a chart by `chart_id`/URL substring (no UI focus needed); also the reconnect path |
+
+**Tab-targeted reads:** the read tools `chart_get_state`, `quote_get`, `data_get_ohlcv`, `data_get_study_values`, `data_get_study_series`, `data_get_pine_*`, and `capture_screenshot` accept an optional `target` (chart_id, URL substring, or CDP target id from `tab_list`). The read runs against that tab without switching the MCP's active tab.
 
 ### Pine Script Development
 

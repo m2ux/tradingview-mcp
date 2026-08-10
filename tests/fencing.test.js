@@ -5,7 +5,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { wrapUntrusted, jsonResult } from '../src/tools/_format.js';
+import { wrapUntrusted, jsonResult, errorResult } from '../src/tools/_format.js';
 
 function parse(result) {
   assert.equal(result.content.length, 1);
@@ -81,5 +81,34 @@ describe('jsonResult', () => {
     for (const input of [{}, { a: undefined }, { nested: { arr: [] } }]) {
       parse(jsonResult(input));
     }
+  });
+});
+
+describe('errorResult', () => {
+  it('returns a plain error payload for non-retryable errors', () => {
+    const out = parse(errorResult(new Error('boom')));
+    assert.equal(out.success, false);
+    assert.equal(out.error, 'boom');
+    assert.ok(!('retryable' in out));
+    assert.ok(!('code' in out));
+  });
+
+  it('surfaces retryable + code + hint for transient CDP busy errors', () => {
+    const err = new Error('TradingView CDP endpoint is busy ...');
+    err.retryable = true;
+    err.code = 'TV_CDP_BUSY';
+    const result = errorResult(err);
+    assert.equal(result.isError, true);
+    const out = parse(result);
+    assert.equal(out.success, false);
+    assert.equal(out.retryable, true);
+    assert.equal(out.code, 'TV_CDP_BUSY');
+    assert.match(out.hint, /wait ~1s and retry/i);
+  });
+
+  it('preserves extra fields and isError flag', () => {
+    const out = errorResult(new Error('x'), { hint: 'custom' });
+    assert.equal(out.isError, true);
+    assert.equal(parse(out).hint, 'custom');
   });
 });

@@ -1,9 +1,9 @@
-import { evaluate } from './connection.js';
+import { evaluate as _defaultEvaluate } from './connection.js';
 
 const DEFAULT_TIMEOUT = 10000;
 const POLL_INTERVAL = 200;
 
-export async function waitForChartReady(expectedSymbol = null, expectedTf = null, timeout = DEFAULT_TIMEOUT) {
+export async function waitForChartReady(expectedSymbol = null, expectedTf = null, timeout = DEFAULT_TIMEOUT, evaluate = _defaultEvaluate) {
   const start = Date.now();
   let lastBarCount = -1;
   let stableCount = 0;
@@ -77,7 +77,7 @@ export async function waitForChartReady(expectedSymbol = null, expectedTf = null
  * stale frame (issue #144). Waits for any loading spinner to clear, then for
  * the symbol/resolution/canvas signature to hold stable across 3 polls.
  */
-export async function waitForChartRender(timeout = 5000) {
+export async function waitForChartRender(timeout = 5000, evaluate = _defaultEvaluate) {
   const start = Date.now();
   let lastSignature = null;
   let stableCount = 0;

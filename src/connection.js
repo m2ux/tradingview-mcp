@@ -138,6 +138,108 @@ async function findTargetById(id) {
   return targets.find(t => t.id === id) || null;
 }
 
+/**
+ * Resolve a `target` reference to a CDP page target. Accepts a CDP target id,
+ * a chart_id (the /chart/<id> URL segment), or a URL substring, in that order.
+ * Only TradingView chart pages are considered for chart_id/URL matching.
+ * Throws when nothing matches — callers surface this as a clear tool error.
+ */
+export async function findTargetByRef(ref) {
+  if (!ref) return null;
+  const wanted = String(ref);
+  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
+  const targets = await resp.json();
+  const pages = targets.filter(t => t.type === 'page');
+  const byId = pages.find(t => t.id === wanted);
+  if (byId) return byId;
+  const charts = pages.filter(t => /tradingview\.com\/chart/i.test(t.url || ''));
+  return charts.find(t => (t.url.match(/\/chart\/([^/?]+)/)?.[1]) === wanted)
+    || charts.find(t => (t.url || '').includes(wanted))
+    || (() => { throw new Error(`No open chart tab matches target "${wanted}". Use tab_list to see chart_ids.`); })();
+}
+
+/**
+ * True when an error looks like TradingView's CDP endpoint transiently closing
+ * a scoped socket (or refusing a second concurrent client on a chart the
+ * shared client already holds) — i.e. "service busy, retry", not a real failure.
+ */
+export function isTransientCdpError(e) {
+  return /WebSocket is not open|readyState|CLOSED|Target closed|Connection closed|fetch failed|ECONNRESET|EPIPE/i.test(e?.message || '');
+}
+
+/**
+ * Run fn with an evaluate helper attached to a specific chart target,
+ * independent of the shared cached client. Reads use this to aim at a
+ * background tab without switching the MCP's active tab. The scoped client
+ * is always closed afterward. Rejects page JS exceptions like evaluate().
+ *
+ * TradingView's CDP endpoint occasionally closes a freshly-opened scoped
+ * socket (readyState CLOSED) when the shared dev-tools endpoint is busy — a
+ * transient race, not a real failure. Retry a few times with backoff before
+ * giving up. When it still fails after retries, the error is marked
+ * `retryable: true` so callers (and the tool layer) can tell the agent to
+ * adopt a wait/retry strategy rather than treating it as fatal.
+ */
+export async function withTargetEvaluate(ref, fn) {
+  const target = await findTargetByRef(ref);
+  let lastError;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let c = null;
+    try {
+      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
+      const scoped = async (expression, opts = {}) => {
+        const result = await c.Runtime.evaluate({
+          expression,
+          returnByValue: true,
+          awaitPromise: opts.awaitPromise ?? false,
+          ...opts,
+        });
+        if (result.exceptionDetails) {
+          const msg = result.exceptionDetails.exception?.description
+            || result.exceptionDetails.text
+            || 'Unknown evaluation error';
+          throw new Error(`JS evaluation error: ${msg}`);
+        }
+        return result.result?.value;
+      };
+      return await fn(scoped, target);
+    } catch (e) {
+      lastError = e;
+      if (!isTransientCdpError(e) || attempt === 3) {
+        if (isTransientCdpError(e)) {
+          const err = new Error(`TradingView CDP endpoint is busy (target "${ref}" could not be reached after several attempts). ${e.message}`);
+          err.retryable = true;
+          err.code = 'TV_CDP_BUSY';
+          throw err;
+        }
+        throw e;
+      }
+      await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+    } finally {
+      try { if (c) await c.close(); } catch { /* already gone */ }
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Attach the shared CDP client to a chart by target ref (target id, chart_id,
+ * or URL substring). Unlike tab_switch this does not require the tab to become
+ * visible, so it can reach background tabs — and it doubles as the reconnect
+ * path after a dropped connection. Returns the resolved target info.
+ */
+export async function attachChart(ref) {
+  const target = await findTargetByRef(ref);
+  if (!target) throw new Error('No TradingView chart target found. Is TradingView open with a chart?');
+  await reconnectTo(target.id);
+  return {
+    target_id: target.id,
+    chart_id: target.url.match(/\/chart\/([^/?]+)/)?.[1] || null,
+    url: target.url,
+    title: target.title,
+  };
+}
+
 export async function getTargetInfo() {
   if (!targetInfo) {
     await getClient();
