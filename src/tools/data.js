@@ -4,10 +4,11 @@ import * as core from '../core/data.js';
 
 export function registerDataTools(server) {
   server.tool('data_get_ohlcv', 'Get OHLCV bar data from the chart. Use summary=true for compact stats instead of all bars (saves context).', {
-    count: z.coerce.number().optional().describe('Number of bars to retrieve (default 100). Capped at TV_MAX_BARS (default 500; raise the env var for deeper history).'),
+    count: z.coerce.number().optional().describe('Number of bars to retrieve (default 100).'),
+    max_bars: z.coerce.number().optional().describe('Per-call ceiling for count (default 500, or TV_MAX_BARS). Raise to fetch deeper history.'),
     summary: z.coerce.boolean().optional().describe('Return summary stats (high, low, open, close, avg volume, range) instead of all bars — much smaller output'),
-  }, async ({ count, summary }) => {
-    try { return jsonResult(await core.getOhlcv({ count, summary })); }
+  }, async ({ count, summary, max_bars }) => {
+    try { return jsonResult(await core.getOhlcv({ count, summary, max_bars })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
@@ -86,12 +87,13 @@ export function registerDataTools(server) {
 
   server.tool('data_get_study_series', 'Get historical per-bar plot series for one study (aligned with OHLC optionally). Reads the in-memory computed series — no replay loop. Use summary=true for compact per-plot stats.', {
     study: z.string().optional().describe('Substring matched against study description (e.g., "RSI", "Profiler"). Omit = first study on chart.'),
-    count: z.coerce.number().optional().describe('Number of most-recent bars (default 100). Capped at TV_MAX_BARS (default 500; raise the env var to align depth with a deep price fetch).'),
+    count: z.coerce.number().optional().describe('Number of most-recent bars (default 100).'),
+    max_bars: z.coerce.number().optional().describe('Per-call ceiling for count (default 500, or TV_MAX_BARS). Raise to align depth with a deep price fetch.'),
     plots: z.array(z.string()).optional().describe('Plot IDs to include (e.g., ["plot_0"]). Omit = all plots.'),
     include_price: z.coerce.boolean().optional().describe('Also return OHLCV aligned by time (default false)'),
     summary: z.coerce.boolean().optional().describe('Return only {min,max,last,non_null_count} per plot instead of bars (default false)'),
-  }, async ({ study, count, plots, include_price, summary }) => {
-    try { return jsonResult(await core.getStudySeries({ study, count, plots, include_price, summary })); }
+  }, async ({ study, count, plots, include_price, summary, max_bars }) => {
+    try { return jsonResult(await core.getStudySeries({ study, count, plots, include_price, summary, max_bars })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 }

@@ -4,13 +4,12 @@
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
 
-// Bar-depth caps. Both read from the same in-memory mainSeries().bars() list,
-// so they share one ceiling — TV_MAX_BARS raises/lowers both together. Kept at
-// 500 by default for context safety; raise (e.g. TV_MAX_BARS=5000) when a caller
-// needs price history aligned to a deep study fetch. count is clamped to this.
-const MAX_BARS = Math.max(1, parseInt(process.env.TV_MAX_BARS, 10) || 500);
-const MAX_OHLCV_BARS = MAX_BARS;
-const MAX_STUDY_SERIES_BARS = MAX_BARS;
+// Default bar-depth ceiling. Each tool also accepts a per-call `max_bars` to
+// override this for that request (so a deep price fetch can be aligned with a
+// deep study fetch on demand). TV_MAX_BARS sets the server-wide default; the
+// per-call param takes precedence. count is clamped to the resolved cap.
+const DEFAULT_MAX_BARS = Math.max(1, parseInt(process.env.TV_MAX_BARS, 10) || 500);
+const resolveMaxBars = (cap) => Math.max(1, parseInt(cap, 10) || DEFAULT_MAX_BARS);
 const MAX_TRADES = 20;
 
 // Round to 8 dp — enough to kill float noise (29899.999999997 → 29900) without
@@ -140,8 +139,8 @@ function buildGraphicsJS(collectionName, mapKey, filter) {
   `;
 }
 
-export async function getOhlcv({ count, summary } = {}) {
-  const limit = Math.min(count || 100, MAX_OHLCV_BARS);
+export async function getOhlcv({ count, summary, max_bars } = {}) {
+  const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   let data;
   try {
     data = await evaluate(`
@@ -548,9 +547,9 @@ export async function getStudyValues() {
 // valueAt() on the list returned null for tail rows in probing, so we iterate
 // _items directly. NaN/undefined plot values are coerced to null because
 // JSON.stringify(NaN) → null silently and NaN breaks strict parsers.
-export async function getStudySeries({ study, count, plots, include_price, summary, _deps } = {}) {
+export async function getStudySeries({ study, count, plots, include_price, summary, max_bars, _deps } = {}) {
   const evalFn = _deps?.evaluate || evaluate;
-  const limit = Math.min(count || 100, MAX_STUDY_SERIES_BARS);
+  const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   const data = await evalFn(`
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;

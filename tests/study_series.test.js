@@ -81,10 +81,16 @@ describe('getStudySeries() — result shaping', () => {
     await assert.rejects(() => getStudySeries({ study: 'ZZZ', _deps }), /No study matching/);
   });
 
-  it('caps count at the shared TV_MAX_BARS ceiling (default 500) and sends it into the page JS', async () => {
+  it('caps count at the default 500 ceiling and sends it into the page JS', async () => {
     const { _deps, evaluate } = mockDeps(basePage);
     await getStudySeries({ count: 99999, _deps });
     assert.ok(evaluate.calls[0].includes('500'), 'maxBars interpolated as the 500 default');
+  });
+
+  it('max_bars overrides the per-call ceiling', async () => {
+    const { _deps, evaluate } = mockDeps(basePage);
+    await getStudySeries({ count: 99999, max_bars: 5000, _deps });
+    assert.ok(evaluate.calls[0].includes('5000'), 'maxBars interpolated as the per-call 5000');
   });
 
   it('interpolates the plots filter into the page JS', async () => {
