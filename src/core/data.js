@@ -4,7 +4,12 @@
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
 
-const MAX_OHLCV_BARS = 500;
+// Default bar-depth ceiling. Each tool also accepts a per-call `max_bars` to
+// override this for that request (so a deep price fetch can be aligned with a
+// deep study fetch on demand). TV_MAX_BARS sets the server-wide default; the
+// per-call param takes precedence. count is clamped to the resolved cap.
+const DEFAULT_MAX_BARS = Math.max(1, parseInt(process.env.TV_MAX_BARS, 10) || 500);
+const resolveMaxBars = (cap) => Math.max(1, parseInt(cap, 10) || DEFAULT_MAX_BARS);
 const MAX_TRADES = 20;
 
 // Round to 8 dp — enough to kill float noise (29899.999999997 → 29900) without
@@ -134,8 +139,8 @@ function buildGraphicsJS(collectionName, mapKey, filter) {
   `;
 }
 
-export async function getOhlcv({ count, summary } = {}) {
-  const limit = Math.min(count || 100, MAX_OHLCV_BARS);
+export async function getOhlcv({ count, summary, max_bars } = {}) {
+  const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   let data;
   try {
     data = await evaluate(`
@@ -533,6 +538,136 @@ export async function getStudyValues() {
     })()
   `);
   return { success: true, study_count: data?.length || 0, studies: data || [] };
+}
+
+// Historical plot series for one study, read straight from the in-memory
+// plot-row list (s._data._items) — one evaluate() call instead of a replay
+// loop. Row shape: { index: <barIndex>, value: [timeSec, plot0, plot1, ...] }
+// where value[1..] map by index to metaInfo().plots[].id. The accessor
+// valueAt() on the list returned null for tail rows in probing, so we iterate
+// _items directly. NaN/undefined plot values are coerced to null because
+// JSON.stringify(NaN) → null silently and NaN breaks strict parsers.
+export async function getStudySeries({ study, count, plots, include_price, summary, max_bars, _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
+  const limit = Math.min(count || 100, resolveMaxBars(max_bars));
+  const data = await evalFn(`
+    (function() {
+      var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
+      var sources = chart.model().model().dataSources();
+      var filter = ${safeString(study || '')};
+      var wantPlots = ${JSON.stringify(plots || null)};
+      var maxBars = ${limit};
+      var target = null;
+      for (var si = 0; si < sources.length; si++) {
+        var s = sources[si];
+        if (!s.metaInfo) continue;
+        try {
+          var meta = s.metaInfo();
+          var name = meta.description || meta.shortDescription || '';
+          if (!name) continue;
+          if (!filter || name.indexOf(filter) !== -1) { target = s; break; }
+        } catch(e) {}
+      }
+      if (!target) return { found: false, error: filter ? 'No study matching "' + filter + '" on chart.' : 'No studies on chart.' };
+
+      var meta2 = target.metaInfo();
+      var plotMeta = meta2.plots || [];
+      var plotIds = [];
+      for (var pi = 0; pi < plotMeta.length; pi++) {
+        var pid = plotMeta[pi].id;
+        if (wantPlots && wantPlots.length && wantPlots.indexOf(pid) === -1) continue;
+        plotIds.push(pid);
+      }
+
+      var entityId = null;
+      try { entityId = target.id ? target.id() : null; } catch(e) {}
+
+      var items = (target._data && target._data._items) ? target._data._items : [];
+      var total = items.length;
+      var startIdx = Math.max(0, total - maxBars);
+      var bars = [];
+      for (var i = startIdx; i < total; i++) {
+        var it = items[i];
+        if (!it || !it.value) continue;
+        var time = it.value[0];
+        var plotsOut = {};
+        for (var vi = 0; vi < plotIds.length; vi++) {
+          var raw = it.value[vi + 1];
+          plotsOut[plotIds[vi]] = (typeof raw === 'number' && isFinite(raw)) ? raw : null;
+        }
+        bars.push({ time: time, plots: plotsOut });
+      }
+
+      var price = null;
+      if (${include_price ? 'true' : 'false'}) {
+        try {
+          var mainBars = ${BARS_PATH};
+          var byTime = {};
+          for (var bi = 0; bi < bars.length; bi++) byTime[bars[bi].time] = true;
+          price = [];
+          var end = mainBars.lastIndex();
+          var first = mainBars.firstIndex();
+          for (var gi = first; gi <= end; gi++) {
+            var v = mainBars.valueAt(gi);
+            if (v && byTime[v[0]]) price.push({ time: v[0], open: v[1], high: v[2], low: v[3], close: v[4], volume: v[5] || 0 });
+          }
+        } catch(e) { price = null; }
+      }
+
+      return {
+        found: true,
+        study: meta2.description || meta2.shortDescription || '',
+        entity_id: entityId,
+        plot_ids: plotIds,
+        bar_count: bars.length,
+        total_available: total,
+        bars: bars,
+        price: price
+      };
+    })()
+  `);
+
+  if (!data || !data.found) throw new Error(data?.error || 'Study not found.');
+
+  const result = {
+    success: true,
+    study: data.study,
+    entity_id: data.entity_id,
+    plot_ids: data.plot_ids,
+    bar_count: data.bar_count,
+    total_available: data.total_available,
+  };
+
+  if (summary) {
+    const stats = {};
+    for (const pid of data.plot_ids) {
+      let min = Infinity, max = -Infinity, last = null, nonNull = 0;
+      for (const b of data.bars) {
+        const v = b.plots[pid];
+        if (v == null) continue;
+        nonNull++;
+        last = v;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      stats[pid] = {
+        min: nonNull ? roundPrice(min) : null,
+        max: nonNull ? roundPrice(max) : null,
+        last: last != null ? roundPrice(last) : null,
+        non_null_count: nonNull,
+      };
+    }
+    result.summary = stats;
+  } else {
+    result.bars = data.bars.map(b => {
+      const rounded = {};
+      for (const pid of data.plot_ids) rounded[pid] = roundPrice(b.plots[pid]);
+      return { time: b.time, plots: rounded };
+    });
+    if (data.price) result.price = data.price;
+  }
+
+  return result;
 }
 
 export async function getPineLines({ study_filter, verbose } = {}) {

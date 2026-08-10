@@ -225,6 +225,7 @@ Claude reads [`CLAUDE.md`](CLAUDE.md) automatically when working in this project
 |------|------------|-------------|
 | `chart_get_state` | First call — get symbol, timeframe, all indicator names + IDs | ~500B |
 | `data_get_study_values` | Read current RSI, MACD, BB, EMA values from all indicators | ~500B |
+| `data_get_study_series` | Historical per-bar plot series for one study (optional OHLC alignment, `summary: true` for stats) | ~1KB (summary) / ~8KB (100 bars) |
 | `quote_get` | Get latest price, OHLC, volume | ~200B |
 | `data_get_ohlcv` | Get price bars. **Use `summary: true`** for compact stats | 500B (summary) / 8KB (100 bars) |
 

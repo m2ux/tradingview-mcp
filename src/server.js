@@ -30,6 +30,7 @@ TOOL SELECTION GUIDE — use this to pick the right tool:
 Reading your chart:
 - chart_get_state → get symbol, timeframe, all indicator names + entity IDs (call first)
 - data_get_study_values → get current numeric values from ALL visible indicators (RSI, MACD, BB, EMA, etc.)
+- data_get_study_series → get historical per-bar plot series for ONE study, optional include_price OHLC alignment, summary=true for compact stats
 - quote_get → get real-time price snapshot (last, OHLC, volume)
 - data_get_ohlcv → get price bars. ALWAYS pass summary=true unless you need individual bars
 - indicator_get_inputs → list in_* ids/values for align-before-verify (no encrypted blobs)

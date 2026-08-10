@@ -75,6 +75,10 @@ Prices, indicators, strategy results, and the drawings your Pine scripts make.
 - **Offers:** Current values from all visible indicators (RSI, MACD, BB, EMAs, custom `plot()`s).
 - **Limitations:** Visible studies only; hidden studies don't report.
 
+### `data_get_study_series`
+- **Offers:** Historical per-bar plot series for one study (e.g. `study: "RSI"`), optionally aligned with OHLC (`include_price: true`), plus a compact `summary: true` mode (`{min,max,last,non_null_count}` per plot). Single call — no replay loop.
+- **Limitations:** Depth is limited to bars currently loaded in the chart (`total_available` reports what's in memory) and to `count` ≤ the cap (per-call `max_bars`, default 500 / `TV_MAX_BARS`). Omitting `study` selects the first study on the chart. Missing/`NaN` plot values serialize as `null`.
+
 ### `data_get_indicator`
 - **Offers:** Info and input values for a study.
 - **Limitations:** Protected/encrypted indicators return encoded blobs — use `data_get_study_values` for their numbers instead.
