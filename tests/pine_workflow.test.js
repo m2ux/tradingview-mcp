@@ -9,6 +9,7 @@ import {
   mergeScriptLists,
   assertEditorIdentity,
   getVisibleDialogs,
+  fetchScriptSource,
 } from '../src/core/pine_ui.js';
 
 describe('isImportResolveError', () => {
@@ -123,6 +124,51 @@ describe('setSource script_name guard', () => {
       () => assertEditorIdentity('Target', { evaluate: async () => ({ name: 'Wrong' }) }),
       /Refuse Save\/Publish/,
     );
+  });
+});
+
+describe('fetchScriptSource', () => {
+  const SRC = '//@version=6\nlibrary("RSIZones")\nexport f() => 1';
+
+  it('returns the first non-empty source payload', async () => {
+    const r = await fetchScriptSource('USER;abc', '6.0', {
+      evaluateAsync: async () => ({ ok: true, source: SRC, via: 'GET /get/id/version', attempted: ['GET /get/id/version'] }),
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.source, SRC);
+    assert.equal(r.via, 'GET /get/id/version');
+  });
+
+  it('reports not-ok when no endpoint yields source', async () => {
+    const r = await fetchScriptSource('USER;abc', null, {
+      evaluateAsync: async () => ({ ok: false, source: null, via: null, attempted: ['GET /get/id', 'GET /get/?script_id_part'] }),
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.source, null);
+    assert.deepEqual(r.attempted, ['GET /get/id', 'GET /get/?script_id_part']);
+  });
+
+  it('targets the facade /get/<id>/<version> endpoint and reads the source key', async () => {
+    let expression = '';
+    await fetchScriptSource('USER;xyz123', '6.0', {
+      evaluateAsync: async (expr) => { expression = expr; return { ok: true, source: SRC, via: 'GET /get/id/version', attempted: [] }; },
+    });
+    assert.match(expression, /USER;xyz123/);
+    assert.match(expression, /6\.0/);
+    assert.match(expression, /\/get\//);
+    assert.match(expression, /j\.source \|\| j\.scriptSource/);
+    assert.match(expression, /src\.length > 0/);
+  });
+
+  it('requires a scriptIdPart', async () => {
+    await assert.rejects(() => fetchScriptSource('', null, { evaluateAsync: async () => ({}) }), /scriptIdPart is required/);
+  });
+});
+
+describe('readScript (core)', () => {
+  it('requires name or script_id', async () => {
+    const { readScript } = await import('../src/core/pine.js');
+    await assert.rejects(() => readScript({}), /name or script_id is required/);
   });
 });
 

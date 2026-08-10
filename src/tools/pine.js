@@ -10,8 +10,22 @@ const copySchema = {
 };
 
 export function registerPineTools(server) {
-  server.tool('pine_get_source', 'Get current Pine Script source code from the editor', {}, async () => {
-    try { return jsonResult(await core.getSource()); }
+  server.tool('pine_get_source', 'Get Pine Script source code. With no args, reads the script currently open in the editor. Pass name or script_id to read a saved script by identity WITHOUT opening it (delegates to pine_read_script).', {
+    name: z.string().optional().describe('Saved script name to read without opening (exact match preferred)'),
+    script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts to read without opening'),
+  }, async ({ name, script_id } = {}) => {
+    try {
+      if (name || script_id) return jsonResult(await core.readScript({ name, script_id }));
+      return jsonResult(await core.getSource());
+    }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_read_script', 'Read a saved Pine Script\'s full source by name or script_id WITHOUT opening it in the editor, switching the Save/Publish target, or raising any dialog. Returns {name, script_id, version, kind, source, line_count, char_count}. Works for indicators, strategies, and libraries (including published libraries referenced via import user/Lib/N). Prefer this over pine_open + pine_get_source for read-only access to another script.', {
+    name: z.string().optional().describe('Saved script name (exact match preferred; unambiguous substring allowed)'),
+    script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
+  }, async ({ name, script_id } = {}) => {
+    try { return jsonResult(await core.readScript({ name, script_id })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 

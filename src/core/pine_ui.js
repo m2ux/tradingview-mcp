@@ -756,8 +756,7 @@ export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
     const byId = scripts.find((s) => s.scriptIdPart === id || s.id === id);
     if (!byId) throw new Error(`Script id "${id}" not found in saved list.`);
     return byId;
-  }
-  if (!name) throw new Error('name or id is required.');
+  }  if (!name) throw new Error('name or id is required.');
   const target = String(name).toLowerCase();
   let match = scripts.find((s) => {
     const sn = (s.scriptName || '').toLowerCase();
@@ -780,6 +779,51 @@ export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
   }
   if (!match) throw new Error(`Script "${name}" not found. Use pine_list_scripts to see available scripts.`);
   return match;
+}
+
+/**
+ * Page-context probe: fetch a saved script's source body from the pine-facade
+ * on-demand endpoint. The facade list payload leaves scriptSource empty, so the
+ * body is fetched per-script. TradingView's own Open-script flow loads
+ *   GET <facade>/get/<scriptIdPart>/<version>
+ * which returns the body under the `source` key. We try that first (with the
+ * entry's version), then a version-less and query-string variant as fallbacks.
+ * Returns { ok, source, via, attempted }.
+ */
+export async function fetchScriptSource(scriptIdPart, version = null, _deps = {}) {
+  const evalAsync = _deps.evaluateAsync || evaluateAsync;
+  const id = String(scriptIdPart || '');
+  if (!id) throw new Error('scriptIdPart is required.');
+  const result = await evalAsync(`
+    (async function() {
+      var BASE = ${JSON.stringify(PINE_FACADE)};
+      var id = ${safeString(id)};
+      var version = ${version === null || version === undefined ? 'null' : safeString(String(version))};
+      var enc = encodeURIComponent(id);
+      var attempts = [];
+      if (version !== null && version !== undefined && version !== '') {
+        attempts.push({ via: 'GET /get/id/version', url: BASE + '/get/' + enc + '/' + encodeURIComponent(String(version)) });
+      }
+      attempts.push({ via: 'GET /get/id', url: BASE + '/get/' + enc });
+      attempts.push({ via: 'GET /get/?script_id_part', url: BASE + '/get/?script_id_part=' + enc });
+      var attempted = [];
+      for (var i = 0; i < attempts.length; i++) {
+        var a = attempts[i];
+        attempted.push(a.via);
+        try {
+          var r = await fetch(a.url, { credentials: 'include' });
+          if (!r.ok) continue;
+          var j = await r.json();
+          var src = (j && (j.source || j.scriptSource)) || null;
+          if (typeof src === 'string' && src.length > 0) {
+            return { ok: true, source: src, via: a.via, attempted: attempted };
+          }
+        } catch (e) { /* try next */ }
+      }
+      return { ok: false, source: null, via: null, attempted: attempted };
+    })()
+  `);
+  return result || { ok: false, source: null, via: null, attempted: [] };
 }
 
 export async function studyCount(_deps = {}) {

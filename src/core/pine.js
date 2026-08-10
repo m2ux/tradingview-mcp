@@ -12,6 +12,7 @@ import {
   confirmReplaceIfNeeded,
   delay,
   fetchFacadeList,
+  fetchScriptSource,
   fillDialogInput,
   getEditorIdentity,
   isNameInOpenDialog,
@@ -976,5 +977,40 @@ export async function listScripts({ check_ui_visible = true } = {}) {
   };
 }
 
+/**
+ * Read a saved script's full source by name or scriptIdPart WITHOUT opening
+ * it in the editor, switching Save/Publish identity, or raising any dialog.
+ * Resolves identity from the facade saved list, then fetches the source body
+ * from the facade on-demand endpoint (the list payload leaves scriptSource
+ * empty). Throws a clear error when the name/id is unknown or no facade
+ * endpoint yields a source.
+ */
+export async function readScript({ name, script_id } = {}) {
+  if (!name && !script_id) throw new Error('name or script_id is required.');
+  const entry = await lookupFacadeScript({ name, id: script_id });
+  const id = entry.scriptIdPart || entry.id;
+  const fetched = await fetchScriptSource(id, entry.version);
+  if (!fetched.ok || !fetched.source) {
+    throw new Error(
+      `Could not fetch source for "${entry.scriptName || name || script_id}" `
+      + `(id ${id}). Tried: ${(fetched.attempted || []).join(', ') || 'none'}.`
+    );
+  }
+  const source = fetched.source;
+  return {
+    success: true,
+    name: entry.scriptName || entry.scriptTitle || name || null,
+    title: entry.scriptTitle || null,
+    script_id: id,
+    version: entry.version ?? null,
+    kind: entry.extra?.kind || entry.scriptType || entry.kind || entry.extra?.scriptType || null,
+    modified: entry.modified ?? null,
+    source,
+    line_count: source.split('\n').length,
+    char_count: source.length,
+    via: fetched.via,
+  };
+}
+
 // Re-export pure helpers for tests
-export { classifyCompileErrors, mergeScriptLists, isImportResolveError } from './pine_ui.js';
+export { classifyCompileErrors, mergeScriptLists, isImportResolveError, fetchScriptSource } from './pine_ui.js';
