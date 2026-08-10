@@ -83,4 +83,15 @@ export function registerDataTools(server) {
     try { return jsonResult(await core.getStudyValues()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
+
+  server.tool('data_get_study_series', 'Get historical per-bar plot series for one study (aligned with OHLC optionally). Reads the in-memory computed series — no replay loop. Use summary=true for compact per-plot stats.', {
+    study: z.string().optional().describe('Substring matched against study description (e.g., "RSI", "Profiler"). Omit = first study on chart.'),
+    count: z.coerce.number().optional().describe('Number of most-recent bars (max 5000, default 100)'),
+    plots: z.array(z.string()).optional().describe('Plot IDs to include (e.g., ["plot_0"]). Omit = all plots.'),
+    include_price: z.coerce.boolean().optional().describe('Also return OHLCV aligned by time (default false)'),
+    summary: z.coerce.boolean().optional().describe('Return only {min,max,last,non_null_count} per plot instead of bars (default false)'),
+  }, async ({ study, count, plots, include_price, summary }) => {
+    try { return jsonResult(await core.getStudySeries({ study, count, plots, include_price, summary })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }

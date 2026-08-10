@@ -448,6 +448,81 @@ describe('TradingView MCP — Full E2E (70 tools)', () => {
       // May be empty if no indicators on chart — that's OK
     });
 
+    it('data_get_study_series — historical plot series for a study', async () => {
+      const data = await evaluate(`
+        (function() {
+          var chart = ${CHART_API}._chartWidget;
+          var sources = chart.model().model().dataSources();
+          var target = null;
+          for (var i = 0; i < sources.length; i++) {
+            var s = sources[i];
+            if (!s.metaInfo) continue;
+            try {
+              var meta = s.metaInfo();
+              var name = meta.description || meta.shortDescription || '';
+              if (name) { target = s; break; }
+            } catch(e) {}
+          }
+          if (!target) return null;
+          var plotIds = (target.metaInfo().plots || []).map(function(p) { return p.id; });
+          var items = (target._data && target._data._items) ? target._data._items : [];
+          var bars = [];
+          var start = Math.max(0, items.length - 100);
+          for (var j = start; j < items.length; j++) {
+            var it = items[j];
+            if (!it || !it.value) continue;
+            var plotsOut = {};
+            for (var v = 0; v < plotIds.length; v++) {
+              var raw = it.value[v + 1];
+              plotsOut[plotIds[v]] = (typeof raw === 'number' && isFinite(raw)) ? raw : null;
+            }
+            bars.push({ time: it.value[0], plots: plotsOut });
+          }
+          return { study: target.metaInfo().description, plot_ids: plotIds, bar_count: bars.length, total_available: items.length, sample: bars[bars.length - 1] || null };
+        })()
+      `);
+      if (!data) return; // skip when no study on chart
+      assert.ok(data.plot_ids.length > 0, 'Has plot ids');
+      assert.ok(data.bar_count > 0, 'Has bars');
+      assert.ok(data.total_available >= data.bar_count, 'total_available >= bar_count');
+      assert.ok(data.sample && data.sample.time > 0, 'Sample bar has time');
+      // NaN/undefined must have been coerced so JSON is valid
+      JSON.stringify(data.sample.plots);
+    });
+
+    it('data_get_study_series — include_price aligns OHLC by time', async () => {
+      const data = await evaluate(`
+        (function() {
+          var chart = ${CHART_API}._chartWidget;
+          var sources = chart.model().model().dataSources();
+          var target = null;
+          for (var i = 0; i < sources.length; i++) {
+            var s = sources[i];
+            if (!s.metaInfo) continue;
+            try { if (s.metaInfo().description) { target = s; break; } } catch(e) {}
+          }
+          if (!target) return null;
+          var items = (target._data && target._data._items) ? target._data._items : [];
+          var times = {};
+          var start = Math.max(0, items.length - 50);
+          for (var j = start; j < items.length; j++) {
+            if (items[j] && items[j].value) times[items[j].value[0]] = true;
+          }
+          var mainBars = ${BARS_PATH};
+          var price = [];
+          var end = mainBars.lastIndex();
+          for (var gi = mainBars.firstIndex(); gi <= end; gi++) {
+            var v = mainBars.valueAt(gi);
+            if (v && times[v[0]]) price.push(v[0]);
+          }
+          return { study_bars: Object.keys(times).length, aligned_price_bars: price.length };
+        })()
+      `);
+      if (!data) return; // skip when no study on chart
+      assert.ok(data.study_bars > 0, 'Study has bars');
+      assert.ok(data.aligned_price_bars > 0, 'Price aligned to study times');
+    });
+
     it('data_get_indicator — study info and inputs', async () => {
       // Get a real entity_id first
       const studies = await evaluate(`${CHART_API}.getAllStudies()`);

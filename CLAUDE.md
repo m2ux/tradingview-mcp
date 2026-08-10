@@ -9,6 +9,9 @@
 2. `data_get_study_values` → current numeric values from all visible indicators (RSI, MACD, BBands, EMAs, etc.)
 3. `quote_get` → real-time price, OHLC, volume for current symbol
 
+### "Give me an indicator's history"
+- `data_get_study_series` with `study: "<name>"` → per-bar plot series for one study (no replay loop); `include_price: true` aligns OHLC by time, `summary: true` returns compact per-plot stats
+
 ### "What levels/lines/labels are showing?"
 Custom Pine indicators draw with `line.new()`, `label.new()`, `table.new()`, `box.new()`. These are invisible to normal data tools. Use:
 
