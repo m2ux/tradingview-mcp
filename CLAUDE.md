@@ -97,9 +97,15 @@ Use friendly types (`fibonacci channel`, `parallel channel`, `trend line`) or ra
 - `ui_fullscreen` → toggle fullscreen
 - `capture_screenshot` → take a screenshot (regions: "full", "chart", "strategy_tester")
 
+### "Work across multiple tabs"
+- `tab_list` → list open chart tabs (gives chart_id for each)
+- `tab_switch` → switch the active tab by index (moves UI focus + re-attaches)
+- `tv_attach` → attach the CDP client to a chart by `chart_id`/URL substring **without UI focus** (reaches background tabs); also the reconnect path when `tv_health_check` reports "Not connected"
+- Read tools (`chart_get_state`, `quote_get`, `data_get_ohlcv`, `data_get_study_values`, `data_get_study_series`, `data_get_pine_*`, `capture_screenshot`) accept an optional `target` (chart_id / URL substring) → read that tab **without** switching the active tab
+
 ### "TradingView isn't running"
 - `tv_launch` → auto-detect and launch TradingView with CDP on Mac/Win/Linux
-- `tv_health_check` → verify connection is working
+- `tv_health_check` → verify connection is working (if "Not connected", use `tv_attach` to re-attach)
 
 ## Context Management Rules
 

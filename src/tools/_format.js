@@ -47,3 +47,19 @@ export function jsonResult(obj, isError = false) {
     ...(isError && { isError: true }),
   };
 }
+
+/**
+ * Build an MCP error result from a thrown error. When the error is a transient
+ * TradingView CDP "busy" condition (marked retryable by the connection layer),
+ * the payload carries structured retryable + code + hint fields so the calling
+ * agent can adopt a wait/retry strategy instead of treating it as fatal.
+ */
+export function errorResult(err, extra = {}) {
+  const payload = { success: false, error: err.message, ...extra };
+  if (err && err.retryable) {
+    payload.retryable = true;
+    payload.code = err.code || 'TV_CDP_BUSY';
+    payload.hint = 'TradingView is temporarily busy (its CDP endpoint closed the connection). Wait ~1s and retry the same call — do not treat this as a fatal error.';
+  }
+  return jsonResult(payload, true);
+}

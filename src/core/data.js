@@ -1,8 +1,23 @@
 /**
  * Core data access logic.
  */
-import { evaluate, evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
-import { waitForChartReady } from '../wait.js';
+import { evaluate, evaluateAsync, KNOWN_PATHS, safeString, withTargetEvaluate } from '../connection.js';
+import { waitForChartReady as _defaultWaitForChartReady } from '../wait.js';
+
+// Resolve the evaluate function for a read: an injected _deps.evaluate (tests)
+// wins, then an optional `target` (chart_id / URL substring) scoped evaluate,
+// then the shared attached-tab evaluate. Targeted reads run against the chosen
+// tab without switching the MCP's active tab.
+//
+// NOTE: withTargetEvaluate closes its scoped connection when its callback
+// returns, so we must NOT resolve it to a bare evaluate here (that would hand
+// back a dead socket). Instead return an executor that opens a fresh scoped
+// connection per call and runs the expression inside it.
+async function _resolveEval({ target, _deps } = {}) {
+  if (_deps?.evaluate) return _deps.evaluate;
+  if (target) return (expression, opts) => withTargetEvaluate(target, (ev) => ev(expression, opts));
+  return evaluate;
+}
 
 // Default bar-depth ceiling. Each tool also accepts a per-call `max_bars` to
 // override this for that request (so a deep price fetch can be aligned with a
@@ -139,11 +154,12 @@ function buildGraphicsJS(collectionName, mapKey, filter) {
   `;
 }
 
-export async function getOhlcv({ count, summary, max_bars } = {}) {
+export async function getOhlcv({ count, summary, max_bars, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   let data;
   try {
-    data = await evaluate(`
+    data = await evalFn(`
       (function() {
         var bars = ${BARS_PATH};
         if (!bars || typeof bars.lastIndex !== 'function') return null;
@@ -372,25 +388,30 @@ export async function getEquity() {
   };
 }
 
-export async function getQuote({ symbol } = {}) {
+export async function getQuote({ symbol, target, _deps } = {}) {
   // Serialize: chained on _quoteLock so parallel callers run one after another.
   // Catch on the lock chain prevents a single failure from poisoning the chain.
-  const run = _quoteLock.then(() => _getQuoteInternal({ symbol }));
+  const run = _quoteLock.then(() => _getQuoteInternal({ symbol, target, _deps }));
   _quoteLock = run.then(() => {}, () => {});
   return run;
 }
 
-async function _getQuoteInternal({ symbol } = {}) {
+async function _getQuoteInternal({ symbol, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
+  const evalAsync = _deps?.evaluateAsync
+    || (target ? (expr) => withTargetEvaluate(target, (fn) => fn(expr, { awaitPromise: true })) : evaluateAsync);
+  const waitReady = _deps?.waitForChartReady
+    || ((sym) => _defaultWaitForChartReady(sym, null, undefined, evalFn));
   const requested = (symbol || '').toString().trim();
   let originalSymbol = null;
   let needsRestore = false;
 
   if (requested) {
-    try { originalSymbol = await evaluate(`${CHART_API}.symbol()`); } catch (e) {}
+    try { originalSymbol = await evalFn(`${CHART_API}.symbol()`); } catch (e) {}
     const bare = (s) => (s || '').toString().split(':').pop().toUpperCase();
     if (bare(originalSymbol) !== bare(requested)) {
       needsRestore = true;
-      await evaluateAsync(`
+      await evalAsync(`
         (function() {
           var chart = ${CHART_API};
           return new Promise(function(resolve) {
@@ -399,12 +420,12 @@ async function _getQuoteInternal({ symbol } = {}) {
           });
         })()
       `);
-      await waitForChartReady(requested);
+      await waitReady(requested);
     }
   }
 
   try {
-    const data = await evaluate(`
+    const data = await evalFn(`
       (function() {
         var api = ${CHART_API};
         var sym = '';
@@ -439,7 +460,7 @@ async function _getQuoteInternal({ symbol } = {}) {
   } finally {
     if (needsRestore && originalSymbol) {
       try {
-        await evaluateAsync(`
+        await evalAsync(`
           (function() {
             var chart = ${CHART_API};
             return new Promise(function(resolve) {
@@ -448,7 +469,7 @@ async function _getQuoteInternal({ symbol } = {}) {
             });
           })()
         `);
-        await waitForChartReady(originalSymbol);
+        await waitReady(originalSymbol);
       } catch (e) {}
     }
   }
@@ -498,8 +519,9 @@ export async function getDepth() {
   return { success: true, bid_levels: data.bids?.length || 0, ask_levels: data.asks?.length || 0, spread: data.spread, bids: data.bids || [], asks: data.asks || [], raw_values: data.raw_values, note: data.note };
 }
 
-export async function getStudyValues() {
-  const data = await evaluate(`
+export async function getStudyValues({ target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
+  const data = await evalFn(`
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
       var model = chart.model();
@@ -547,8 +569,8 @@ export async function getStudyValues() {
 // valueAt() on the list returned null for tail rows in probing, so we iterate
 // _items directly. NaN/undefined plot values are coerced to null because
 // JSON.stringify(NaN) → null silently and NaN breaks strict parsers.
-export async function getStudySeries({ study, count, plots, include_price, summary, max_bars, _deps } = {}) {
-  const evalFn = _deps?.evaluate || evaluate;
+export async function getStudySeries({ study, count, plots, include_price, summary, max_bars, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   const data = await evalFn(`
     (function() {
@@ -670,9 +692,10 @@ export async function getStudySeries({ study, count, plots, include_price, summa
   return result;
 }
 
-export async function getPineLines({ study_filter, verbose } = {}) {
+export async function getPineLines({ study_filter, verbose, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evaluate(buildGraphicsJS('dwglines', 'lines', filter));
+  const raw = await evalFn(buildGraphicsJS('dwglines', 'lines', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {
@@ -694,9 +717,10 @@ export async function getPineLines({ study_filter, verbose } = {}) {
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineLabels({ study_filter, max_labels, verbose } = {}) {
+export async function getPineLabels({ study_filter, max_labels, verbose, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evaluate(buildGraphicsJS('dwglabels', 'labels', filter));
+  const raw = await evalFn(buildGraphicsJS('dwglabels', 'labels', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const limit = max_labels || 50;
@@ -714,9 +738,10 @@ export async function getPineLabels({ study_filter, max_labels, verbose } = {}) 
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineTables({ study_filter } = {}) {
+export async function getPineTables({ study_filter, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evaluate(buildGraphicsJS('dwgtablecells', 'tableCells', filter));
+  const raw = await evalFn(buildGraphicsJS('dwgtablecells', 'tableCells', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {
@@ -742,9 +767,10 @@ export async function getPineTables({ study_filter } = {}) {
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineBoxes({ study_filter, verbose } = {}) {
+export async function getPineBoxes({ study_filter, verbose, target, _deps } = {}) {
+  const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evaluate(buildGraphicsJS('dwgboxes', 'boxes', filter));
+  const raw = await evalFn(buildGraphicsJS('dwgboxes', 'boxes', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {

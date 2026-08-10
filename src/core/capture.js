@@ -1,7 +1,8 @@
 /**
  * Core screenshot/capture logic.
  */
-import { getClient, evaluate, getChartCollection } from '../connection.js';
+import { getClient, evaluate, getChartCollection, findTargetByRef, CDP_HOST, CDP_PORT } from '../connection.js';
+import CDP from 'chrome-remote-interface';
 import { waitForChartRender } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -10,16 +11,42 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(dirname(dirname(__dirname)), 'screenshots');
 
+// Default scoped-client factory for targeted captures. Injectable via
+// _deps.makeScopedClient so tests can substitute a stub CDP connection.
+async function _makeScopedClient(targetId) {
+  const c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+  await c.Page.enable();
+  return c;
+}
+
 export async function captureScreenshot({
-  region, filename, method, waitForRender = false, stabilize_ms,
+  region, filename, method, waitForRender = false, stabilize_ms, target, _deps,
 } = {}) {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
+
+  // When a target tab is given, run against a dedicated connection to that tab
+  // (clip bounds evaluate + Page.captureScreenshot) instead of the shared client.
+  const makeScopedClient = _deps?.makeScopedClient || _makeScopedClient;
+  const targetInfo = target ? await findTargetByRef(target) : null;
+  let scopedClient = null;
+  // Lazily connected on first use so the no-target path never opens a socket.
+  const ensureScoped = async () => {
+    if (!scopedClient) scopedClient = await makeScopedClient(targetInfo.id);
+    return scopedClient;
+  };
+  const evalFn = target
+    ? async (expr) => {
+      const c = await ensureScoped();
+      const { result } = await c.Runtime.evaluate({ expression: expr, returnByValue: true });
+      return result?.value;
+    }
+    : evaluate;
 
   let renderStabilized = null;
   if (waitForRender) {
     // Softer default budget (3s) so MCP clients don't hit -32001; override via stabilize_ms
     const budget = typeof stabilize_ms === 'number' && stabilize_ms >= 0 ? stabilize_ms : 3000;
-    renderStabilized = await waitForChartRender(budget);
+    renderStabilized = await waitForChartRender(budget, evalFn);
     // Proceed even on timeout — better a slightly stale frame than a hard tool failure
   }
 
@@ -30,7 +57,7 @@ export async function captureScreenshot({
   if (method === 'api') {
     try {
       const colPath = await getChartCollection();
-      await evaluate(`${colPath}.takeScreenshot()`);
+      await evalFn(`${colPath}.takeScreenshot()`);
       return {
         success: true, method: 'api', waited_for_render: !!waitForRender,
         render_stabilized: renderStabilized,
@@ -41,44 +68,50 @@ export async function captureScreenshot({
     }
   }
 
-  const client = await getClient();
-  let clip = undefined;
+  let client;
+  try {
+    client = target ? await ensureScoped() : await getClient();
+    let clip = undefined;
 
-  if (region === 'chart') {
-    const bounds = await evaluate(`
-      (function() {
-        var el = document.querySelector('[data-name="pane-canvas"]')
-          || document.querySelector('[class*="chart-container"]')
-          || document.querySelector('canvas');
-        if (!el) return null;
-        var rect = el.getBoundingClientRect();
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-      })()
-    `);
-    if (bounds) clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
-  } else if (region === 'strategy_tester') {
-    const bounds = await evaluate(`
-      (function() {
-        var el = document.querySelector('[data-name="backtesting"]')
-          || document.querySelector('[class*="strategyReport"]');
-        if (!el) return null;
-        var rect = el.getBoundingClientRect();
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-      })()
-    `);
-    if (bounds) clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
+    if (region === 'chart') {
+      const bounds = await evalFn(`
+        (function() {
+          var el = document.querySelector('[data-name="pane-canvas"]')
+            || document.querySelector('[class*="chart-container"]')
+            || document.querySelector('canvas');
+          if (!el) return null;
+          var rect = el.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        })()
+      `);
+      if (bounds) clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
+    } else if (region === 'strategy_tester') {
+      const bounds = await evalFn(`
+        (function() {
+          var el = document.querySelector('[data-name="backtesting"]')
+            || document.querySelector('[class*="strategyReport"]');
+          if (!el) return null;
+          var rect = el.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        })()
+      `);
+      if (bounds) clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
+    }
+
+    const params = { format: 'png' };
+    if (clip) params.clip = clip;
+
+    const { data } = await client.Page.captureScreenshot(params);
+    writeFileSync(filePath, Buffer.from(data, 'base64'));
+
+    return {
+      success: true, method: 'cdp', file_path: filePath, region,
+      ...(targetInfo && { target: target, chart_id: targetInfo.url.match(/\/chart\/([^/?]+)/)?.[1] || null }),
+      waited_for_render: !!waitForRender,
+      render_stabilized: renderStabilized,
+      size_bytes: Buffer.from(data, 'base64').length,
+    };
+  } finally {
+    if (scopedClient) { try { await scopedClient.close(); } catch { /* already gone */ } }
   }
-
-  const params = { format: 'png' };
-  if (clip) params.clip = clip;
-
-  const { data } = await client.Page.captureScreenshot(params);
-  writeFileSync(filePath, Buffer.from(data, 'base64'));
-
-  return {
-    success: true, method: 'cdp', file_path: filePath, region,
-    waited_for_render: !!waitForRender,
-    render_stabilized: renderStabilized,
-    size_bytes: Buffer.from(data, 'base64').length,
-  };
 }

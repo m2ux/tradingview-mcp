@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { jsonResult } from './_format.js';
+import { jsonResult, errorResult } from './_format.js';
 import * as core from '../core/chart.js';
 
 export function registerChartTools(server) {
-  server.tool('chart_get_state', 'Get current chart state (symbol, timeframe, chart type, indicators)', {}, async () => {
-    try { return jsonResult(await core.getState()); }
-    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  server.tool('chart_get_state', 'Get current chart state (symbol, timeframe, chart type, indicators)', {
+    target: z.string().optional().describe('Target tab: chart_id, URL substring, or CDP target id (from tab_list). Reads this tab without switching the active tab. Omit for the attached tab. If the response has "retryable": true, TradingView is momentarily busy — wait ~1s and retry.'),
+  }, async ({ target }) => {
+    try { return jsonResult(await core.getState({ target })); }
+    catch (err) { return errorResult(err); }
   });
 
   server.tool('chart_set_symbol', 'Change the chart symbol', {
