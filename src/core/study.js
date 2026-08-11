@@ -22,6 +22,14 @@ function _resolve(deps) {
   };
 }
 
+// The facade returns a bare hex scriptIdPart; the chart's pine meta cache keys
+// on 'USER;<part>'. Normalize either input form to the cache key.
+function _toPineId(scriptIdPart) {
+  const s = String(scriptIdPart || '').trim();
+  if (!s) return null;
+  return s.startsWith('USER;') ? s : `USER;${s}`;
+}
+
 // Page JS: current study entity ids, in chart order. Shared by add/remove so
 // both diff the same snapshot shape.
 const STUDY_IDS_JS = `
@@ -96,6 +104,93 @@ export async function studyAdd({ indicator, overlay, _deps } = {}) {
     new_study_count: newIds.length,
     ...(entityId === null && {
       note: 'createStudy dispatched but no new study id appeared — the name may be unknown to createStudy. Built-ins need the full name; for a user Pine script use pine_add_to_chart instead.',
+    }),
+  };
+}
+
+/**
+ * Add a USER Pine script to the chart WITHOUT the Indicators dialog or the
+ * Pine editor's Add-to-chart button, via the chart's own study-meta
+ * repository — fully headless.
+ *
+ * Mechanism (confirmed against the live chart):
+ *   chart.studyMetaIntoRepository().findById({ type:'pine', pineId:'USER;<part>', pineVersion })
+ *   asynchronously compiles the script (translateScriptAsync2) and resolves a
+ *   full StudyMetaInfo, then
+ *   chart._chartWidget.model().insertStudyWithoutCheck(metaInfo, inputs, addAsOverlay)
+ *   inserts it. No dialog is opened and no DOM is touched.
+ *
+ * `script_id` is the facade scriptIdPart (bare hex, or 'USER;<part>'); the
+ * caller resolves name→id from pine_list_scripts before calling. `version`
+ * defaults to 'last' (latest saved). `overlay` forces price-overlay placement;
+ * `inputs` is an optional { inputId: value } map applied at insert time.
+ *
+ * Returns { success, entity_id, script_id, description } — entity_id is the
+ * created study's id for later targeting.
+ */
+export async function studyAddPine({ script_id, version, overlay, inputs, _deps } = {}) {
+  const pineId = _toPineId(script_id);
+  if (!pineId) throw new Error('script_id is required (facade scriptIdPart, e.g. "b6cb4e67..." or "USER;b6cb4e67..."). Use pine_list_scripts to resolve a name to an id.');
+  const { evaluate, evaluateAsync } = _resolve(_deps);
+
+  const before = await studyIds(evaluate);
+
+  const result = await evaluateAsync(`
+    (async function() {
+      var chart = ${CHART_API};
+      var repo = chart.studyMetaIntoRepository();
+      var model = chart._chartWidget.model();
+      var descriptor = { type: 'pine', pineId: ${safeString(pineId)}, pineVersion: ${safeString(version || 'last')} };
+      var meta;
+      try {
+        meta = await repo.findById(descriptor);
+      } catch (e) {
+        return { error: 'compile_failed', message: (e && e.message) ? e.message : String(e) };
+      }
+      if (!meta) return { error: 'no_meta', message: 'findById returned no metaInfo for ' + ${safeString(pineId)} };
+      var inputs = ${inputs && typeof inputs === 'object' ? JSON.stringify(inputs) : '[]'};
+      var addAsOverlay = ${overlay === true ? 'true' : overlay === false ? 'false' : 'void 0'};
+      var study = model.insertStudyWithoutCheck(meta, inputs, addAsOverlay);
+      if (!study) return { error: 'insert_failed', message: 'insertStudyWithoutCheck returned null (feature limit or checkIfFeatureAvailable refused).' };
+      return {
+        entity_id: (typeof study.id === 'function') ? study.id() : study.id,
+        description: meta.description || null,
+        fullId: meta.fullId || meta.id || null,
+      };
+    })()
+  `);
+
+  if (result?.error) {
+    return {
+      success: false,
+      action: 'add',
+      script_id: pineId,
+      error: result.error,
+      message: result.message,
+      ...(result.error === 'compile_failed' && {
+        note: 'The script failed to compile headlessly. Check pine_get_errors, or the version may not exist.',
+      }),
+    };
+  }
+
+  // insertStudyWithoutCheck returns the study synchronously, but confirm the id
+  // landed in getAllStudies so a silent no-op is reported rather than assumed.
+  const entityId = result?.entity_id || null;
+  let confirmed = entityId;
+  if (!entityId) {
+    const { entityId: polled } = await waitForNewStudyId(evaluate, before);
+    confirmed = polled;
+  }
+
+  return {
+    success: confirmed !== null,
+    action: 'add',
+    script_id: pineId,
+    entity_id: confirmed,
+    description: result?.description || null,
+    full_id: result?.fullId || null,
+    ...(confirmed === null && {
+      note: 'insertStudyWithoutCheck ran but no entity id surfaced — the study may still be initializing.',
     }),
   };
 }

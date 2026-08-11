@@ -8,7 +8,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { studyAdd, studyRemove } from '../src/core/study.js';
+import { studyAdd, studyAddPine, studyRemove } from '../src/core/study.js';
 
 // Simulate a chart whose study id list evolves as createStudy/removeEntity
 // expressions are dispatched. `existing` is the initial id list.
@@ -120,5 +120,81 @@ describe('studyRemove() — headless removeEntity', () => {
     assert.equal(r.success, false);
     assert.equal(r.removed, false);
     assert.match(r.error, /not on the chart/);
+  });
+});
+
+// Simulate the study-meta repository + model for the headless user-Pine add.
+// evaluateAsync handles the async findById/insert expression; evaluate handles
+// the getAllStudies id snapshot used for confirmation.
+function mockPineRepo({ insertResult = { entity_id: 'pine_study_1', description: 'RSI Zone Divergence', fullId: 'Script$USER;abc@tv-scripting-101' } } = {}) {
+  const asyncCalls = [];
+  const syncCalls = [];
+  const evaluateAsync = async (expr) => {
+    asyncCalls.push(expr);
+    if (insertResult.error) return { error: insertResult.error, message: insertResult.message };
+    return insertResult;
+  };
+  const evaluate = async (expr) => {
+    syncCalls.push(expr);
+    if (/getAllStudies\(\)\.map/.test(expr)) return ['pine_study_1'];
+    return undefined;
+  };
+  return { _deps: { evaluate, evaluateAsync }, asyncCalls, syncCalls };
+}
+
+describe('studyAddPine() — headless user-script add', () => {
+  it('resolves metaInfo via findById and inserts via insertStudyWithoutCheck', async () => {
+    const { _deps } = mockPineRepo();
+    const r = await studyAddPine({ script_id: 'b6cb4e67fc554e3e96bed760ab065449', _deps });
+    assert.equal(r.success, true);
+    assert.equal(r.action, 'add');
+    assert.equal(r.entity_id, 'pine_study_1');
+    assert.equal(r.description, 'RSI Zone Divergence');
+  });
+
+  it('normalizes a bare scriptIdPart to the USER; pineId and defaults version to last', async () => {
+    const { _deps, asyncCalls } = mockPineRepo();
+    await studyAddPine({ script_id: 'b6cb4e67', _deps });
+    const expr = asyncCalls[0];
+    assert.ok(expr.includes('pineId: "USER;b6cb4e67"'), 'bare id gains the USER; prefix');
+    assert.ok(expr.includes("pineVersion: \"last\""), 'version defaults to last');
+    assert.ok(/findById/.test(expr), 'findById used to resolve metaInfo');
+    assert.ok(/insertStudyWithoutCheck/.test(expr), 'insertStudyWithoutCheck used to insert');
+  });
+
+  it('keeps an already-prefixed USER; id and honors an explicit version', async () => {
+    const { _deps, asyncCalls } = mockPineRepo();
+    await studyAddPine({ script_id: 'USER;b6cb4e67', version: '101', _deps });
+    const expr = asyncCalls[0];
+    assert.ok(expr.includes('pineId: "USER;b6cb4e67"'), 'prefix preserved');
+    assert.ok(expr.includes('pineVersion: "101"'), 'explicit version passed');
+  });
+
+  it('passes overlay and inputs through to the insert call', async () => {
+    const { _deps, asyncCalls } = mockPineRepo();
+    await studyAddPine({ script_id: 'abc', overlay: true, inputs: { length: 21 }, _deps });
+    const expr = asyncCalls[0];
+    assert.ok(/var addAsOverlay = true/.test(expr), 'overlay bound');
+    assert.ok(expr.includes('"length":21'), 'inputs serialized into the insert expression');
+  });
+
+  it('requires a script_id', async () => {
+    await assert.rejects(() => studyAddPine({ _deps: mockPineRepo()._deps }), /script_id is required/);
+  });
+
+  it('surfaces a compile failure as success:false with a hint', async () => {
+    const { _deps } = mockPineRepo({ insertResult: { error: 'compile_failed', message: 'syntax error at line 3' } });
+    const r = await studyAddPine({ script_id: 'abc', _deps });
+    assert.equal(r.success, false);
+    assert.equal(r.error, 'compile_failed');
+    assert.match(r.message, /syntax error/);
+    assert.match(r.note, /failed to compile headlessly/i);
+  });
+
+  it('surfaces an insert refusal (feature limit) as success:false', async () => {
+    const { _deps } = mockPineRepo({ insertResult: { error: 'insert_failed', message: 'insertStudyWithoutCheck returned null' } });
+    const r = await studyAddPine({ script_id: 'abc', _deps });
+    assert.equal(r.success, false);
+    assert.equal(r.error, 'insert_failed');
   });
 });

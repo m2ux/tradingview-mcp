@@ -48,6 +48,7 @@ Changing the chart:
 - chart_set_symbol, chart_set_timeframe, chart_set_type → change ticker/resolution/style
 - chart_manage_indicator → add/remove studies. USE FULL NAMES: "Relative Strength Index" not "RSI"
 - study_add / study_remove → headless study lifecycle (no Indicators dialog / DOM). study_add returns entity_id; study_remove de-duplicates by entity_id
+- study_add_pine → headless add of YOUR saved Pine scripts (compile via study-meta repo + insertStudyWithoutCheck; no dialog / editor button). Pass name or script_id; prefer over indicator_add / pine_add_to_chart for My scripts
 - chart_scroll_to_date → jump to a date (ISO format)
 - indicator_set_inputs → change indicator settings (length, source, etc.)
 
