@@ -15,6 +15,7 @@ import {
   fetchScriptSource,
   fillDialogInput,
   getEditorIdentity,
+  getVisibleDialogs,
   isNameInOpenDialog,
   lookupFacadeScript,
   mergeScriptLists,
@@ -460,15 +461,30 @@ export async function getErrors() {
   };
 }
 
-export async function save() {
-  const editorReady = await ensurePineEditorOpen();
+export async function save({ _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
+  const identityFn = _deps?.getEditorIdentity || getEditorIdentity;
+  const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+  const pressKeyFn = _deps?.pressKey || pressKey;
+  const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
+
+  const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  await pressKey('s', 2);
+  // Snapshot identity + saved-version before, so we can verify the save
+  // actually persisted (a bumped version / cleared modified flag) instead of
+  // returning a bare "Ctrl+S dispatched" (issue #15).
+  const identity = await identityFn().catch(() => null);
+  const nameBefore = identity?.name || null;
+  const before = nameBefore
+    ? await lookupFn({ name: nameBefore }).catch(() => null)
+    : null;
+
+  await pressKeyFn('s', 2);
   await new Promise(r => setTimeout(r, 800));
 
   // Handle "Save Script" name dialog that appears for new/unsaved scripts
-  const dialogHandled = await evaluate(`
+  const dialogHandled = await evalFn(`
     (function() {
       var saveBtn = null;
       var btns = document.querySelectorAll('button');
@@ -487,7 +503,42 @@ export async function save() {
 
   if (dialogHandled) await new Promise(r => setTimeout(r, 500));
 
-  return { success: true, action: dialogHandled ? 'saved_with_dialog' : 'Ctrl+S_dispatched' };
+  // Verify: re-resolve the saved identity and compare version / modified.
+  // Re-read the editor name in case the save (re)named the script.
+  const identityAfter = await identityFn().catch(() => identity);
+  const nameAfter = identityAfter?.name || nameBefore;
+  const entry = nameAfter
+    ? await lookupFn({ name: nameAfter }).catch(() => null)
+    : null;
+
+  const script_id = entry?.scriptIdPart || entry?.id || before?.scriptIdPart || before?.id || null;
+  const version = entry?.version ?? null;
+  const modified = entry?.modified ?? null;
+
+  // verified: we positively resolved a saved cloud identity after the save.
+  // A bumped version or a cleared modified flag is strong confirmation; when
+  // neither is observable we still report the resolved identity but mark the
+  // persistence unverified so the caller can decide (deterministic debug loop).
+  let verified = false;
+  if (entry) {
+    const bumped = before && version != null && before.version != null && version !== before.version;
+    const cleared = before && before.modified && (modified === null || modified === false || modified === 0);
+    const freshlyCreated = !before && !!entry;
+    verified = !!(bumped || cleared || freshlyCreated || (before && !before.modified && !modified));
+  }
+
+  return {
+    success: true,
+    action: dialogHandled ? 'saved_with_dialog' : 'saved',
+    name: nameAfter,
+    script_id,
+    version,
+    modified,
+    verified,
+    ...(entry === null && {
+      note: 'Could not re-resolve a saved cloud identity (facade lookup failed) — the save may not have persisted.',
+    }),
+  };
 }
 
 export async function getConsole() {
@@ -608,17 +659,52 @@ export async function smartCompile({ require_published_imports = false } = {}) {
   };
 }
 
+// Classify a visible dialog (from getVisibleDialogs) into a typed blocking
+// reason. TradingView requires a script to be saved before "Add/Update on
+// chart" applies it — the confirmation it raises is the failure mode that used
+// to return success:true while silently keeping the old code (issue #15).
+function classifyBlockingDialog(dlg) {
+  const text = (dlg?.text || '').toLowerCase();
+  if (/save (this |the )?script|save .*before|before adding|unsaved/i.test(text)) return 'save_before_add';
+  if (/already exists|replace\?/i.test(text)) return 'replace_confirm';
+  return 'modal_dialog';
+}
+
 /**
  * Add / update the currently open Pine script on the active chart (toolbar).
  * Prefers "Add to chart" / "Update on chart" — not "Save and add…".
- * Dialog-heavy paths belong in the pine-publish skill (observe → act via ui_evaluate).
+ *
+ * Returns a typed result instead of an ambiguous count-diff (issue #15):
+ *   action: 'added' | 'updated' | 'blocked_dialog'
+ * `blocked_dialog` means TradingView raised a modal (e.g. "Save this script
+ * before adding?") and the click was intercepted — the chart kept the old
+ * code. `blocked_dialog.reason` classifies it; `dialog` carries the observed
+ * text/buttons so a caller (or the pine-publish skill) can act on it.
  */
-export async function addToChart() {
-  const editorReady = await ensurePineEditorOpen();
+export async function addToChart({ _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
+  const dialogsFn = _deps?.getVisibleDialogs || getVisibleDialogs;
+  const studyCountFn = _deps?.studyCount || studyCount;
+  const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
+
+  const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const before = await studyCount();
-  const buttonClicked = await evaluate(`
+  // Pre-check: a modal already open would intercept the click and previously
+  // surfaced as a silent success. Surface it before touching the toolbar.
+  const preDialogs = await dialogsFn();
+  if (preDialogs.length > 0) {
+    return {
+      success: false,
+      action: 'blocked_dialog',
+      reason: classifyBlockingDialog(preDialogs[0]),
+      dialog: preDialogs[0],
+      dialogs: preDialogs,
+    };
+  }
+
+  const before = await studyCountFn();
+  const buttonClicked = await evalFn(`
     (function() {
       var btns = document.querySelectorAll('button');
       var addBtn = null;
@@ -641,13 +727,37 @@ export async function addToChart() {
   }
 
   await delay(2000);
-  const after = await studyCount();
-  const studyAdded = (before !== null && after !== null) ? after > before : null;
+
+  // Post-click: did a blocking dialog appear (e.g. "Save this script before
+  // adding?")? If so the apply was intercepted — report it, don't claim success.
+  const postDialogs = await dialogsFn();
+  if (postDialogs.length > 0) {
+    return {
+      success: false,
+      action: 'blocked_dialog',
+      reason: classifyBlockingDialog(postDialogs[0]),
+      button_clicked: buttonClicked,
+      dialog: postDialogs[0],
+      dialogs: postDialogs,
+    };
+  }
+
+  const after = await studyCountFn();
+  const countIncreased = (before !== null && after !== null) ? after > before : null;
+  // Update-on-chart re-renders in place (count unchanged); Add-to-chart adds a
+  // study (count grows). Trust the button identity first — it is the ground
+  // truth of intent — and report the count signal alongside so a mismatch
+  // (e.g. an unexpected duplicate add) is visible rather than inferred.
+  const action = /^update on chart/i.test(buttonClicked) ? 'updated' : 'added';
 
   return {
     success: true,
+    action,
     button_clicked: buttonClicked,
-    study_added: studyAdded,
+    study_added: countIncreased,
+    ...(action === 'added' && countIncreased === false && {
+      warning: 'Add to chart was clicked but the study count did not increase — the study may already be on the chart (duplicate avoided) or the apply did not take.',
+    }),
   };
 }
 

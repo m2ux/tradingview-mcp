@@ -28,10 +28,13 @@ const ref = JSON.parse(readFileSync(refPath, 'utf8'));
 const study = ref.study;
 const count = ref.bar_count;
 const rsiStudy = ref.rsi_study || 'Relative Strength Index';
+// Re-target the exact study the baseline froze, when its entity id was
+// recorded — avoids first-match name drift if a duplicate study is on chart.
+const entityId = arg('entity-id', ref.entity_id || null);
 
 let live, rsi, state;
 try {
-  live = await getStudySeries({ study, count, include_price: true, target: targetSel });
+  live = await getStudySeries({ study, entity_id: entityId, count, include_price: true, target: targetSel });
   rsi = await getStudySeries({ study: rsiStudy, count, target: targetSel }).catch(() => null);
   state = await getState({ target: targetSel }).catch(() => null);
 } catch (e) {

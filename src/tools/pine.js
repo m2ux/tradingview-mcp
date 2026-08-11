@@ -47,7 +47,7 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_save', 'Save the current Pine Script (Ctrl+S)', {}, async () => {
+  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted. Returns a verifiable saved identity {name, script_id, version, modified, verified} — not just "Ctrl+S dispatched". verified=true means a saved cloud entry was positively resolved after the save.', {}, async () => {
     try { return jsonResult(await core.save()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
@@ -88,7 +88,7 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_add_to_chart', 'Add or update the currently open Pine script on the active chart (toolbar Add to chart / Update on chart). Prefer this over indicator_add for freshly saved My scripts.', {}, async () => {
+  server.tool('pine_add_to_chart', 'Add or update the currently open Pine script on the active chart (toolbar Add to chart / Update on chart). Returns a typed result: action is "added" | "updated" | "blocked_dialog". blocked_dialog means a modal (e.g. "Save this script before adding?") intercepted the apply — success=false and the chart kept the old code; run pine_save then retry. Prefer this over indicator_add for freshly saved My scripts.', {}, async () => {
     try { return jsonResult(await core.addToChart()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
