@@ -103,7 +103,7 @@ const FIND_STRATEGY_JS = `
   }
 `;
 
-function buildGraphicsJS(collectionName, mapKey, filter) {
+function buildGraphicsJS(collectionName, mapKey, filter, entityId) {
   return `
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
@@ -111,14 +111,22 @@ function buildGraphicsJS(collectionName, mapKey, filter) {
       var sources = model.model().dataSources();
       var results = [];
       var filter = ${safeString(filter || '')};
+      var entityId = ${safeString(entityId || '')};
       for (var si = 0; si < sources.length; si++) {
         var s = sources[si];
         if (!s.metaInfo) continue;
         try {
+          // entity_id selects an exact study (disambiguates duplicates); when
+          // given it wins and the name-substring filter is bypassed.
+          if (entityId) {
+            var sid = null;
+            try { sid = s.id ? s.id() : null; } catch (e) {}
+            if (String(sid) !== entityId) continue;
+          }
           var meta = s.metaInfo();
           var name = meta.description || meta.shortDescription || '';
           if (!name) continue;
-          if (filter && name.indexOf(filter) === -1) continue;
+          if (!entityId && filter && name.indexOf(filter) === -1) continue;
           var g = s._graphics;
           if (!g || !g._primitivesCollection) continue;
           var pc = g._primitivesCollection;
@@ -519,7 +527,7 @@ export async function getDepth() {
   return { success: true, bid_levels: data.bids?.length || 0, ask_levels: data.asks?.length || 0, spread: data.spread, bids: data.bids || [], asks: data.asks || [], raw_values: data.raw_values, note: data.note };
 }
 
-export async function getStudyValues({ target, _deps } = {}) {
+export async function getStudyValues({ entity_id, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const data = await evalFn(`
     (function() {
@@ -527,10 +535,16 @@ export async function getStudyValues({ target, _deps } = {}) {
       var model = chart.model();
       var sources = model.model().dataSources();
       var results = [];
+      var entityId = ${safeString(entity_id || '')};
       for (var si = 0; si < sources.length; si++) {
         var s = sources[si];
         if (!s.metaInfo) continue;
         try {
+          if (entityId) {
+            var sid = null;
+            try { sid = s.id ? s.id() : null; } catch (e) {}
+            if (String(sid) !== entityId) continue;
+          }
           var meta = s.metaInfo();
           var name = meta.description || meta.shortDescription || '';
           if (!name) continue;
@@ -569,7 +583,7 @@ export async function getStudyValues({ target, _deps } = {}) {
 // valueAt() on the list returned null for tail rows in probing, so we iterate
 // _items directly. NaN/undefined plot values are coerced to null because
 // JSON.stringify(NaN) → null silently and NaN breaks strict parsers.
-export async function getStudySeries({ study, count, plots, include_price, summary, max_bars, target, _deps } = {}) {
+export async function getStudySeries({ study, entity_id, count, plots, include_price, summary, max_bars, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   const data = await evalFn(`
@@ -577,6 +591,7 @@ export async function getStudySeries({ study, count, plots, include_price, summa
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
       var sources = chart.model().model().dataSources();
       var filter = ${safeString(study || '')};
+      var entityId = ${safeString(entity_id || '')};
       var wantPlots = ${JSON.stringify(plots || null)};
       var maxBars = ${limit};
       var target = null;
@@ -584,13 +599,22 @@ export async function getStudySeries({ study, count, plots, include_price, summa
         var s = sources[si];
         if (!s.metaInfo) continue;
         try {
+          // entity_id selects an exact study (disambiguates duplicates —
+          // first-match name substring is non-deterministic with two of the
+          // same study on chart). When given, entityId wins over the filter.
+          if (entityId) {
+            var sid = null;
+            try { sid = s.id ? s.id() : null; } catch (e) {}
+            if (String(sid) !== entityId) continue;
+            target = s; break;
+          }
           var meta = s.metaInfo();
           var name = meta.description || meta.shortDescription || '';
           if (!name) continue;
           if (!filter || name.indexOf(filter) !== -1) { target = s; break; }
         } catch(e) {}
       }
-      if (!target) return { found: false, error: filter ? 'No study matching "' + filter + '" on chart.' : 'No studies on chart.' };
+      if (!target) return { found: false, error: entityId ? 'No study with entity_id "' + entityId + '" on chart.' : (filter ? 'No study matching "' + filter + '" on chart.' : 'No studies on chart.') };
 
       var meta2 = target.metaInfo();
       var plotMeta = meta2.plots || [];
@@ -692,10 +716,10 @@ export async function getStudySeries({ study, count, plots, include_price, summa
   return result;
 }
 
-export async function getPineLines({ study_filter, verbose, target, _deps } = {}) {
+export async function getPineLines({ study_filter, entity_id, verbose, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evalFn(buildGraphicsJS('dwglines', 'lines', filter));
+  const raw = await evalFn(buildGraphicsJS('dwglines', 'lines', filter, entity_id));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {
@@ -717,10 +741,10 @@ export async function getPineLines({ study_filter, verbose, target, _deps } = {}
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineLabels({ study_filter, max_labels, verbose, target, _deps } = {}) {
+export async function getPineLabels({ study_filter, entity_id, max_labels, verbose, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evalFn(buildGraphicsJS('dwglabels', 'labels', filter));
+  const raw = await evalFn(buildGraphicsJS('dwglabels', 'labels', filter, entity_id));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const limit = max_labels || 50;
@@ -738,10 +762,10 @@ export async function getPineLabels({ study_filter, max_labels, verbose, target,
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineTables({ study_filter, target, _deps } = {}) {
+export async function getPineTables({ study_filter, entity_id, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evalFn(buildGraphicsJS('dwgtablecells', 'tableCells', filter));
+  const raw = await evalFn(buildGraphicsJS('dwgtablecells', 'tableCells', filter, entity_id));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {
@@ -767,10 +791,10 @@ export async function getPineTables({ study_filter, target, _deps } = {}) {
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineBoxes({ study_filter, verbose, target, _deps } = {}) {
+export async function getPineBoxes({ study_filter, entity_id, verbose, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const filter = study_filter || '';
-  const raw = await evalFn(buildGraphicsJS('dwgboxes', 'boxes', filter));
+  const raw = await evalFn(buildGraphicsJS('dwgboxes', 'boxes', filter, entity_id));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
 
   const studies = raw.map(s => {

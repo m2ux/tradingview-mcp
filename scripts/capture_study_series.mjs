@@ -9,6 +9,7 @@
 // Usage:
 //   node scripts/capture_study_series.mjs --study "RSI Zone Divergence" \
 //        --target od9I4OCz --count 300 --price --out scripts/reference/rszonediv_4d_300.json
+//   node scripts/capture_study_series.mjs --entity-id FzvERz --count 300 --price   # exact study (issue #15)
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { getStudySeries, getQuote } from '../src/core/data.js';
@@ -21,6 +22,7 @@ function arg(name, dflt) {
   return v === undefined ? dflt : v;
 }
 const study = arg('study', 'RSI Zone Divergence');
+const entityId = arg('entity-id', null); // exact study entity id — wins over --study (issue #15)
 const count = parseInt(arg('count', '300'), 10);
 const includePrice = process.argv.includes('--price');
 const outPath = arg('out', null);
@@ -29,6 +31,7 @@ const targetSel = arg('target', null); // chart_id or URL substring to pick the 
 
 const opts = { count, include_price: includePrice };
 if (targetSel) opts.target = targetSel;
+if (entityId) opts.entity_id = entityId;
 
 let main;
 try {

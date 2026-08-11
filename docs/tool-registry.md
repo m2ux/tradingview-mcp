@@ -37,6 +37,10 @@ Read and control the chart itself — symbol, timeframe, type, and view.
 - **Offers:** Add or remove a study.
 - **Limitations:** Needs the **full indicator name** ("Relative Strength Index", not "RSI"). For search-by-name adds, prefer `indicator_add`.
 
+### `study_add` / `study_remove` / `study_add_pine`
+- **Offers:** Headless study lifecycle with **no Indicators dialog / DOM**. `study_add` (chart.createStudy) returns the new `entity_id` for later targeting; `study_remove` (chart.removeEntity) removes by `entity_id` and verifies it's gone — enabling de-duplication and cleanup that a name-based remove can't do. `study_add_pine` adds one of **your saved Pine scripts** headlessly — it compiles via the chart's study-meta repository (`findById { type:'pine', pineId, pineVersion }`) and inserts via `insertStudyWithoutCheck`, so no dialog or Pine editor button is involved. Pass a `name` (resolved via the facade) or `script_id`; optional `version` (default `last`), `overlay`, and `inputs` applied at insert time. Optional `overlay` on `study_add` (price overlay vs separate pane), optional `undo` on `study_remove`.
+- **Limitations:** `study_add` covers **built-in** studies (full name). For a **user Pine script** use `study_add_pine` (preferred) or `pine_add_to_chart`. `study_add_pine` only reaches scripts in your own saved list (facade), not community scripts. createStudy applies default inputs — override afterwards via `indicator_set_inputs`. `entity_id`s are per-session (re-read `chart_get_state` after reconnect).
+
 ### `chart_get_visible_range` / `chart_set_visible_range`
 - **Offers:** Read the visible date/bar window, or zoom to an exact unix-timestamp range.
 - **Limitations:** Uses unix seconds; out-of-data ranges clamp to whatever bars exist.
@@ -72,12 +76,12 @@ Prices, indicators, strategy results, and the drawings your Pine scripts make.
 - **Limitations:** Only where the symbol and your TradingView plan actually provide depth.
 
 ### `data_get_study_values`
-- **Offers:** Current values from all visible indicators (RSI, MACD, BB, EMAs, custom `plot()`s).
+- **Offers:** Current values from all visible indicators (RSI, MACD, BB, EMAs, custom `plot()`s). Pass `entity_id` to read just one study.
 - **Limitations:** Visible studies only; hidden studies don't report.
 
 ### `data_get_study_series`
-- **Offers:** Historical per-bar plot series for one study (e.g. `study: "RSI"`), optionally aligned with OHLC (`include_price: true`), plus a compact `summary: true` mode (`{min,max,last,non_null_count}` per plot). Single call — no replay loop.
-- **Limitations:** Depth is limited to bars currently loaded in the chart (`total_available` reports what's in memory) and to `count` ≤ the cap (per-call `max_bars`, default 500 / `TV_MAX_BARS`). Omitting `study` selects the first study on the chart. Missing/`NaN` plot values serialize as `null`.
+- **Offers:** Historical per-bar plot series for one study (e.g. `study: "RSI"`), optionally aligned with OHLC (`include_price: true`), plus a compact `summary: true` mode (`{min,max,last,non_null_count}` per plot). Single call — no replay loop. Pass **`entity_id`** to target an exact study — essential when two of the same study are on the chart (name substring is first-match, non-deterministic there).
+- **Limitations:** Depth is limited to bars currently loaded in the chart (`total_available` reports what's in memory) and to `count` ≤ the cap (per-call `max_bars`, default 500 / `TV_MAX_BARS`). Omitting both `study` and `entity_id` selects the first study on the chart. Missing/`NaN` plot values serialize as `null`.
 
 ### `data_get_indicator`
 - **Offers:** Info and input values for a study.
@@ -88,7 +92,7 @@ Prices, indicators, strategy results, and the drawings your Pine scripts make.
 - **Limitations:** Auto-opens the panel and unhides a hidden strategy (TradingView won't compute reports for hidden ones). Requires a strategy on the chart.
 
 ### `data_get_pine_lines` / `data_get_pine_labels` / `data_get_pine_tables` / `data_get_pine_boxes`
-- **Offers:** Read what custom Pine indicators draw — price levels, text labels, table rows, zones (`line.new`/`label.new`/`table.new`/`box.new`). Use `study_filter` to target one indicator.
+- **Offers:** Read what custom Pine indicators draw — price levels, text labels, table rows, zones (`line.new`/`label.new`/`table.new`/`box.new`). Target one indicator with `study_filter` (name substring) **or `entity_id`** (exact study — disambiguates duplicates; wins over `study_filter`).
 - **Limitations:** The indicator must be **visible** on the chart. Labels are capped (default 50 per study, `max_labels` to override).
 
 ---
@@ -118,16 +122,16 @@ Develop, compile, and debug Pine in the editor.
 - **Limitations:** Uses the UI path — never orphan `pine-facade/save/new` alone. Replace prompts require `replace: true`.
 
 ### `pine_add_to_chart`
-- **Offers:** Toolbar Add to chart / Update on chart for the currently open script.
-- **Limitations:** Prefer this over `indicator_add` for freshly saved My scripts (search lag).
+- **Offers:** Toolbar Add to chart / Update on chart for the currently open script, with a **typed result**: `action` is `added` | `updated` | `blocked_dialog`. `blocked_dialog` means a modal (e.g. "Save this script before adding?") intercepted the apply — `success=false`, the chart kept the old code, and `reason`/`dialog` describe the block. Detects add-vs-update and duplicate-avoidance instead of an ambiguous count diff.
+- **Limitations:** Prefer this over `indicator_add` for freshly saved My scripts (search lag). On `blocked_dialog` with reason `save_before_add`, run `pine_save` then retry.
 
 ### `pine_publish`
 - **Offers:** Drive the Publish wizard (`privacy: private|public`, optional `description`). Handles the Add-to-chart gate. Returns `{pubId, version}` for `import user/Lib/N`.
 - **Limitations:** Cloud side effect on your TradingView account; confirm the open identity first.
 
 ### `pine_save` / `pine_new` / `pine_list_scripts`
-- **Offers:** Save to cloud; blank editor templates; list saved scripts with `kind`, `published_version`, and `ui_visible` / `in_open_dialog` (orphan detection when a facade-saved id is missing from Open dialog).
-- **Limitations:** `pine_new` only injects a template — it does **not** register a publishable identity (use `pine_copy` / Save as). Listing with `check_ui_visible` opens the Open dialog briefly.
+- **Offers:** `pine_save` saves to cloud and **verifies it persisted** — returns `{name, script_id, version, modified, verified}` instead of a bare "Ctrl+S dispatched" (`verified=true` means a saved cloud entry was positively resolved: version bumped, modified flag cleared, or script freshly created). `pine_new` makes blank editor templates; `pine_list_scripts` lists saved scripts with `kind`, `published_version`, and `ui_visible` / `in_open_dialog` (orphan detection when a facade-saved id is missing from Open dialog).
+- **Limitations:** `pine_new` only injects a template — it does **not** register a publishable identity (use `pine_copy` / Save as). `pine_save` reports `verified:false` with a note when the saved identity can't be re-resolved (facade lookup failed) — treat the save as unconfirmed. Listing with `check_ui_visible` opens the Open dialog briefly.
 
 ### `pine_analyze`
 - **Offers:** Offline static analysis — array out-of-bounds, unguarded `first()/last()`, bad loop bounds, implicit bool casts. No TradingView connection needed.
@@ -261,7 +265,7 @@ The server and the TradingView process itself.
 
 ### `indicator_add`
 - **Offers:** Search the Indicators dialog and add by name — works for strategies and community scripts too. Retries when My scripts lag after save. Returns the new study's entity_id.
-- **Limitations:** Fresh My scripts may still miss — prefer `pine_add_to_chart` from the open editor.
+- **Limitations:** Drives the Indicators dialog DOM. For one of **your saved Pine scripts** prefer the headless `study_add_pine` (no dialog); for freshly saved My scripts `pine_add_to_chart` from the open editor. `indicator_add` remains the path for **community/public** scripts, which the headless tools don't reach.
 
 ### `indicator_get_inputs`
 - **Offers:** List `[{id, value, title?}]` for a study — usable `in_*` ids for align-before-verify without dumping encrypted text blobs.
@@ -284,12 +288,12 @@ The server and the TradingView process itself.
 ## Watchlist
 
 ### `watchlist_get`
-- **Offers:** All symbols in the current watchlist with last price, change, change%.
-- **Limitations:** The active watchlist only.
+- **Offers:** All symbols in a watchlist, **headless** via the `symbols_list` REST API — no watchlist panel is opened and no DOM rows are scraped. Returns `list_id` / `list_name` plus the symbol membership.
+- **Limitations:** The REST payload carries symbol membership, **not** live per-row quotes (last/change/change%/volume) — use `quote_get` per symbol for those. Defaults to the active watchlist; pass `list_id` to read another.
 
 ### `watchlist_add` / `watchlist_add_bulk` / `watchlist_remove`
-- **Offers:** Add one, add many, or remove symbols.
-- **Limitations:** Symbols must resolve; removal matches by symbol.
+- **Offers:** Add one, add many, or remove symbols — **headless** via `POST symbols_list/custom/{id}/append/` and `/remove/` (no search-box UI). Bare tickers resolve server-side; pass `EXCHANGE:SYMBOL` for an unqualified symbol. Add is idempotent (`already_present` when the symbol is already listed); remove verifies the symbols are gone afterwards. All accept an optional `list_id` to target a non-active watchlist.
+- **Limitations:** Removal matches by symbol (bare or full form). Adds rely on TradingView to resolve the symbol server-side.
 
 ---
 

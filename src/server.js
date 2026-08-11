@@ -15,6 +15,7 @@ import { registerWatchlistTools } from './tools/watchlist.js';
 import { registerUiTools } from './tools/ui.js';
 import { registerPaneTools } from './tools/pane.js';
 import { registerTabTools } from './tools/tab.js';
+import { registerStudyTools } from './tools/study.js';
 
 const server = new McpServer(
   {
@@ -30,7 +31,7 @@ TOOL SELECTION GUIDE — use this to pick the right tool:
 Reading your chart:
 - chart_get_state → get symbol, timeframe, all indicator names + entity IDs (call first)
 - data_get_study_values → get current numeric values from ALL visible indicators (RSI, MACD, BB, EMA, etc.)
-- data_get_study_series → get historical per-bar plot series for ONE study, optional include_price OHLC alignment, summary=true for compact stats
+- data_get_study_series → get historical per-bar plot series for ONE study, optional include_price OHLC alignment, summary=true for compact stats. Pass entity_id to disambiguate duplicate studies
 - quote_get → get real-time price snapshot (last, OHLC, volume)
 - data_get_ohlcv → get price bars. ALWAYS pass summary=true unless you need individual bars
 - indicator_get_inputs → list in_* ids/values for align-before-verify (no encrypted blobs)
@@ -40,20 +41,22 @@ Reading custom Pine indicator output (line.new/label.new/table.new/box.new drawi
 - data_get_pine_labels → text annotations with prices ("PDH 24550", "Bias Long", etc.)
 - data_get_pine_tables → table data as formatted rows (session stats, analytics dashboards)
 - data_get_pine_boxes → price zones as {high, low} pairs
-- ALWAYS pass study_filter to target a specific indicator by name (e.g., study_filter="Profiler")
+- ALWAYS pass study_filter (name substring) or entity_id (exact study) to target a specific indicator (e.g., study_filter="Profiler")
 - Indicators must be VISIBLE on chart for these to work
 
 Changing the chart:
 - chart_set_symbol, chart_set_timeframe, chart_set_type → change ticker/resolution/style
 - chart_manage_indicator → add/remove studies. USE FULL NAMES: "Relative Strength Index" not "RSI"
+- study_add / study_remove → headless study lifecycle (no Indicators dialog / DOM). study_add returns entity_id; study_remove de-duplicates by entity_id
+- study_add_pine → headless add of YOUR saved Pine scripts (compile via study-meta repo + insertStudyWithoutCheck; no dialog / editor button). Pass name or script_id; prefer over indicator_add / pine_add_to_chart for My scripts
 - chart_scroll_to_date → jump to a date (ISO format)
 - indicator_set_inputs → change indicator settings (length, source, etc.)
 
 Pine Script development (create → publish → render → verify):
 - pine_open → Open-dialog identity switch (Save/Publish target); refuses header mismatch
 - pine_copy / pine_save_as → registered Make a copy (never orphan facade save/new)
-- pine_set_source → inject code (optional script_name guard); pine_save → save
-- pine_add_to_chart → toolbar Add for open script (prefer over indicator_add for fresh My scripts)
+- pine_set_source → inject code (optional script_name guard); pine_save → save + verify (returns script_id/version/verified)
+- pine_add_to_chart → toolbar Add/Update for open script; typed action added|updated|blocked_dialog (prefer over indicator_add for fresh My scripts)
 - pine_publish → Publish wizard; returns pubId + version for import user/Lib/N
 - pine_list_scripts → kind / published_version / ui_visible orphan flags
 - pine_smart_compile → compile + import_errors; optional require_published_imports
@@ -102,6 +105,7 @@ registerWatchlistTools(server);
 registerUiTools(server);
 registerPaneTools(server);
 registerTabTools(server);
+registerStudyTools(server);
 
 // Startup notice (stderr so it doesn't interfere with MCP stdio protocol)
 process.stderr.write('⚠  tradingview-mcp  |  Unofficial tool. Not affiliated with TradingView Inc. or Anthropic.\n');
