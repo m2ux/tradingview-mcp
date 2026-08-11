@@ -839,4 +839,55 @@ export async function studyCount(_deps = {}) {
   `);
 }
 
+/**
+ * Read the live Monaco buffer's source AND the title declared inside it
+ * (indicator()/strategy()/library() first arg). This is the ground truth of
+ * what a Save would actually persist — as opposed to the editor header name,
+ * which can be stale when the buffer is bound to a different script than the
+ * header shows (the unbound-editor trap behind pine_save verified:false).
+ * Returns { source, declared_title, char_count } or null when no editor.
+ */
+export async function getEditorBufferInfo(_deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const result = await evalFn(`
+    (function() {
+      function usable(el) {
+        if (!el) return false;
+        var r = el.getBoundingClientRect();
+        return (el.offsetParent !== null || el.getClientRects().length > 0) && r.width >= 40 && r.height >= 40;
+      }
+      var c = null;
+      var pref = document.querySelectorAll('.monaco-editor.pine-editor-monaco');
+      for (var i = 0; i < pref.length; i++) { if (usable(pref[i])) { c = pref[i]; break; } }
+      if (!c) {
+        var any = document.querySelectorAll('.monaco-editor');
+        for (var j = 0; j < any.length; j++) { if (usable(any[j])) { c = any[j]; break; } }
+      }
+      if (!c) return null;
+      var el = c, fk = null;
+      for (var k = 0; k < 20; k++) { if (!el) break; fk = Object.keys(el).find(function(x) { return x.startsWith('__reactFiber$'); }); if (fk) break; el = el.parentElement; }
+      if (!fk) return null;
+      var cur = el[fk], ed = null;
+      for (var d = 0; d < 15; d++) {
+        if (!cur) break;
+        if (cur.memoizedProps && cur.memoizedProps.value && cur.memoizedProps.value.monacoEnv) {
+          var env = cur.memoizedProps.value.monacoEnv;
+          if (env.editor && typeof env.editor.getEditors === 'function') {
+            var eds = env.editor.getEditors();
+            if (eds.length) { ed = eds[0]; break; }
+          }
+        }
+        cur = cur.return;
+      }
+      if (!ed) return null;
+      var src = ed.getValue();
+      if (typeof src !== 'string') return null;
+      var m = src.match(/(?:^|\\n)\\s*(?:indicator|strategy|library|study)\\s*\\(\\s*(?:title\\s*=\\s*)?(['"])((?:\\\\.|(?!\\1).)*)\\1/);
+      var title = m ? m[2] : null;
+      return { source: src, declared_title: title, char_count: src.length };
+    })()
+  `);
+  return result || null;
+}
+
 export { delay };

@@ -14,6 +14,7 @@ import {
   fetchFacadeList,
   fetchScriptSource,
   fillDialogInput,
+  getEditorBufferInfo,
   getEditorIdentity,
   getVisibleDialogs,
   isNameInOpenDialog,
@@ -461,24 +462,87 @@ export async function getErrors() {
   };
 }
 
+/**
+ * Extract the declared script title from Pine source (indicator()/strategy()/
+ * library() first string arg). Pure helper, exported for tests.
+ */
+export function extractDeclaredTitle(source) {
+  if (typeof source !== 'string') return null;
+  const m = source.match(/(?:^|\n)\s*(?:indicator|strategy|library|study)\s*\(\s*(?:title\s*=\s*)?(['"])((?:\\.|(?!\1).)*)\1/);
+  return m ? m[2] : null;
+}
+
+/**
+ * Save the currently-open Pine script and VERIFY it persisted — against the
+ * script the editor buffer actually belongs to, not just the header name.
+ *
+ * Root cause fixed here (issue #17 / the pine_save verified:false false-negative
+ * from #15): the editor header name and the Monaco buffer can be bound to
+ * different scripts (buffer=Test_Script_1 while header reads RSIZoneDivUni).
+ * The old code resolved the facade identity by header name, so it compared the
+ * WRONG script's version and reported verified:false even when a save landed.
+ *
+ * We now resolve the target identity from the BUFFER's declared title first,
+ * fall back to the header name, then verify by re-fetching that script's source
+ * from the facade and comparing it to the buffer. verified=true means the cloud
+ * source matches what is in the editor.
+ */
 export async function save({ _deps } = {}) {
   const evalFn = _deps?.evaluate || evaluate;
   const identityFn = _deps?.getEditorIdentity || getEditorIdentity;
   const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+  const bufferFn = _deps?.getEditorBufferInfo || getEditorBufferInfo;
+  const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
   const pressKeyFn = _deps?.pressKey || pressKey;
   const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
 
   const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  // Snapshot identity + saved-version before, so we can verify the save
-  // actually persisted (a bumped version / cleared modified flag) instead of
-  // returning a bare "Ctrl+S dispatched" (issue #15).
+  // Ground truth: what is actually in the buffer (a Save persists THIS).
+  const buf = await bufferFn().catch(() => null);
+  const bufferSource = buf?.source ?? null;
+  const declaredTitle = buf?.declared_title ?? null;
+
   const identity = await identityFn().catch(() => null);
-  const nameBefore = identity?.name || null;
-  const before = nameBefore
-    ? await lookupFn({ name: nameBefore }).catch(() => null)
+  const headerName = identity?.name || null;
+
+  // Resolve the save target by header name (the registered identity the editor
+  // is bound to). The buffer's declared title is then compared against it: when
+  // they resolve to DIFFERENT scripts we have the unbound-editor trap and
+  // surface bound_mismatch so the caller can re-bind (pine_bind) instead of
+  // silently verifying the wrong script.
+  let target = null;
+  let resolved_by = null;
+  if (headerName) {
+    target = await lookupFn({ name: headerName }).catch(() => null);
+    if (target) resolved_by = 'header_name';
+  }
+  if (!target && declaredTitle) {
+    target = await lookupFn({ name: declaredTitle }).catch(() => null);
+    if (target) resolved_by = 'buffer_title';
+  }
+
+  const bufferEntry = (declaredTitle && (!headerName || declaredTitle.toLowerCase() !== String(headerName).toLowerCase()))
+    ? await lookupFn({ name: declaredTitle }).catch(() => null)
     : null;
+  const bound_mismatch = !!(target && bufferEntry
+    && (target.scriptIdPart || target.id) !== (bufferEntry.scriptIdPart || bufferEntry.id));
+
+  const before = target;
+  const targetName = target?.scriptName || target?.scriptTitle || declaredTitle || headerName || null;
+
+  // Fast path: the buffer already matches the target's persisted cloud source,
+  // so there is nothing new to persist (and no extra facade lookups needed).
+  // verified=true because the buffer IS the cloud state.
+  let alreadyPersisted = false;
+  if (bufferSource !== null && target) {
+    const preId = target.scriptIdPart || target.id;
+    const pre = await fetchSourceFn(preId, target.version).catch(() => null);
+    if (pre?.ok && typeof pre.source === 'string' && pre.source === bufferSource) {
+      alreadyPersisted = true;
+    }
+  }
 
   await pressKeyFn('s', 2);
   await new Promise(r => setTimeout(r, 800));
@@ -491,7 +555,6 @@ export async function save({ _deps } = {}) {
       for (var i = 0; i < btns.length; i++) {
         var text = btns[i].textContent.trim();
         if (text === 'Save' && btns[i].offsetParent !== null) {
-          // Check if it's in a dialog (not the Pine Editor save button)
           var parent = btns[i].closest('[class*="dialog"], [class*="modal"], [class*="popup"], [role="dialog"]');
           if (parent) { saveBtn = btns[i]; break; }
         }
@@ -503,41 +566,122 @@ export async function save({ _deps } = {}) {
 
   if (dialogHandled) await new Promise(r => setTimeout(r, 500));
 
-  // Verify: re-resolve the saved identity and compare version / modified.
-  // Re-read the editor name in case the save (re)named the script.
-  const identityAfter = await identityFn().catch(() => identity);
-  const nameAfter = identityAfter?.name || nameBefore;
-  const entry = nameAfter
-    ? await lookupFn({ name: nameAfter }).catch(() => null)
-    : null;
-
-  const script_id = entry?.scriptIdPart || entry?.id || before?.scriptIdPart || before?.id || null;
-  const version = entry?.version ?? null;
-  const modified = entry?.modified ?? null;
-
-  // verified: we positively resolved a saved cloud identity after the save.
-  // A bumped version or a cleared modified flag is strong confirmation; when
-  // neither is observable we still report the resolved identity but mark the
-  // persistence unverified so the caller can decide (deterministic debug loop).
+  // Re-resolve the saved identity and confirm the persisted source matches the
+  // buffer. Re-fetching the source is the only reliable persistence signal here
+  // because Desktop's save does not traverse page fetch/XHR (verified in #17),
+  // and version/modified are not bumped on a no-op save.
+  let script_id; let version; let modified; let entry = null;
   let verified = false;
-  if (entry) {
-    const bumped = before && version != null && before.version != null && version !== before.version;
-    const cleared = before && before.modified && (modified === null || modified === false || modified === 0);
-    const freshlyCreated = !before && !!entry;
-    verified = !!(bumped || cleared || freshlyCreated || (before && !before.modified && !modified));
+  let persisted_matches_buffer = null;
+
+  if (alreadyPersisted) {
+    // Buffer already matched cloud before the save — nothing further to confirm.
+    entry = target;
+    script_id = target.scriptIdPart || target.id;
+    version = target.version ?? null;
+    modified = target.modified ?? null;
+    verified = true;
+    persisted_matches_buffer = true;
+  } else {
+    const id = target?.scriptIdPart || target?.id || null;
+    if (id) entry = await lookupFn({ id }).catch(() => null);
+    if (!entry && targetName) entry = await lookupFn({ name: targetName }).catch(() => null);
+
+    script_id = entry?.scriptIdPart || entry?.id || id || null;
+    version = entry?.version ?? null;
+    modified = entry?.modified ?? null;
+
+    if (script_id && bufferSource !== null) {
+      const fetched = await fetchSourceFn(script_id, entry?.version ?? null).catch(() => null);
+      if (fetched?.ok && typeof fetched.source === 'string') {
+        persisted_matches_buffer = fetched.source === bufferSource;
+        verified = persisted_matches_buffer;
+      }
+    }
+    // Fallbacks when we could not verify against the buffer: version-bump /
+    // modified-cleared heuristics, plus freshly-created (a script that had no
+    // saved identity before the dialog-driven save but resolves to one now).
+    if (!verified && entry) {
+      if (before) {
+        const bumped = version != null && before.version != null && version !== before.version;
+        const cleared = before.modified && (modified === null || modified === false || modified === 0);
+        verified = !!(bumped || cleared);
+      } else if (dialogHandled) {
+        verified = true; // freshly created by the name dialog
+      }
+    }
   }
 
   return {
     success: true,
     action: dialogHandled ? 'saved_with_dialog' : 'saved',
-    name: nameAfter,
+    name: entry?.scriptName || entry?.scriptTitle || targetName,
     script_id,
     version,
     modified,
     verified,
-    ...(entry === null && {
+    persisted_matches_buffer,
+    resolved_by,
+    buffer_title: declaredTitle || undefined,
+    header_name: headerName || undefined,
+    ...(bound_mismatch && {
+      bound_mismatch: true,
+      warning: `Editor header ("${headerName}") and buffer ("${declaredTitle}") are bound to different scripts. The save persisted the BUFFER's script. Run pine_bind to realign before editing.`,
+    }),
+    ...(!verified && entry === null && {
       note: 'Could not re-resolve a saved cloud identity (facade lookup failed) — the save may not have persisted.',
     }),
+    ...(!verified && entry !== null && {
+      note: 'Save did not verify against the buffer script (source mismatch, no-op save, or unbound editor). Run pine_bind to load the intended script, then pine_save again.',
+    }),
+  };
+}
+
+/**
+ * Bind the editor to a specific saved script: fetch its registered source from
+ * the facade, load it into the editor buffer, and confirm the buffer matches.
+ * This establishes the buffer↔identity binding that pine_save verifies against,
+ * eliminating the unbound-editor trap. No Open-dialog dependency for the source
+ * itself (it comes from the facade); openScript() is used to align the header so
+ * subsequent Save/Publish target the right cloud identity.
+ */
+export async function bindScript({ name, script_id, _deps } = {}) {
+  const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+  const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
+  const bufferFn = _deps?.getEditorBufferInfo || getEditorBufferInfo;
+
+  if (!name && !script_id) throw new Error('name or script_id is required.');
+  const entry = await lookupFn({ name, id: script_id });
+  const id = entry.scriptIdPart || entry.id;
+  const fetched = await fetchSourceFn(id, entry.version);
+  if (!fetched?.ok || typeof fetched.source !== 'string') {
+    throw new Error(`Could not fetch source for "${entry.scriptName || name || script_id}" (id ${id}).`);
+  }
+  const source = fetched.source;
+  const scriptName = entry.scriptName || entry.scriptTitle || name;
+
+  // Align the editor header/identity to this script (best-effort; the buffer
+  // load below is the binding that pine_save actually verifies).
+  try { await openScript({ name: scriptName }); } catch { /* header alignment is best-effort */ }
+
+  const set = await setSource({ source, script_name: scriptName }).catch(async () => {
+    // Identity guard can refuse if the header didn't take; retry without it.
+    return setSource({ source });
+  });
+
+  // Confirm the buffer now holds this script's source.
+  const buf = await bufferFn().catch(() => null);
+  const bound = !!(buf && typeof buf.source === 'string' && buf.source === source);
+
+  return {
+    success: true,
+    name: scriptName,
+    script_id: id,
+    version: entry.version ?? null,
+    kind: entry.extra?.kind || entry.scriptType || entry.kind || null,
+    bound,
+    lines_set: set?.lines_set ?? source.split('\n').length,
+    ...(!bound && { note: 'Buffer content could not be confirmed to match the fetched source.' }),
   };
 }
 

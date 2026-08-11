@@ -55,7 +55,8 @@ Changing the chart:
 Pine Script development (create → publish → render → verify):
 - pine_open → Open-dialog identity switch (Save/Publish target); refuses header mismatch
 - pine_copy / pine_save_as → registered Make a copy (never orphan facade save/new)
-- pine_set_source → inject code (optional script_name guard); pine_save → save + verify (returns script_id/version/verified)
+- pine_set_source → inject code (optional script_name guard); pine_save → save + verify AGAINST the buffer's script (returns script_id/version/verified/persisted_matches_buffer; flags bound_mismatch on the unbound-editor trap)
+- pine_bind → fetch a saved script's facade source into the buffer and confirm the match; establishes the binding pine_save verifies — use to escape bound_mismatch / verified:false before editing
 - pine_add_to_chart → toolbar Add/Update for open script; typed action added|updated|blocked_dialog (prefer over indicator_add for fresh My scripts)
 - pine_publish → Publish wizard; returns pubId + version for import user/Lib/N
 - pine_list_scripts → kind / published_version / ui_visible orphan flags
