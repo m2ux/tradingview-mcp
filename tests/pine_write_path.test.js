@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToChart, save } from '../src/core/pine.js';
+import { addToChart, save, extractDeclaredTitle } from '../src/core/pine.js';
 
 // Build the _deps seam for addToChart. `script` drives the mocked page state:
 //   { button, beforeCount, afterCount, preDialogs, postDialogs }
@@ -79,12 +79,15 @@ describe('addToChart() — typed results', () => {
 });
 
 // Build the _deps seam for save. `script` drives identity + facade lookups.
+// getEditorBufferInfo is injected as null (no readable buffer) so save() falls
+// back to the version-bump heuristic — the path these tests exercise.
 function saveDeps(script) {
   return {
     evaluate: async () => script.dialogHandled,
     ensurePineEditorOpen: async () => true,
     pressKey: async () => {},
     getEditorIdentity: async () => ({ name: script.name }),
+    getEditorBufferInfo: async () => null,
     lookupFacadeScript: async () => {
       const e = script.entries.shift();
       if (!e) throw new Error('not found');
@@ -133,5 +136,63 @@ describe('save() — verifiable saved identity', () => {
     assert.equal(r.action, 'saved_with_dialog');
     assert.equal(r.script_id, 'xyz');
     assert.equal(r.verified, true); // freshly created
+  });
+});
+
+// save() with a readable buffer: verifies against the BUFFER's script, not the
+// header name (issue #17 — the unbound-editor trap behind verified:false).
+describe('save() — buffer-aware verification (issue #17)', () => {
+  const BUFFER_SRC = '//@version=4\nstudy(title="Pin Bar RSI Divergence with Auto Fibonacci", shorttitle="PBI")\nplot(close)\n';
+
+  it('verifies by re-fetching the buffer script source and matching the buffer', async () => {
+    const _deps = {
+      evaluate: async () => false,
+      ensurePineEditorOpen: async () => true,
+      pressKey: async () => {},
+      getEditorIdentity: async () => ({ name: 'Test_Script_1' }),
+      getEditorBufferInfo: async () => ({ source: BUFFER_SRC, declared_title: 'Pin Bar RSI Divergence with Auto Fibonacci', char_count: BUFFER_SRC.length }),
+      lookupFacadeScript: async ({ name, id } = {}) => {
+        if (id === 'USER;test1' || name === 'Test_Script_1') return { scriptIdPart: 'USER;test1', scriptName: 'Test_Script_1', scriptTitle: 'Pin Bar RSI Divergence with Auto Fibonacci', version: '43.0', modified: 1673466816 };
+        throw new Error('not found');
+      },
+      fetchScriptSource: async () => ({ ok: true, source: BUFFER_SRC, via: 'GET /get/id' }),
+    };
+    const r = await save({ _deps });
+    assert.equal(r.success, true);
+    assert.equal(r.script_id, 'USER;test1');
+    assert.equal(r.verified, true);
+    assert.equal(r.persisted_matches_buffer, true);
+    assert.equal(r.resolved_by, 'header_name');
+    assert.equal(r.buffer_title, 'Pin Bar RSI Divergence with Auto Fibonacci');
+  });
+
+  it('flags bound_mismatch when header and buffer resolve to different scripts', async () => {
+    const _deps = {
+      evaluate: async () => false,
+      ensurePineEditorOpen: async () => true,
+      pressKey: async () => {},
+      getEditorIdentity: async () => ({ name: 'RSIZoneDivUni' }),               // header
+      getEditorBufferInfo: async () => ({ source: BUFFER_SRC, declared_title: 'Pin Bar RSI Divergence with Auto Fibonacci', char_count: BUFFER_SRC.length }), // buffer
+      lookupFacadeScript: async ({ name, id } = {}) => {
+        if (name === 'RSIZoneDivUni' || id === 'USER;rsi') return { scriptIdPart: 'USER;rsi', scriptName: 'RSIZoneDivUni', version: '2.0', modified: 1786459090 };
+        if (name === 'Pin Bar RSI Divergence with Auto Fibonacci' || id === 'USER;test1') return { scriptIdPart: 'USER;test1', scriptName: 'Test_Script_1', scriptTitle: 'Pin Bar RSI Divergence with Auto Fibonacci', version: '43.0', modified: 1673466816 };
+        throw new Error('not found');
+      },
+      fetchScriptSource: async () => ({ ok: false, source: null, via: null }),
+    };
+    const r = await save({ _deps });
+    assert.equal(r.bound_mismatch, true);
+    assert.match(r.warning, /bound to different scripts/);
+  });
+});
+
+describe('extractDeclaredTitle', () => {
+  it('reads indicator/strategy/library first-arg titles', () => {
+    assert.equal(extractDeclaredTitle('//@version=6\nindicator("My Ind", overlay=true)'), 'My Ind');
+    assert.equal(extractDeclaredTitle('strategy(\'My Strat\')'), 'My Strat');
+    assert.equal(extractDeclaredTitle('library("MyLib")'), 'MyLib');
+    assert.equal(extractDeclaredTitle('study(title="Pin Bar RSI Divergence", shorttitle="PBI")'), 'Pin Bar RSI Divergence');
+    assert.equal(extractDeclaredTitle('plot(close)'), null);
+    assert.equal(extractDeclaredTitle('not a string' && null), null);
   });
 });

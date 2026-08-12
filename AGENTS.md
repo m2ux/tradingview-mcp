@@ -48,7 +48,8 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 1. `pine_open` → open by registered identity (Open dialog); never treat Monaco inject as open
 2. `pine_copy` / `pine_save_as` → registered copy for publishable scripts (not orphan facade save/new)
 3. `pine_set_source` → inject code (pass `script_name` to refuse wrong header identity)
-4. `pine_save` → save to TradingView cloud
+4. `pine_save` → save to TradingView cloud and verify against the buffer's script (flags `bound_mismatch` on the unbound-editor trap); if `verified:false` or `bound_mismatch`, run `pine_bind` first
+4b. `pine_bind` → fetch a saved script's facade source into the buffer and confirm the match — establishes the binding `pine_save` verifies against
 5. `pine_add_to_chart` → add open script to chart (prefer over `indicator_add` for fresh My scripts)
 6. `pine_publish` → publish library/script; returns pubId + version for `import user/Lib/N`
 7. `pine_smart_compile` → compile + check errors (`import_errors` for unpublished imports)

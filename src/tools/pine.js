@@ -47,8 +47,16 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted. Returns a verifiable saved identity {name, script_id, version, modified, verified} — not just "Ctrl+S dispatched". verified=true means a saved cloud entry was positively resolved after the save.', {}, async () => {
+  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted AGAINST THE BUFFER\'S script (not just the header name). Detects the unbound-editor trap (header and buffer bound to different scripts) and reports bound_mismatch instead of a bare verified:false. verified=true means the cloud source now matches the editor buffer. Returns {name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name}.', {}, async () => {
     try { return jsonResult(await core.save()); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
+  server.tool('pine_bind', 'Bind the editor to a saved script: fetch its registered source from the facade, load it into the buffer, and confirm the buffer matches. Establishes the buffer↔identity binding that pine_save verifies against — use this to escape the unbound-editor trap (verified:false / bound_mismatch) before editing and saving. No Open-dialog dependency for the source itself.', {
+    name: z.string().optional().describe('Saved script name to bind (exact match preferred)'),
+    script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
+  }, async ({ name, script_id } = {}) => {
+    try { return jsonResult(await core.bindScript({ name, script_id })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
