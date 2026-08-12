@@ -50,6 +50,7 @@ in any session:
 | `04-refactoring-playbook.md` | Minimal-change sequencing, mirror-collapse limits, side-parameterization, symmetry |
 | `05-anti-pattern-catalog.md` | Quick-scan list of every anti-pattern with its detection signature and fix |
 | `data/` | Frozen reference captures (UKOIL 30m SymLo baseline; UKOIL 5m three-way SymLo/SymHi discrimination) — the evidence behind `02` §7, `04` §6, `05` P7/P8 |
+| `06-optimization-plan-and-progress.md` | **Resumption doc** — the RSIZoneDiv optimization plan, progress, artifact locations, and next steps. Start here when resuming in a new chat. |
 
 ## How to use
 
