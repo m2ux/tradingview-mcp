@@ -1,0 +1,467 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © theansweris42
+
+//@version=5
+
+// @description Adaptive RSI overbought/oversold zone and intensity engine for RSIHeat / RSIZoneDiv
+library("RSIZones")
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Zone Object ///
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Mint object ///
+
+export type mint
+	// Application vars
+	float rsi1
+	float rsi_ch1 = 0.0
+	float rsi_ch2 = 0.0
+	float mid = 50.0
+	float band_h_1 = 0.0
+	float band_h_0 = 0.0
+	float band_h_w = 0.0
+	float band_l_1 = 0.0
+	float band_l_0 = 0.0
+	float band_l_w = 0.0
+
+	// Display vars
+	bool rzh_1 = false
+	bool rzh_0 = false
+	bool rzh_w = false
+	bool rzh_x = false
+	bool rzh_v = false
+	bool rzl_1 = true
+	bool rzl_0 = true
+	bool rzl_w = true
+	bool rzl_x = true
+	bool rzl_v = true
+	float rzh = 0.0
+	float rzl = 0.0
+
+	// Calc vars
+	float ref_rh = 5.0
+	float ref_th = 5.0	
+	float ref_x = 0.0
+	float ref_y = 0.0
+	float ref_w = 0.0
+	float ref_z = 0.0
+	float ref_0 = 0.0
+	float ref_1 = 0.0
+	float ref_0_ch = 0.0
+	float rsi_opk = 0.0
+	float rsi_apk = 0.0
+	float rsi_ipk = 0.0
+	float rsi_dth = 0.0
+	float rz_odpk = 0.0
+	float rz_idpk = 0.0
+	bool is_rb_in = false
+	bool is_rb_out = false
+	bool is_rsi_pk = false
+	bool is_v_complete = false
+
+// Zone add function
+export method zone_add(mint this, float a, float b) =>
+    x = this.rzh_x ? a + b : a - b
+    x
+
+// Zone subtract function
+export method zone_subtr(mint this, float a, float b) =>
+    x = this.rzh_x ? a - b : a + b
+    x
+
+// Zone greater-than function
+export method is_zone_gt(mint this, float a, float b) =>
+    bool x = this.rzh_x and a > b or this.rzl_x and a < b
+
+// Zone greater-than-or-equal function
+export method is_zone_gte(mint this, float a, float b) =>
+    bool x = this.rzh_x and a >= b or this.rzl_x and a <= b
+
+// Zone less-than function
+export method is_zone_lt(mint this, float a, float b) =>
+    bool x = this.rzh_x and a < b or this.rzl_x and a > b
+    x
+
+// Zone less-than-or-equal function
+method is_zone_lte(mint this, float a, float b) =>
+    bool x = this.rzh_x and a <= b or this.rzl_x and a >= b
+    x
+
+// Zone rise function
+method is_zone_rise(mint this, x) =>
+    this.is_zone_gt(x, x[1])
+
+export method to_float(bool x) =>
+	x ? 1.0 : 0.0
+
+export method to_bool(float x) =>
+	x == 0.0 ? false : true
+
+// Zone-dependant peak detection
+export method is_zone_peak(mint this, float x) =>
+	this.is_zone_gt(x[1],x[2]) and this.is_zone_lte(x,x[1])
+
+// Zone-dependant trough detection
+export method is_zone_trough(mint this, float x) =>
+	this.is_zone_lt(x[1],x[2]) and this.is_zone_gte(x,x[1])
+
+export method rz(mint this) =>
+	this.rzh_x ? this.rzh : this.rzl
+
+export method rz_0(mint this) =>
+	this.rzh_x ? this.rzh_0 : this.rzl_0
+
+export method rz_x(mint this) =>
+	this.rzh_x ? this.rzh_x : this.rzl_x
+
+export method rz_w(mint this) =>
+	this.rzh_x ? this.rzh_w : this.rzl_w
+
+export method is_rz_w(mint this) =>
+    this.rzh_w or this.rzl_w
+
+export method is_rz_0(mint this) =>
+	this.rzh_0 or this.rzl_0
+
+export method is_rz_1(mint this) =>
+	this.rzh_1 or this.rzl_1
+
+export method no_x_fall(mint this) =>
+	ta.falling(to_float(this.rzl_x), 1) == false and ta.falling(to_float(this.rzh_x), 1) == false
+	
+export method no_w_fall(mint this) =>
+	ta.falling(to_float(this.rzl_w), 1) == false and ta.falling(to_float(this.rzh_w), 1) == false
+	
+export method no_w_rise(mint this) =>
+	ta.rising(to_float(this.rzl_w), 1) == false and ta.rising(to_float(this.rzh_w), 1) == false
+	
+export method no_0_rise(mint this) =>
+	ta.rising(to_float(this.rzl_0), 1) == false and ta.rising(to_float(this.rzh_0), 1) == false
+
+export method is_z_rise(mint this) =>
+	ta.rising(this.rzl, 1) or ta.rising(this.rzh, 1)
+
+export method is_v_rise(mint this) =>
+	ta.rising(to_float(this.rzl_v), 1) or ta.rising(to_float(this.rzh_v), 1)
+
+export method is_w_rise(mint this) =>
+	ta.rising(to_float(this.rzl_w), 1) or ta.rising(to_float(this.rzh_w), 1)
+	
+export method is_0_rise(mint this) =>
+	ta.rising(to_float(this.rzl_0), 1) or ta.rising(to_float(this.rzh_0), 1)
+	
+export method is_w_fall(mint this) =>
+	ta.falling(to_float(this.rzl_w), 1) or ta.falling(to_float(this.rzh_w), 1)
+	
+export method is_x_fall(mint this) =>
+	ta.falling(to_float(this.rzl_x), 1) or ta.falling(to_float(this.rzh_x), 1)
+
+export method is_0_fall(mint this) =>
+	ta.falling(to_float(this.rzl_0), 1) or ta.falling(to_float(this.rzh_0), 1)
+	
+export method is_1_fall(mint this) =>
+	ta.falling(to_float(this.rzl_1), 1) or ta.falling(to_float(this.rzh_1), 1)
+
+export method is_1_rise(mint this) =>
+	ta.rising(to_float(this.rzl_1), 1) or ta.rising(to_float(this.rzh_1), 1)
+
+export method is_rzl_fall(mint this) =>
+	ta.falling(this.rzl, 1)
+
+export method is_rzl_x_rise(mint this) =>
+	ta.rising(to_float(this.rzl_x), 1)
+
+export method is_rzl_w_fall(mint this) =>
+	ta.falling(to_float(this.rzl_w), 1)
+
+export method is_rzl_w_rise(mint this) =>
+	ta.rising(to_float(this.rzl_w), 1)
+
+export method no_rzl_rise(mint this) =>
+	ta.rising(this.rzl, 1) == false
+
+export method is_rzl_rise(mint this) =>
+	ta.rising(this.rzl, 1)
+
+export method no_rzl_fall(mint this) =>
+	ta.falling(this.rzl, 1) ? false : true
+
+export method is_rzh_fall(mint this) =>
+	ta.falling(this.rzh, 1)
+
+export method is_rzh_x_rise(mint this) =>
+	ta.rising(to_float(this.rzh_x), 1)
+
+export method is_rzh_w_fall(mint this) =>
+	ta.falling(to_float(this.rzh_w), 1)
+
+export method is_rzh_w_rise(mint this) =>
+	ta.rising(to_float(this.rzh_w), 1)
+
+export method no_rzh_rise(mint this) =>
+	ta.rising(this.rzh, 1) == false
+
+export method is_rzh_rise(mint this) =>
+	ta.rising(this.rzh, 1)
+
+export method no_rzh_fall(mint this) =>
+	ta.falling(this.rzh, 1) ? false : true
+
+export method to_rb_out(mint this) =>
+	ta.rising(to_float(this.is_rb_out),1)
+
+export method from_rb_out(mint this) =>
+	ta.falling(to_float(this.is_rb_out),1)
+
+// Summit Peak-Band (Low)
+export method zone_summit_peak(mint this, float sp) =>
+	rz = this.rz()
+	is_rz_rise = ta.rising(rz, 1)
+
+	not this.rz_0() ? 0 : 
+	 is_rz_rise ? rz :
+     rz > sp ? rz :
+     sp
+
+// Range Peak-Band
+export method zone_range_peak(mint this, float sp, float rp) =>
+	not this.rz_w() ? 0 :
+     sp > rp ? sp :
+     rp
+
+// Zone Peak-Band
+export method zone_peak(mint this, float sp, float zp) =>
+	not this.rz_x() ? 0 :
+	 sp > zp ? sp :
+	 zp
+
+// Summit Trough 
+export method zone_summit_trough(mint this, float rp) =>
+	rz = this.rz()
+	not this.rz_w() ? 0 :
+     rz < rp ? rp - rz :
+     0
+
+export method calc(mint this, float l_rsi, float ip_lx, float ip_hx, float ip_rh, float ip_th, float rz0_hys, float rz1_hys) =>
+
+	// Calculations
+	this.rsi1 := l_rsi
+
+	//// Crossover Detection Signals
+	this.rzh_x := this.rzh_w ? true : 
+			 	 this.rzl_x ? false : 
+			 	 not this.rzh_x ? true : 
+			 	 this.rsi1 > this.ref_x ? true :
+				 false
+
+	this.rzl_x := this.rzl_w ? true :
+				 this.rzh_x ? false : 
+				 not this.rzl_x ? true :
+				 this.rsi1 < this.ref_x ? true :
+				 false
+
+	// Re-evaluate RZH_X after RZL_X update
+	this.rzh_x := ta.falling(to_float(this.rzl_x), 1) ? true :
+			   this.rzh_x
+
+	//// Intensity Band Signal: w
+	this.rzh_w := not this.rzh_x ? false : 
+											 not this.rzh_w ? 
+											  this.rsi1 >= this.ref_0 ? true : false :
+											  this.rsi1 < this.ref_w and this.rsi1[1] < this.ref_0 ? false : true
+											 
+	this.rzl_w := not this.rzl_x ? false :
+											  not this.rzl_w ? 
+											   this.rsi1 <= this.ref_0 ? true : false : 
+				   						       this.rsi1 > this.ref_w and this.rsi1[1] > this.ref_0 ? false : true
+
+	//// Intensity Band Signal: v
+	this.rzh_v := not this.rzh_x ? false : 
+				 this.rzh_v ?
+			      this.rsi1 > this.mid ? true : false :
+			      this.rzh_w ? true : false
+											 
+	this.rzl_v := not this.rzl_x ? false :
+				 this.rzl_v ?
+			      this.rsi1 < this.mid ? true : false :
+			      this.rzl_w ? true : false
+
+	//// Intensity Band Signal: h0
+	this.rzh_0 := not this.rzh_w ? false : 
+			   not this.rzh_0 and this.rsi1 >= this.ref_0 ? true :
+			   this.rzh_0 and (this.rsi1 + rz0_hys) < this.ref_0 ? false :
+			   this.rzh_0
+
+	//// Intensity Band Signal: l0
+	this.rzl_0 := not this.rzl_w ? false :
+			   not this.rzl_0 and this.rsi1 <= this.ref_0 ? true :
+			   this.rzl_0 and (this.rsi1 - rz0_hys) > this.ref_0 ? false :
+			   this.rzl_0
+
+	//// High-Side Peak Intensity Band Signal: h1
+	this.rzh_1 := not this.rzh_0 ? false :
+			   not this.rzh_1 and this.rsi1 >= this.ref_1 ? true :
+			   this.rzh_1 and (this.rsi1 + rz1_hys) <= this.ref_1 ? false :
+			   this.rzh_1
+
+	//// Low-Side Peak Intensity Band Signal: l1
+	this.rzl_1 := not this.rzl_0 ? false :
+			   not this.rzl_1 and this.rsi1 <= this.ref_1 ? true :
+			   this.rzl_1 and (this.rsi1 - rz1_hys) > this.ref_1 ? false :
+			   this.rzl_1
+
+	///// High/Low Band Indices
+	this.rzh := not this.rzh_1 ? not this.rzh_0 ? not this.rzh_w ? not this.rzh_v ? 0.0 : 1.0 : 2.0 : 3.0 : 4.0
+	this.rzl := not this.rzl_1 ? not this.rzl_0 ? not this.rzl_w ? not this.rzl_v ? 0.0 : 1.0 : 2.0 : 3.0 : 4.0
+
+	// RSI Reference Thresholds //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	this.ref_x := this.mid + (this.rzh_x ? -ip_lx : ip_hx)
+	this.ref_y := this.mid + (this.rzh_x ? ip_hx : -ip_lx)
+	this.ref_z := this.zone_add(this.mid, 0)
+
+	this.rsi_ch1 := this.is_zone_lt(this.zone_subtr(this.rsi1, this.ref_rh), this.ref_x) ? this.ref_x : this.zone_subtr(this.rsi1, this.ref_rh)
+	this.rsi_ch2 := this.is_zone_lt(this.zone_subtr(this.rsi1, this.ref_th), this.ref_x) ? this.ref_x : this.zone_subtr(this.rsi1, this.ref_th)
+
+	this.is_rsi_pk := this.is_zone_peak(this.rsi1)
+
+	// RSI Band Evaluation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// RSI inner-band flag
+	this.is_rb_in := this.is_zone_gt(this.rsi1, this.ref_0) or this.is_x_fall() ? false :	// +VE trigger: RSI above W threshold
+					   this.is_zone_lt(this.rsi1, this.ref_w) ? true :					// -VE trigger: RSI below W threshold
+					   this.is_rb_in													// By default, keep the existing value
+
+	// RSI inner-band flag
+	this.is_rb_out := this.is_zone_gt(this.rsi1, this.ref_0) or this.is_x_fall() ? true :	// +VE trigger: RSI above W threshold
+					   this.is_zone_lt(this.rsi1, this.ref_w) ? false :					// -VE trigger: RSI below W threshold
+					   this.is_rb_out													// By default, keep the existing value
+
+	// RSI Peak Evaluation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Outer-Peak Level
+	this.rsi_opk := this.is_x_fall() ? this.rsi1 :										// Reset value to RSI on zone crossover
+					 this.is_zone_gt(this.rsi1, this.rsi_opk) ? this.rsi1 :				// Update value if RSI exceeds the existing outer-peak value for the zone
+					 this.rsi_opk														// By default, keep the existing value
+
+	// Inner-Peak Level
+	this.rsi_ipk := this.rsi_opk != this.rsi_opk[1] ? this.rsi1 :						// Set inner-peak to RSI on any outer-peak change
+					 this.is_zone_lt(this.rsi1, this.rsi_ipk) ? this.rsi1 :				// If RSI falls below the inner-peak for the zone, update inner-peak to the RSI value
+					 this.rsi_ipk														// By default, keep the existing value
+
+	// Area-Peak Level
+	this.rsi_apk := this.is_x_fall() ? this.rsi1 :										// Reset value to RSI on zone crossover
+					 this.is_zone_gt(this.rsi1, this.rsi_apk) and this.is_rb_out or 	// RSI is greater than local-peak with outer bands active OR
+					 this.is_zone_lt(this.rsi1, this.rsi_apk) and this.is_rb_in ? 		// RSI is less than local-peak with no outer bands active
+					  this.rsi1 :   													// Update local-peak to RSI
+					 this.rsi_apk														// By default, keep the existing value
+
+	// RSI dynamic threshold
+	this.rsi_dth := this.is_rb_out and this.is_rsi_pk ? this.zone_subtr(this.rsi_apk, ip_th) :
+					 this.is_rb_in and this.is_rsi_pk ? this.zone_add(this.rsi_apk, ip_rh) :
+	 				 this.rsi_dth
+
+	// Zone Dynamic Peak Evaluation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Zone outer dynamic peak
+	this.rz_odpk := this.is_x_fall() ? this.rsi1 :										// Reset value to RSI on crossover
+                     this.is_zone_gt(this.rsi_apk, this.rsi_opk[1]) ? this.rsi_opk :	// Track an increase in the outer-peak level
+                     this.is_zone_gt(this.rsi_apk, this.rz_odpk) ? this.rsi_apk :		// Ensure outer-dynamic peak is never below the local-peak
+                     this.rz_odpk														// By default, keep the existing value
+
+	// Zone inner dynamic peak
+	this.rz_idpk := this.rz_odpk != this.rz_odpk[1] ? this.rsi1 :						// Track RSI unless there's an outer dynamic-peak change
+					 this.is_zone_lt(this.rsi_apk, this.rsi_ipk[1]) ? this.rsi_ipk :	// Track a decrease in the area-peak level
+					 this.is_zone_lt(this.rsi_apk, this.rz_idpk) ? this.rsi_apk :		// Ensure inner-dynamic peak is below the area-peak
+					 this.rz_idpk														// By default, keep the existing value
+
+	// Reference Thresholds ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Reference Band 1
+	this.ref_1 := this.rz_odpk
+
+	// Reference Band 0
+	this.ref_0 := this.is_zone_rise(this.rz_odpk) ? this.rsi1 :									// Reset value on an outer dynamic peak rise
+				   this.is_rb_out ? this.rsi_apk :												// Band 0, 1: Use the area-peak value
+				   not this.is_rsi_pk ? this.ref_0 :											// Band W: While no RSI peak, keep the existing value
+				   this.is_zone_gt(this.rsi_dth, this.rsi_opk) ? this.rsi_opk : 				// Limit value to the outer-peak
+				   this.is_zone_lt(this.rsi_dth, this.ref_z) ? this.zone_add(this.ref_z, 5)	:	// Limit value to the Z ref
+				   this.rsi_dth	
+
+	// Reference Band W
+	this.ref_w := this.is_x_fall() ? this.rsi_ch1 :										// Reset value to RSI on crossover
+				   this.is_rb_out ? this.zone_subtr(this.ref_0, ip_th) :				// Band 0, 1: Use the ch2 offset from ref0 (ref0 - ch2)
+				   not this.is_rsi_pk ? this.ref_w :									// Band W: If a local-peak plateau is not reached, keep the existing value
+				   this.rsi_apk														// Otherwise Use the area peak
+	
+	this.ref_w := this.is_zone_lt(this.ref_w, this.mid) ? this.mid : this.ref_w			// Truncate ref_w to the mid-line
+
+	// Band Thresholds ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	ref_l = to_float(this.rzh_x) * this.ref_x
+	ref_h = to_float(this.rzl_x) * this.ref_x
+
+	// High-Band Thresholds
+	this.band_h_1 := ref_h + to_float(this.rzh_x) * this.ref_1
+	this.band_h_0 := ref_h + to_float(this.rzh_x) * this.ref_0
+	this.band_h_w := ref_h + to_float(this.rzh_x) * this.ref_w
+
+	// Low-Band Thresholds
+	this.band_l_1 := ref_l + to_float(this.rzl_x) * this.ref_1
+	this.band_l_0 := ref_l + to_float(this.rzl_x) * this.ref_0
+	this.band_l_w := ref_l + to_float(this.rzl_x) * this.ref_w
+
+	is_v_rise = this.is_v_rise()
+	this.is_v_complete := this.is_x_fall() or this.is_1_rise() ? false : is_v_rise ? true : this.is_v_complete
+
+	this.ref_th := ip_th
+	this.ref_rh := ip_rh
+
+	this
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Offsets object ///
+
+export type offsets
+	float high_offset_x
+	float high_offset_w
+	float high_offset_v
+	float high_offset_0
+	float high_offset_1
+	float low_offset_x
+	float low_offset_w
+	float low_offset_v
+	float low_offset_0
+	float low_offset_1
+	float ut_x
+	float ut_w
+	float ut_0
+	float ut_1
+	float lt_x
+	float lt_w
+	float lt_0
+	float lt_1
+	float high_ref
+	float low_ref
+
+export method calc(offsets this, mint mint1, float origin_os, float sx, float oh, float ol) =>
+	
+	///// Signal origin levels
+	this.high_ref := oh - origin_os + (5*sx)
+	this.low_ref := ol + origin_os - (5*sx)
+
+	///// Signal high-level origin levels
+	this.high_offset_x := mint1.rzh_x ? this.high_ref - sx : this.high_ref
+	this.high_offset_v := mint1.rzh > 0 ? this.high_offset_x - sx : this.high_offset_x
+	this.high_offset_w := mint1.rzh > 1 ? this.high_offset_x - 2*sx : this.high_offset_v
+	this.high_offset_0 := mint1.rzh > 2 ? this.high_offset_x - 3*sx : this.high_offset_w
+	this.high_offset_1 := mint1.rzh > 3 ? this.high_offset_x - 4*sx : this.high_offset_0
+
+	///// Signal low-level origin levels
+	this.low_offset_x := mint1.rzl_x ? this.low_ref + sx : this.low_ref
+	this.low_offset_v := mint1.rzl > 0 ? this.low_offset_x + sx : this.low_offset_x
+	this.low_offset_w := mint1.rzl > 1 ? this.low_offset_x + 2*sx : this.low_offset_v
+	this.low_offset_0 := mint1.rzl > 2 ? this.low_offset_x + 3*sx : this.low_offset_w
+	this.low_offset_1 := mint1.rzl > 3 ? this.low_offset_x + 4*sx : this.low_offset_0
+
+	this.ut_x := this.high_offset_x - (sx * mint1.rzh)
+	this.lt_x := this.low_offset_x + (sx * mint1.rzl)
+
+	this
