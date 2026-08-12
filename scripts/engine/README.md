@@ -43,5 +43,7 @@ diff 58/58 signals, drift 0, both polarities present. This refactor is **regress
 1. Extract pure helpers into the engine library (pure move).
 2. Introduce the `ZoneState` adapter for RSIZones.
 3. Move the per-side state machine into the engine as `step()` (explicit `prev*`, not `var` UDT `[1]`).
-4. Generalize the adapter seam; document the contract.
+4. Generalize the adapter seam; document the contract. **Paper exercise:** map two hypothetical
+   sources (fixed-threshold RSI bands; Bollinger-%B) onto `ZoneState` and generalize any field that
+   leaks RSIZones semantics before the published API is locked at step 5.
 5. Privately publish + pin the engine library; switch the shell to the published import.
