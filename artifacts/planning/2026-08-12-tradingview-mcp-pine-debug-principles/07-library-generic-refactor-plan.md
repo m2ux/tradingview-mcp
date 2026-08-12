@@ -139,10 +139,12 @@ Each step is independently diffed against the 30m gate. **No step merges red.**
    Collapse the two near-identical per-side blocks into one engine call per side, with `prev*`
    passed explicitly. *Expected: 58/58 identical.* This is the step the UDT collapse got wrong —
    done here with flat-history `prev*` passing, not `var` UDT `[1]`.
-4. **Step 4 — Generalize the adapter seam.**
+4. **Step 4 — Generalize the adapter seam + prove the contract on paper.**
    Define the adapter as the only place a concrete library is named; document the `ZoneState`
-   contract so a second zone source can be dropped in. (Optionally demonstrate with a trivial
-   fixed-threshold zone source to prove genericity.) *Expected: 58/58 identical for RSIZones.*
+   contract. **Paper exercise (decision §9.3):** map two hypothetical sources (fixed-threshold RSI
+   bands; Bollinger-%B) onto `ZoneState` and generalize any field that leaks RSIZones semantics
+   (prime suspects: the `z0/zw/zx` three-band model, `isWFall`) *before* the API is locked at
+   Step 5. *Expected: 58/58 identical for RSIZones.*
 5. **Step 5 — Publish + pin the engine library; update the indicator to the published import.**
    Follows the `pine-publish` skill (private publish, `import user/RSIZoneDivEngine/1`).
    Re-freeze if the published import path changes anything (it should not).
@@ -167,11 +169,22 @@ Each step is independently diffed against the 30m gate. **No step merges red.**
 - Updated `scripts/reference/` — re-frozen gate if any step legitimately shifts behavior (none expected).
 - This plan + step diffs recorded in the PR.
 
-## 9. Open questions for the reviewer
+## 9. Decisions (2026-08-12)
 
-1. **Engine as a published library vs. inline include?** Pine has no local includes — reuse across
-   indicators requires a published library (`import user/.../N`). Plan assumes published (Step 5).
-2. **One generic shell vs. keep SymLo as the RSIZones-specific build?** Leaning to: the generic
-   shell *becomes* the RSIZones build (adapter = RSIZones), so there's a single source of truth.
-3. **Demonstrate genericity with a second zone source now, or defer?** Leaning to defer (Step 4
-   optional) — prove the seam is clean by contract, add a second source when one is actually needed.
+1. **Engine as a published library.** ✅ Agreed. Pine has no local includes — reuse across
+   indicators requires a published library (`import user/RSIZoneDivEngine/N`). Step 5 publishes
+   and pins it via the registered-copy flow.
+2. **Single generic shell.** ✅ Agreed. The generic shell *becomes* the RSIZones build (adapter =
+   RSIZones), so there is a single source of truth — no separate RSIZones-specific SymLo build.
+3. **Proving genericity — paper exercise at Step 4.** ✅ Agreed (middle path). Do **not** build a
+   second published zone source now (its signals can't be regression-gated — they're *supposed* to
+   differ — so it adds a library + maintenance surface without adding a gate). Instead, at Step 4,
+   write down how **two hypothetical alternative sources** map onto `ZoneState`:
+   (a) fixed-threshold RSI bands (`rzh_x = rsi1 > 70`, `rzl_x = rsi1 < 30`, crude 0–4 intensity);
+   (b) a Bollinger-%B zone source. If either mapping forces a `ZoneState` field to be
+   re-interpreted or dropped, that field is RSIZones-specific (the `z0/zw/zx` three-band model and
+   `isWFall` are the prime suspects) and must be renamed/generalized **before** the published API
+   is locked at Step 5. Rationale: mirrors `04` §4 — "the interface is generic" is a hypothesis to
+   check, not a fact; the paper exercise surfaces leaked semantics at a fraction of the cost of a
+   second library, and once the engine is pinned as `import user/RSIZoneDivEngine/1`, changing
+   `ZoneState` is a breaking change to a pinned API.
