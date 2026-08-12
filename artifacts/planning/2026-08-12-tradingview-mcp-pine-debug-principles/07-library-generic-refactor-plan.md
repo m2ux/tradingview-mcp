@@ -1,6 +1,6 @@
 # RSIZoneDiv — Library-Generic Refactor Plan
 
-> Work package · tradingview-mcp · 2026-08-12 · **Status:** Step 1 sources complete & pushed — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`, commit `2798dba`). **Cloud publish BLOCKED** by a corrupt TradingView workspace (see §10). Decisions locked (§9).
+> Work package · tradingview-mcp · 2026-08-12 · **Status:** Step 1 sources complete & pushed — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`, commit `2798dba`). **Cloud publish BLOCKED** by a corrupt TradingView facade identity (title stuck at "E2E Test"; fresh-layout path ruled out — see §10). Decisions locked (§9). **Needs a manual UI reset of the corrupt scripts before the engine can be published.**
 >
 > **Companion reading:** `01-pine-language-semantics.md` (esp. §1 UDT history, §3 lazy eval),
 > `04-refactoring-playbook.md` (esp. §2 collapse limits, §3 side-parameterization, §7 asymmetry
@@ -221,15 +221,19 @@ compile clean. The blocker is purely environmental. `RSIZones` still has `publis
 are unaffected.
 
 **Recovery options (pick one, then re-run Step 1 publish + 58/58 gate):**
-- **A. Manual UI reset (preferred).** In TradingView Desktop: open Pine Editor, use
-  Open-script → for each corrupt script (`RSIZones`, `RSIHeat`, `RSIZoneDivEngine`,
+- **A. Manual UI reset (preferred — now the only viable path).** In TradingView Desktop: open Pine
+  Editor, use Open-script → for each corrupt script (`RSIZones`, `RSIHeat`, `RSIZoneDivEngine`,
   `RSIZoneDivEngineLib`) either delete it or open + Save-as a clean name; then create the engine
   fresh via New → library → paste `rszonediv_engine.pine` → Save as `RSIZoneDivEngine` → publish
   private. Then set the shell's import and re-run the gate.
-- **B. Fresh layout + repair.** `layout_new`, then repair the corrupt scripts as in A.
-- **C. Live with `RSIZoneDivEngineLib`.** If the title corruption can't be cleaned, keep the
-  `RSIZoneDivEngineLib` identity and point the shell at `import user/RSIZoneDivEngineLib/1`
-  (rename the plan's `RSIZoneDivEngine` accordingly). Only viable once saves persist again.
+- **B. ~~Fresh layout~~ — RULED OUT (tried 2026-08-12).** Created `RSIZoneDiv Engine Step1`
+  (chart `qcMVr4ZO`). On the fresh layout the copy became `ui_visible:true` and `pine_save` bumped
+  the version (2.0→3.0), **but the persisted source was still the 3-line `E2E Test` stub and the
+  facade title stayed `E2E Test`**. So the corruption is bound to the **cloud facade identity**,
+  not the local layout — a fresh layout does not clear it. (Temp layout `qcMVr4ZO` can be deleted.)
+- **C. Repair the facade identity headlessly.** The remaining headless option is to overwrite the
+  corrupt facade `title`/source directly (the title, not just the body, is what `pine_save`
+  resolves on). Needs investigation into the facade update path; not yet attempted.
 
-**Resume here:** fix the workspace (A/B/C), publish the engine, add the shell to chart, diff 58/58
+**Resume here:** fix the workspace (A or C), publish the engine, add the shell to chart, diff 58/58
 against `rszonediv_sym_lo_ukoil_30m_baseline.json`, then continue to Step 2.
