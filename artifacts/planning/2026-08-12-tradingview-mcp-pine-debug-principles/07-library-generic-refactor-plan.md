@@ -1,6 +1,6 @@
 # RSIZoneDiv — Library-Generic Refactor Plan
 
-> Work package · tradingview-mcp · 2026-08-12 · **Status:** Planned & deferred — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`). Decisions locked (§9); implementation not started. Resume at Step 1.
+> Work package · tradingview-mcp · 2026-08-12 · **Status:** Step 1 sources complete & pushed — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`, commit `2798dba`). **Cloud publish BLOCKED** by a corrupt TradingView workspace (see §10). Decisions locked (§9).
 >
 > **Companion reading:** `01-pine-language-semantics.md` (esp. §1 UDT history, §3 lazy eval),
 > `04-refactoring-playbook.md` (esp. §2 collapse limits, §3 side-parameterization, §7 asymmetry
@@ -188,3 +188,48 @@ Each step is independently diffed against the 30m gate. **No step merges red.**
    check, not a fact; the paper exercise surfaces leaked semantics at a fraction of the cost of a
    second library, and once the engine is pinned as `import user/RSIZoneDivEngine/1`, changing
    `ZoneState` is a breaking change to a pinned API.
+
+---
+
+## 10. Step-1 execution log & the cloud-publish blocker (2026-08-12)
+
+**Done.** Step-1 sources written, compile-clean, committed, pushed (`2798dba`):
+- `scripts/engine/rszonediv_engine.pine` — the generic engine (pure move of SymLo's helpers,
+  `export`-ed with explicit param types; `dir = +1 low / -1 high`).
+- `scripts/rszonediv_generic.pine` — thin shell; SymLo logic with inline helpers swapped for
+  `eng.*` calls. All `[1]`/`ta.*` stay in global scope (respects §4).
+
+**BLOCKED at publish.** Could not get the engine into the TV cloud, so the 58/58 30m gate could
+not be re-run. Root cause is a **corrupt TradingView workspace**, not the sources:
+
+1. `pine_list_scripts` shows `RSIZones`, `RSIHeat`, and every copy I make all carry facade
+   `title = "E2E Test"`, `ui_visible:false`, `in_open_dialog:false`, and persist a 3-line
+   `indicator("E2E Test")/plot(close)` stub. An earlier E2E suite clobbered the facade title/buffer
+   for these scripts. `RSIZoneSymLo` / `RSIZoneSymHi` are **intact** (correct titles).
+2. `pine_save` resolves the save target by name→title; with the title corrupt it always resolves to
+   the "E2E Test" identity, so the buffer snaps back to the stub and the save is a no-op
+   (`version` never bumps, `persisted_matches_buffer:false`). Reproduced on the corrupt
+   `RSIZoneDivEngine` (`USER;7de16a87…`) and on a fresh `pine_copy` `RSIZoneDivEngineLib`
+   (`USER;611abf85…`) — the copy inherits the corrupt facade title, so a fresh name does not help.
+3. The Pine Editor bottom panel is stuck collapsed (`height:0`); `ui_open_panel` toggles but never
+   expands it. `pine_open` works headlessly (it restored Monaco + the name button), which is what
+   allowed the registered copy — but the save still cannot persist past the title corruption.
+
+**Why this is safe to resume from.** The engine/shell sources are a verbatim pure move; they
+compile clean. The blocker is purely environmental. `RSIZones` still has `published_version:1.0`
+(published snapshots are immutable), so the intact SymLo/SymHi indicators and the frozen 30m gate
+are unaffected.
+
+**Recovery options (pick one, then re-run Step 1 publish + 58/58 gate):**
+- **A. Manual UI reset (preferred).** In TradingView Desktop: open Pine Editor, use
+  Open-script → for each corrupt script (`RSIZones`, `RSIHeat`, `RSIZoneDivEngine`,
+  `RSIZoneDivEngineLib`) either delete it or open + Save-as a clean name; then create the engine
+  fresh via New → library → paste `rszonediv_engine.pine` → Save as `RSIZoneDivEngine` → publish
+  private. Then set the shell's import and re-run the gate.
+- **B. Fresh layout + repair.** `layout_new`, then repair the corrupt scripts as in A.
+- **C. Live with `RSIZoneDivEngineLib`.** If the title corruption can't be cleaned, keep the
+  `RSIZoneDivEngineLib` identity and point the shell at `import user/RSIZoneDivEngineLib/1`
+  (rename the plan's `RSIZoneDivEngine` accordingly). Only viable once saves persist again.
+
+**Resume here:** fix the workspace (A/B/C), publish the engine, add the shell to chart, diff 58/58
+against `rszonediv_sym_lo_ukoil_30m_baseline.json`, then continue to Step 2.
