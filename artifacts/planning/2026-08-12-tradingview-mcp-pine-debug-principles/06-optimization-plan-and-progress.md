@@ -17,14 +17,19 @@ as an intermediate step toward a fully refactored indicator.
 
 ## 2. Where things stand (the headline)
 
-**The optimization milestone is reached and a direction is chosen.** The fully-symmetric
-**`RSIZoneSymLo`** variant (both sides unified onto the *low-side* peak-price structure) is the
-**adopted canonical** form. It is saved in the TradingView cloud (`RSIZoneSymLo` v2.0) and its
-source is in the repo. A fresh, both-polarities baseline is frozen for regression testing.
+**The optimization milestone is reached, a direction is chosen, and the canonical source is
+merged to `main`.** The fully-symmetric **`RSIZoneSymLo`** variant (both sides unified onto the
+*low-side* peak-price structure) is the **adopted canonical** form. It is saved in the TradingView
+cloud (`RSIZoneSymLo` v2.0), its source is committed on `main`, and a fresh, both-polarities
+baseline is frozen for regression testing.
 
-**What is NOT done:** the SymLo source is committed only on an **unmerged feature branch**
-(`feat/pine-save-bind-17`); the next phase — the "deeper refactor" SymLo was an intermediate
-toward — has not started.
+**Done (2026-08-12, second session):** `feat/pine-save-bind-17` merged to `main` (`8bd6843`) and
+the merged SymLo source **re-verified against the frozen 30m baseline** — 58/58 signals identical
+(27 LOW / 31 HIGH), 8968/8968 shared bars, max plot drift 0. The committed file reproduces the
+regression gate byte-for-byte.
+
+**What is NOT done:** the next phase — the "deeper refactor" SymLo was an intermediate toward —
+has not started.
 
 ## 3. The optimization arc (how we got here)
 
@@ -57,21 +62,24 @@ Full-depth UKOIL 5m window (3717 bars, both polarities present):
 
 ## 5. Current artifacts — what lives where
 
-### Repo: main code repo, branch `main` (pushed, `7362f09`)
+### Repo: main code repo, branch `main` (pushed, `8bd6843`) — **canonical sources now on main**
 - `scripts/current.pine` — original `RSIZoneDiv` v28 (v5).
-- `scripts/reference/rszones_v1.pine` — **pinned** published `theansweris42/RSIZones/1` source
-  (467 lines). Closes the dependency-freeze gap. Fetch method = the published-scope workaround
-  cited in open issue #12.
-- `scripts/reference/rszonediv_*_ukoil_5m_{500,zoom,full}.{json,csv}` — 5m discrimination set.
-- `scripts/reference/rszonediv_sym_lo_ukoil_30m_baseline.{json,csv}` — **canonical regression
-  gate** (8968 bars, 2025-10-29→2026-08-12, 27 LOW / 31 HIGH).
-
-### Repo: main code repo, branch `feat/pine-save-bind-17` (**unmerged** — the canonical sources)
-- `scripts/rszonediv_sym_lo.pine` — **adopted SymLo** (390 lines, header `350-symLo`).
+- `scripts/rszonediv_sym_lo.pine` — **adopted SymLo** (386 lines, header `350-symLo`). **Merged.**
 - `scripts/rszonediv_sym_hi.pine` — superseded SymHi (390 lines, header `351-symHi`).
 - `scripts/rszonediv_unified.pine` — 340-unified baseline.
 - `scripts/rszonediv_v6fix.pine`, `rszonediv_collapsed.pine`, `rszonediv_debug.pine`,
   `rszonediv_step1.pine`, `udt_hist_probe.pine` — provenance intermediates (kept per `04` §8).
+- `scripts/reference/rszones_v1.pine` — **pinned** published `theansweris42/RSIZones/1` source
+  (467 lines). Closes the dependency-freeze gap. Fetch method = the published-scope workaround
+  cited in open issue #12.
+- `scripts/reference/rszonediv_*_ukoil_5m_{500,zoom,full}.{json,csv}` — 5m discrimination set.
+- `scripts/reference/rszonediv_{v6,unified,sym_lo}_4d_300.{json,csv}` — 4d/300 reference captures.
+- `scripts/reference/rszonediv_sym_lo_ukoil_30m_baseline.{json,csv}` — **canonical regression
+  gate** (8968 bars, 2025-10-29→2026-08-12, 27 LOW / 31 HIGH). Re-verified against merged source.
+
+### Historical: branch `feat/pine-save-bind-17` (**merged** into main @ `8bd6843`)
+- Carried the SymLo/SymHi/unified sources and provenance intermediates; all now on `main`.
+- The `pine_bind` / buffer-aware `pine_save` tooling landed earlier via PR #18.
 
 ### Repo: `.engineering`, branch `engineering` (pushed, `7a3c26e`)
 - `artifacts/planning/2026-08-12-tradingview-mcp-pine-debug-principles/` — the notes + `data/`.
@@ -109,15 +117,16 @@ slice had 0 LOW and made all three variants look vacuously identical (see `02` �
 
 ## 8. Next steps (candidate resume points)
 
-1. **Merge the canonical source.** Bring `rszonediv_sym_lo.pine` (and decide on
-   `rszonediv_unified.pine` / provenance files) from `feat/pine-save-bind-17` onto `main` so the
-   adopted source and its baseline live on the same branch. (Branch also carries the merged
-   `pine_bind`/buffer-aware `pine_save` work — check what's already merged via #18 first.)
-2. **Freeze the loop on SymLo.** Re-capture the 30m baseline from the merged source to confirm
-   the committed file reproduces the frozen reference (sanity-check the paper trail).
+1. ~~**Merge the canonical source.**~~ **Done (2026-08-12):** `feat/pine-save-bind-17` merged to
+   `main` @ `8bd6843`; SymLo, SymHi, unified, and all provenance intermediates now live on `main`
+   alongside the regression gate.
+2. ~~**Freeze the loop on SymLo.**~~ **Done (2026-08-12):** re-captured the 30m series from the
+   merged source (entity `va74LI`, `TV_MAX_BARS=9000`) and diffed vs the frozen baseline —
+   58/58 signals identical, 8968/8968 shared bars, max plot drift 0. Paper trail verified.
 3. **The deeper refactor** SymLo was an intermediate toward — now that both sides share one
    side-parameterized chain, the structure is ready for a true library-generic rewrite (the
    original "library-generic rewrite" goal deferred when the verbatim UDT collapse failed).
+   **This is the next real work.**
 4. **Optional tooling:** implement #12 (published-scope read) so future dependency pins don't
    need the `ui_evaluate` workaround; #17/#19 to close the headless lifecycle.
 
@@ -128,12 +137,12 @@ slice had 0 LOW and made all three variants look vacuously identical (see `02` �
 git -C /home/mike1/projects/dev/tradingview-mcp branch --show-current      # main
 git -C /home/mike1/projects/dev/tradingview-mcp/.engineering branch --show-current  # engineering
 
-# Canonical SymLo source (until merged): on feat/pine-save-bind-17
-git -C /home/mike1/projects/dev/tradingview-mcp show feat/pine-save-bind-17:scripts/rszonediv_sym_lo.pine
+# Canonical SymLo source: now on main
+git -C /home/mike1/projects/dev/tradingview-mcp show main:scripts/rszonediv_sym_lo.pine
 
 # Regression gate: scripts/reference/rszonediv_sym_lo_ukoil_30m_baseline.json (main)
-# Reference chart: TVC:UKOIL 30m (session tab had entity va74LI — re-derive after restart, never cache entity IDs)
+# Reference chart: TVC:UKOIL 30m (entity va74LI in the 2026-08-12 session — re-derive after restart, never cache entity IDs)
 ```
 
-**First decision to ask the user:** merge `rszonediv_sym_lo.pine` to `main` now, or keep iterating
-on the feature branch?
+**First decision to ask the user:** begin the deeper library-generic refactor (step 3), or close
+out the optional tooling gaps (#12 / #17 / #19) first?
