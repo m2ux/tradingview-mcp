@@ -1,0 +1,214 @@
+//@version=5
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © theansweris42
+
+// Provides a colour-indiciation of momentum intensity at over-bought/over-sold levels.
+//
+// This script uses RSIZones adaptive intensity bands and threshold detection to signal momentum divergence inside those zones using Red heat (overbought) and Blue heat (oversold) zones from RSIZones/RSIHeat.
+// Reference version: 334 (efficiency Pass-A corrected: det UDT + per-bar field snapshots for [1] history; signal logic verbatim)
+
+indicator('RSI Zone Divergence', shorttitle='RSIZoneDiv', overlay=true)
+import theansweris42/RSIZones/1 as mt
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// User Inputs
+l_rsi = input(14, title='RSI Length')
+ip_lx = input.float(20.0, maxval=50, title='Crossover Offset (L) [RSI]')
+ip_hx = input.float(20.0, maxval=50, title='Crossover Offset (H) [RSI]')
+ip_th = input.float(20.0, minval=1, maxval=50, title='Trigger Hysteresis (\\) [RSI]')
+ip_rh = input.float(25.0, minval=1, maxval=50, title='Rebound Hysteresis (/) [RSI]')
+l_trig = input.bool(false, title='High Sensitivity Trigger Enabled')
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Band Signals ///
+var mint1 = mt.mint.new()
+
+float rsi1 = nz(ta.rsi(ohlc4, l_rsi), 50)
+
+float rz0_hys = 5
+float rz1_hys = 5
+
+mint1.calc(rsi1, ip_lx, ip_hx, ip_rh, ip_th, rz0_hys, rz1_hys)
+
+m_mid = 50.0
+
+// Peak-momentum tolerance / price-momentum coefficients (shared by both sides)
+mp_tol = 0.25
+pp_coeff = 1.01
+mp_coeff = 1.01
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Divergence Detector (one parameterized path, run per side) ///
+// det holds per-side state. CRITICAL: v5 'udt.field[1]' compiles but is erroneous and does NOT reproduce
+// standalone-series history. So at the top of each bar we snapshot every field into a standalone series
+// variable (e.g. lo_sp1 = lo.sp) BEFORE any reassignment this bar; that snapshot == the field's previous-bar
+// committed value, i.e. exactly what 'field[1]' meant in the original. All prior-value reads use the snapshot.
+type det
+    float sp = 0.0
+    float rp = 0.0
+    float zp = 0.0
+    float st = 0.0
+    bool  trough_complete = false
+    bool  trough_pending = false
+    bool  trough_reset = false
+    float cap_state = 0.0
+    bool  is_cap_enabled = false
+    bool  is_cap_trigger = false
+    float p_con_b = 0.0
+    float p_con_w = 0.0
+    float p_scap = 0.0
+    float p_rcap = 0.0
+    float p_zcap = 0.0
+    bool  is_topk = false
+    bool  is_flat = false
+    float m_con = 0.0
+    float m_cap = 0.0
+    float m_rcap = 0.0
+    float m_zcap = 0.0
+    bool  is_nopk = false
+    bool  is_cap_trg = false
+    float div_cnt = 0.0
+    bool  trig = false
+
+var det lo = det.new()
+var det hi = det.new()
+
+// Price extremes (verbatim from original)
+p_lo = close < open ? close : open
+p_hi = close > open ? close : open
+m_lo = mint1.rsi1
+m_hi = mint1.rsi1
+
+///////////////////////////////////////////////////////////////// LOW SIDE (bullish) ///
+// --- snapshots of prior-bar field values (== field[1]) ---
+lo_sp1 = lo.sp
+lo_rp1 = lo.rp
+lo_zp1 = lo.zp
+lo_cap_state1 = lo.cap_state
+lo_p_con_b1 = lo.p_con_b
+lo_p_con_w1 = lo.p_con_w
+lo_p_scap1 = lo.p_scap
+lo_p_rcap1 = lo.p_rcap
+lo_p_zcap1 = lo.p_zcap
+lo_m_con1 = lo.m_con
+lo_m_cap1 = lo.m_cap
+lo_m_rcap1 = lo.m_rcap
+lo_m_zcap1 = lo.m_zcap
+lo_div_cnt1 = lo.div_cnt
+
+// Range Metrics
+lo.sp  := mint1.rzl_0 ? mint1.no_rzl_rise() ? mint1.rzl > lo_sp1 ? mint1.rzl : lo_sp1 : mint1.rzl : 0
+lo.rp  := mint1.rzl_w ? lo.sp > lo_rp1 ? lo.sp : lo_rp1 : 0.0
+lo.zp  := mint1.rzl_x ? lo.sp > lo_zp1 ? lo.sp : lo_zp1 : 0.0
+lo.st  := mint1.rzl_w ? mint1.rzl < lo.rp ? lo.rp - mint1.rzl : 0.0 : 0.0
+lo.trough_reset    := ta.falling(lo.st, 1)
+lo.trough_complete := not ta.falling(lo.st, 1)
+lo.trough_pending  := ta.rising(lo.st, 1)
+
+// Capture state machine [0=Disabled, 1=Pending, 2=Ready]
+lo.cap_state := mint1.rzl_x ? mt.to_float(mint1.rzl_x[1]) == 0 ? 1.0 : lo.trough_reset and lo_cap_state1 == 2.0 ? 3.0 : lo.trough_pending and (lo_cap_state1 == 3.0 or lo_cap_state1 == 1.0) ? 2.0 : lo_cap_state1 : 0.0
+lo.is_cap_trigger := (ta.rising(lo.cap_state, 1) and lo.cap_state != 3.0) or ta.falling(lo.cap_state, 1)
+lo.is_cap_enabled := lo.cap_state > 0
+
+// Peak-price detection (body/wick)
+is_ppl_hit_b = mint1.no_rzl_fall() and p_lo <= lo_p_con_b1 * pp_coeff
+is_ppl_hit_w = mint1.no_rzl_fall() and low <= lo_p_con_w1
+lo.p_con_b := lo.is_cap_enabled ? lo.trough_complete ? is_ppl_hit_b ? p_lo : lo_p_con_b1 : p_lo : p_lo
+lo.p_con_w := lo.is_cap_enabled ? lo.trough_complete ? is_ppl_hit_w ? low : lo_p_con_w1 : p_lo : p_lo
+lo.p_scap  := lo.is_cap_enabled ? mint1.is_rzl_w_fall() ? p_lo : lo.is_cap_trigger ? lo.p_con_w < lo_p_rcap1 and lo.p_con_b >= lo_p_rcap1 ? lo_p_rcap1 : lo.p_con_b < lo_p_scap1 ? lo.p_con_b : lo_p_scap1 : lo_p_scap1 : p_lo
+lo.p_rcap  := lo.is_cap_enabled ? mint1.is_rzl_w_fall() and lo_rp1 > 1 ? lo_p_scap1 : lo_p_rcap1 : p_lo
+is_ppl_rcap_change = mt.to_bool(ta.change(lo.p_rcap, 1))
+lo.p_zcap  := lo.is_cap_enabled ? lo.p_rcap < lo_p_zcap1 ? lo.p_rcap : lo_p_zcap1 : p_lo
+is_ppl_zcap_fall = ta.falling(lo.p_zcap, 1)
+is_ppl_zcap_change = mt.to_bool(ta.change(lo.p_zcap, 1))
+lo.is_topk := lo.is_cap_enabled and is_ppl_zcap_fall and is_ppl_zcap_change
+lo.is_flat := lo.is_cap_enabled and mint1.is_rzl_w_fall() and not is_ppl_zcap_change and not is_ppl_rcap_change
+
+// Low-momentum detection
+is_mpl_hit = mint1.no_rzl_fall() and m_lo <= lo_m_con1 / mp_coeff
+lo.m_con  := lo.is_cap_enabled ? lo.trough_complete ? is_mpl_hit ? m_lo : lo_m_con1 : m_lo : m_lo
+lo.m_cap  := lo.is_cap_enabled ?
+     mint1.is_rzl_w_fall() ? m_mid :
+     lo.is_cap_trigger ? lo.m_con < lo_m_cap1 ? lo.m_con : lo_m_cap1 :
+     lo_m_cap1 :
+     m_mid
+lo.m_rcap := lo.is_cap_enabled ? mint1.is_rzl_w_fall() and lo_rp1 > 1 ? lo_m_cap1 : lo_m_rcap1 : m_mid
+lo.m_zcap := lo.is_cap_enabled ? lo.m_rcap < lo_m_zcap1 - mp_tol ? lo.m_rcap : lo_m_zcap1 : m_mid
+lo.is_cap_trg := ta.falling(lo.m_cap, 1) and lo_m_cap1 == m_mid and lo.m_cap > lo.m_zcap
+lo.is_nopk := lo.m_zcap - lo.m_rcap != 0 and ta.change(lo.m_zcap, 1) == 0 and mt.to_bool(ta.change(lo.m_rcap, 1))
+
+// Bullish divergence
+lo.div_cnt := mint1.rzl_x ? lo.is_nopk and (lo.is_topk or lo.is_flat) ? lo_div_cnt1 + 1.0 : lo_div_cnt1 : 0.0
+lo.trig := l_trig ? lo.is_cap_trg : ta.rising(lo.div_cnt, 1)
+
+///////////////////////////////////////////////////////////////// HIGH SIDE (bearish) ///
+// --- snapshots ---
+hi_sp1 = hi.sp
+hi_rp1 = hi.rp
+hi_st1 = hi.st
+hi_cap_state1 = hi.cap_state
+hi_p_con_b1 = hi.p_con_b
+hi_p_con_w1 = hi.p_con_w
+hi_p_scap1 = hi.p_scap
+hi_p_rcap1 = hi.p_rcap
+hi_p_zcap1 = hi.p_zcap
+hi_m_con1 = hi.m_con
+hi_m_cap1 = hi.m_cap
+hi_m_rcap1 = hi.m_rcap
+hi_m_zcap1 = hi.m_zcap
+hi_div_cnt1 = hi.div_cnt
+
+// Range Metrics
+hi.sp  := bool(mint1.rzh_0) ? mint1.no_rzh_rise() ? mint1.rzh > hi_sp1 ? mint1.rzh : hi_sp1 : mint1.rzh : 0.0
+hi.rp  := bool(mint1.rzh_w) ? hi.sp > hi_rp1 ? hi.sp : hi_rp1 : 0.0
+hi.st  := bool(mint1.rzh_w) ? mint1.rzh < hi.rp ? hi.rp - mint1.rzh : 0.0 : 0.0
+hi.trough_complete := not ta.falling(hi.st, 1)
+hi.trough_pending  := ta.rising(hi.st, 1)
+
+// Capture state machine [0=Disabled, 1=Pending, 2=Ready]
+hi.cap_state := bool(mint1.rzh_x) ? not mint1.rzh_x[1] ? 1.0 :
+     hi.trough_pending and (hi_cap_state1 == 3.0 or hi_cap_state1 == 1.0) ? 2.0 :
+     not hi.trough_complete and hi_cap_state1 == 2.0 ? 3.0 :
+     hi_cap_state1 :
+     0.0
+hi.is_cap_trigger := (ta.rising(hi.cap_state, 1) and hi.cap_state != 3.0) or ta.falling(hi.cap_state, 1)
+hi.is_cap_enabled := hi.cap_state > 0
+
+// Peak-price detection (wick; body uses the preserved previous-bar quirk)
+is_pph_hit_w = mint1.no_rzh_fall() and (high >= hi.p_con_w * pp_coeff)
+hi.p_con_b := p_hi[1]
+hi.p_con_w := is_pph_hit_w ? hi_p_con_w1 : high[1]
+hi.p_scap  := not hi.is_cap_enabled ? p_hi : mint1.is_rzh_fall() and not mint1.is_rzh_w_fall() ? hi_p_con_b1 : hi_p_scap1
+hi.p_rcap  := not hi.is_cap_enabled ? p_hi : mint1.is_rzh_w_fall() ? hi.p_scap : hi_p_rcap1
+is_pph_rcap_change = mt.to_bool(ta.change(hi.p_rcap, 1))
+hi.p_zcap  := hi.is_cap_enabled ? hi.p_rcap > hi_p_zcap1 ? hi.p_rcap : hi_p_zcap1 : p_hi
+is_pph_zcap_change = mt.to_bool(ta.change(hi.p_zcap, 1))
+hi.is_topk := hi.is_cap_enabled and ta.rising(hi.p_zcap, 1) and is_pph_rcap_change
+hi.is_flat := hi.is_cap_enabled and mint1.is_rzh_w_fall() and not is_pph_zcap_change and not is_pph_rcap_change
+
+// High-momentum detection
+is_mph_hit = mint1.no_rzh_fall() and m_hi >= hi.m_con / mp_coeff
+hi.m_con  := hi.is_cap_enabled ? hi.trough_complete ? is_mph_hit ? m_hi : hi_m_con1 : m_hi : m_hi
+hi.m_cap  := hi.is_cap_enabled ?
+     mint1.is_rzh_w_fall() ? m_mid :
+     hi.is_cap_trigger ? hi.m_con > hi_m_cap1 ? hi.m_con : hi_m_cap1 :
+     hi_m_cap1 :
+     m_mid
+hi.m_rcap := hi.is_cap_enabled ? mint1.is_rzh_w_fall() and hi_rp1 > 1 ? hi_m_cap1 : hi_m_rcap1 : m_mid
+hi.m_zcap := hi.is_cap_enabled ? hi.m_rcap > hi_m_zcap1 ? hi.m_rcap + mp_tol : hi_m_zcap1 : m_mid
+hi.is_cap_trg := ta.rising(hi.m_cap, 1) and hi_m_cap1 == m_mid and hi.m_cap < hi.m_zcap
+hi.is_nopk := hi.m_zcap - hi.m_rcap != 0 and ta.change(hi.m_zcap, 1) == 0 and bool(ta.change(hi.m_rcap, 1))
+
+// Bearish divergence
+hi.div_cnt := bool(mint1.rzh_x) ? bool(hi.is_nopk) and (hi.is_topk or hi.is_flat) ? hi_div_cnt1 + 1.0 : hi_div_cnt1 : 0.0
+hi.trig := l_trig ? hi.is_cap_trg : ta.rising(hi.div_cnt, 1)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Signals + Alerts ///
+plotshape(lo.trig, style=shape.triangleup, size=size.small, location=location.belowbar, color=color.new(color.green, 0))
+plotshape(hi.trig, style=shape.triangledown, size=size.small, location=location.abovebar, color=color.new(color.red, 0))
+
+if lo.trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': W' + str.tostring(lo.div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+if hi.trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': M' + str.tostring(hi.div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Combined momentum divergence ///

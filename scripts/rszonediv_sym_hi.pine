@@ -1,0 +1,390 @@
+//@version=6
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © theansweris42
+//
+// RSI momentum-divergence detector over RSIZones adaptive bands (Red heat overbought / Blue heat oversold).
+// Reference version: 351-symHi (FULLY SYMMETRIC: BOTH low and high sides unified onto the HIGH-side peak-price
+// structure — prior-bar-body con_b, hit/hold con_w, fall-gated scap latching con_b[1], W-fall rcap latching
+// current scap, rcap-change topk — all direction-parameterized by dir). Derived from the 340-unified baseline.
+// Low-side behavior intentionally normalized to the high-side chain; expect signal-count differences vs baseline.
+
+indicator('RSI Zone Divergence SymHi', shorttitle = 'RSIZSymHi', overlay = true)
+import theansweris42/RSIZones/1 as mt
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// User Inputs
+l_rsi = input(14, title = 'RSI Length')
+ip_lx = input.float(20.0, maxval = 50, title = 'Crossover Offset (L) [RSI]')
+ip_hx = input.float(20.0, maxval = 50, title = 'Crossover Offset (H) [RSI]')
+ip_th = input.float(20.0, minval = 1, maxval = 50, title = 'Trigger Hysteresis (\\) [RSI]')
+ip_rh = input.float(25.0, minval = 1, maxval = 50, title = 'Rebound Hysteresis (/) [RSI]')
+l_trig = input.bool(false, title = 'High Sensitivity Trigger Enabled')
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Band Signals ///
+var mint1 = mt.mint.new()
+
+float rsi1 = nz(ta.rsi(ohlc4, l_rsi), 50)
+
+float rz0_hys = 5
+float rz1_hys = 5
+
+mint1.calc(rsi1, ip_lx, ip_hx, ip_rh, ip_th, rz0_hys, rz1_hys)
+
+m_mid = 50.0
+
+// Hoisted stateful library method results (v6 lazy-eval fix): these methods wrap ta.* history calls,
+// so they MUST execute on every bar. Under v6 'and'/'or'/ternary lazy evaluation, a call on the
+// short-circuited side is skipped, corrupting the method's internal rolling history. Compute once per bar.
+m_no_rzl_rise = mint1.no_rzl_rise()
+m_no_rzl_fall = mint1.no_rzl_fall()
+m_is_rzl_fall = mint1.is_rzl_fall()
+m_is_rzl_w_fall = mint1.is_rzl_w_fall()
+m_no_rzh_rise = mint1.no_rzh_rise()
+m_no_rzh_fall = mint1.no_rzh_fall()
+m_is_rzh_fall = mint1.is_rzh_fall()
+m_is_rzh_w_fall = mint1.is_rzh_w_fall()
+
+// Peak-momentum tolerance (shared)
+mp_tol = 0.25
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Side-parameterized pure helpers.
+// dir = +1 -> low (bullish) side; dir = -1 -> high (bearish) side.
+// All functions are pure: every series-history value (x[1], ta.*) is computed in global scope and passed in.
+
+// "Is `a` a more extreme peak than `b` for this side?" low: lower is better; high: higher is better.
+better(dir, a, b) =>
+    dir > 0 ? a < b : a > b
+
+// Capture state machine [0=Disabled, 1=Pending, 2=Ready, 3=Set]. Low-side priority (reset wins over pending).
+f_capture_state(inZone, prevInZone, tReset, tPending, prevState) =>
+    inZone ?
+         prevInZone == 0 ? 1.0 :
+         tReset and prevState == 2.0 ? 3.0 :
+         tPending and (prevState == 3.0 or prevState == 1.0) ? 2.0 :
+         prevState :
+         0.0
+
+// Summit peak-band: track the max zone reading while in zone-0, else hold, else 0. Direction-independent.
+f_summit_peak(inZone0, noRise, rz, prevSp) =>
+    inZone0 ? noRise ? rz > prevSp ? rz : prevSp : rz : 0.0
+
+// Range/zone peak-band: carry the running max summit peak while in the wider band, else 0.
+f_band_peak(inBand, sp, prev) =>
+    inBand ? sp > prev ? sp : prev : 0.0
+
+// Summit trough / range-peak delta: depth below the range peak while in the wider band (both sides identical).
+f_summit_trough(inBand, rz, rp) =>
+    inBand ? rz < rp ? rp - rz : 0.0 : 0.0
+
+// Continuous peak (momentum): reset to current while capturing and trough complete, hold on no-hit.
+f_con(capEn, troughComplete, hit, cur, prev, resetVal) =>
+    capEn ? troughComplete ? hit ? cur : prev : resetVal : resetVal
+
+// Trigger-captured momentum peak.
+f_mom_cap(dir, capEn, isWFall, trig, con, prevCap, mid) =>
+    capEn ?
+         isWFall ? mid :
+         trig ? better(dir, con, prevCap) ? con : prevCap :
+         prevCap :
+         mid
+
+// Range-captured momentum peak: latch the trigger/summit capture on W-fall once range established.
+f_range_cap(capEn, isWFall, prevRp, prevCap, prevSelf, resetVal) =>
+    capEn ? isWFall and prevRp > 1 ? prevCap : prevSelf : resetVal
+
+// Zone-captured peak momentum with symmetric tolerance (low: rcap < zcap - tol; high: rcap > zcap + tol).
+f_mom_zcap(dir, capEn, rcap, prevZcap, tol, mid) =>
+    capEn ? better(dir, rcap, prevZcap - dir * tol) ? rcap : prevZcap : mid
+
+// Zone-captured peak price (no tolerance).
+f_price_zcap(dir, capEn, rcap, prevZcap, resetVal) =>
+    capEn ? better(dir, rcap, prevZcap) ? rcap : prevZcap : resetVal
+
+// Divergence counter: increment in zone when a non-peak momentum edge coincides with a price peak/flat edge.
+f_div_cnt(inZone, nopk, topk, flat, prevCnt) =>
+    inZone ? nopk and (topk or flat) ? prevCnt + 1.0 : prevCnt : 0.0
+
+// ---------------------------------------------------------------- HIGH-side peak-price chain, direction-parameterized
+// These reproduce the HIGH-side (simple) structure for EITHER side, selected by dir and the side's price extremes.
+// "extreme" = the side's body extreme (p_lo / p_hi); "wick" = low / high.
+// All *Prev args are the caller's [1]-history reads, hoisted to global scope by the caller.
+
+// Wick-hit (HIGH-side form): wick crosses the running wick peak by the coeff margin, on a non-falling zone bar.
+// curConW is the CURRENT (pre-reassignment) wick peak, matching the original high-side reference semantics.
+f_hit_w(dir, noFall, wick, curConW, coeff) =>
+    noFall and (dir > 0 ? wick <= curConW / coeff : wick >= curConW * coeff)
+
+// Continuous wick peak (HIGH-side form): hold while hitting, else reset to the previous bar's wick.
+f_con_w(hitW, prevConW, prevWick) =>
+    hitW ? prevConW : prevWick
+
+// Continuous body peak (HIGH-side form): simply the previous bar's body extreme (the known "quirk", symmetric).
+f_con_b(prevExtreme) =>
+    prevExtreme
+
+// Summit-captured peak price (HIGH-side form): on a plain zone-fall that is NOT a wider-band fall, latch the
+// previous bar's body peak; otherwise hold; reset to extreme when capture is disabled.
+f_price_scap(dir, capEn, isFall, isWFall, prevConB, scapPrev, extreme) =>
+    not capEn ? extreme : isFall and not isWFall ? prevConB : scapPrev
+
+// Range-captured peak price (HIGH-side form): latch the CURRENT scap on a wider-band fall; otherwise hold;
+// reset to extreme when capture is disabled. (No range-established gate, unlike the low-side form.)
+f_price_rcap(capEn, isWFall, scap, rcapPrev, extreme) =>
+    not capEn ? extreme : isWFall ? scap : rcapPrev
+
+// Top-edge flag (HIGH-side form): a fresh zone-capture extreme coincides with a RANGE-capture change.
+// Uses the range-capture change edge for BOTH sides (this is the high-side convention, applied symmetrically).
+f_topk(dir, capEn, zcapEdge, rcapChange) =>
+    capEn and zcapEdge and rcapChange
+
+// Flat flag: in the wider band, on W-fall, with no zone-capture change and no range-capture change.
+f_flat(capEn, isWFall, zcapChange, rcapChange) =>
+    capEn and isWFall and not zcapChange and not rcapChange
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Each side below binds dir explicitly (+1 low / -1 high) and passes it to the direction-aware helpers.
+// All series-history (x[1]) and ta.* calls stay in global scope; functions are pure next-value logic.
+
+// ------------------------------------------------------------------ LOW (bullish) SIDE: dir = +1
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Range Metrics, Low-Side ///
+rcl_sp = 0.0
+rcl_rp = 0.0
+rcl_zp = 0.0
+rcl_st = 0.0
+is_rcl_trough_complete = false
+is_rcl_trough_pending = false
+is_rcl_trough_reset = false
+
+rcl_ip = 4.0
+
+rcl_sp := f_summit_peak(mint1.rzl_0, m_no_rzl_rise, mint1.rzl, rcl_sp[1])
+rcl_rp := f_band_peak(mint1.rzl_w, rcl_sp, rcl_rp[1])
+rcl_zp := f_band_peak(mint1.rzl_x, rcl_sp, rcl_zp[1])
+rcl_st := f_summit_trough(mint1.rzl_w, mint1.rzl, rcl_rp)
+
+// Flags (hoisted ta.*; gated to reproduce v5 3-state bool na timing)
+rcl_st_falling = ta.falling(rcl_st, 1)
+rcl_st_rising = ta.rising(rcl_st, 1)
+rcl_hist_ok = bar_index >= 1
+is_rcl_trough_reset := rcl_hist_ok and rcl_st_falling
+is_rcl_trough_complete := rcl_hist_ok and not rcl_st_falling
+is_rcl_trough_pending := rcl_hist_ok and rcl_st_rising
+
+from_rcl_trough_pending = ta.falling(mt.to_float(is_rcl_trough_pending), 1)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Capture Logic, Low-Side ///
+is_rpl_capture_enabled = false
+rpl_capture_state = 0.0
+
+field_0 = mint1.rzl_x
+rpl_capture_state := f_capture_state(mint1.rzl_x, mt.to_float(field_0[1]), is_rcl_trough_reset, is_rcl_trough_pending, rpl_capture_state[1])
+
+rpl_capture_state_rising = ta.rising(rpl_capture_state, 1)
+rpl_capture_state_falling = ta.falling(rpl_capture_state, 1)
+is_rpl_capture_trigger = rpl_capture_state_rising and rpl_capture_state != 3.0 or rpl_capture_state_falling
+
+is_rpl_capture_enabled := rpl_capture_state > 0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Peak-Price Detection, Low-side ///
+// FULLY SYMMETRIC onto HIGH-side structure: same f_con_b / f_con_w / f_price_scap / f_price_rcap / f_topk chain
+// as the high side, just bound to dir=+1 and the low-side price extremes (p_lo / low).
+p_lo = close < open ? close : open
+is_ppl_hit_b = false
+is_ppl_hit_w = false
+ppl_con_b = p_lo
+ppl_con_w = p_lo
+ppl_scap = p_lo
+ppl_rcap = p_lo
+ppl_zcap = 0.0
+is_ppl_topk = false
+is_ppl_flat = false
+ppl_coeff = 1.01
+
+// Wick-hit uses the CURRENT (pre-reassignment) con_w, mirroring the high-side reference semantics.
+is_ppl_hit_w := f_hit_w(1, m_no_rzl_fall, low, ppl_con_w, ppl_coeff)
+
+// Continuous body peak: previous bar's body extreme (high-side quirk, applied symmetrically).
+ppl_con_b := f_con_b(p_lo[1])
+
+// Continuous wick peak: hold while hitting, else previous bar's wick.
+ppl_con_w := f_con_w(is_ppl_hit_w, ppl_con_w[1], low[1])
+
+// Summit-captured peak price (high-side form): latch previous body peak on plain zone-fall (not wider-band fall).
+ppl_scap := f_price_scap(1, is_rpl_capture_enabled, m_is_rzl_fall, m_is_rzl_w_fall, ppl_con_b[1], ppl_scap[1], p_lo)
+
+// Range-captured peak price (high-side form): latch current scap on wider-band fall.
+ppl_rcap := f_price_rcap(is_rpl_capture_enabled, m_is_rzl_w_fall, ppl_scap, ppl_rcap[1], p_lo)
+
+ppl_rcap_change = ta.change(ppl_rcap, 1)
+is_ppl_rcap_change = mt.to_bool(ppl_rcap_change)
+
+ppl_zcap := f_price_zcap(1, is_rpl_capture_enabled, ppl_rcap, ppl_zcap[1], p_lo)
+
+// LOW-side zone-capture edge is a FALL (extremes accumulate downward), so use falling() for the topk edge.
+ppl_zcap_fall = ta.falling(ppl_zcap, 1)
+ppl_zcap_change = ta.change(ppl_zcap, 1)
+is_ppl_zcap_fall = ppl_zcap_fall
+is_ppl_zcap_change = mt.to_bool(ppl_zcap_change)
+
+// HIGH-side topk convention: zone-capture edge AND range-capture change.
+is_ppl_topk := f_topk(1, is_rpl_capture_enabled, is_ppl_zcap_fall, is_ppl_rcap_change)
+is_ppl_flat := f_flat(is_rpl_capture_enabled, m_is_rzl_w_fall, is_ppl_zcap_change, is_ppl_rcap_change)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Low-Momentum Detection, Low-Side ///
+m_lo = mint1.rsi1
+mpl_con = mint1.rsi1
+mpl_cap = m_mid
+mpl_rcap = m_mid
+mpl_zcap = m_mid
+is_mpl_hit = false
+is_mpl_nopk = false
+mpl_coeff = 1.01
+
+is_mpl_hit := m_no_rzl_fall and m_lo <= mpl_con[1] / mpl_coeff
+
+mpl_con := f_con(is_rpl_capture_enabled, is_rcl_trough_complete, is_mpl_hit, m_lo, mpl_con[1], m_lo)
+
+mpl_cap := f_mom_cap(1, is_rpl_capture_enabled, m_is_rzl_w_fall, is_rpl_capture_trigger, mpl_con, mpl_cap[1], m_mid)
+
+mpl_rcap := f_range_cap(is_rpl_capture_enabled, m_is_rzl_w_fall, rcl_rp[1], mpl_cap[1], mpl_rcap[1], m_mid)
+
+mpl_zcap := f_mom_zcap(1, is_rpl_capture_enabled, mpl_rcap, mpl_zcap[1], mp_tol, m_mid)
+
+mpl_cap_falling = ta.falling(mpl_cap, 1)
+is_mpl_cap_trg = mpl_cap_falling and mpl_cap[1] == m_mid and mpl_cap > mpl_zcap
+
+mpl_zcap_change = ta.change(mpl_zcap, 1)
+mpl_rcap_change = ta.change(mpl_rcap, 1)
+is_mpl_nopk := mpl_zcap - mpl_rcap != 0 and mpl_zcap_change == 0 and mt.to_bool(mpl_rcap_change)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Momentum @ Peak-Price Detection, Low-side ///
+mrl_div_cnt = 0.0
+
+mrl_div_cnt := f_div_cnt(mint1.rzl_x, is_mpl_nopk, is_ppl_topk, is_ppl_flat, mrl_div_cnt[1])
+mrl_div_cnt_rise = ta.rising(mrl_div_cnt, 1)
+
+mpl_trig = l_trig ? is_mpl_cap_trg : mrl_div_cnt_rise
+
+plotshape(mpl_trig, style = shape.triangleup, size = size.small, location = location.belowbar, color = color.new(color.green, 0))
+
+if mpl_trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': W' + str.tostring(mrl_div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ------------------------------------------------------------------ HIGH (bearish) SIDE: dir = -1
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Range Metrics, High-Side ///
+rch_sp = 0.0
+rch_rp = 0.0
+rch_zp = 0.0
+rch_st = 0.0
+is_rch_trough_complete = false
+is_rch_trough_pending = false
+is_rch_trough_reset = false
+
+rch_sp := f_summit_peak(bool(mint1.rzh_0), m_no_rzh_rise, mint1.rzh, rch_sp[1])
+rch_rp := f_band_peak(bool(mint1.rzh_w), rch_sp, rch_rp[1])
+rch_zp := f_band_peak(bool(mint1.rzh_x), rch_sp, rch_zp[1])
+rch_st := f_summit_trough(bool(mint1.rzh_w), mint1.rzh, rch_rp)
+
+// Trough flags (hoisted ta.*; gated). Unified on low-side semantics: distinct trough_reset flag.
+rch_st_falling = ta.falling(rch_st, 1)
+rch_st_rising = ta.rising(rch_st, 1)
+rch_hist_ok = bar_index >= 1
+is_rch_trough_reset := rch_hist_ok and rch_st_falling
+is_rch_trough_complete := rch_hist_ok and not rch_st_falling
+is_rch_trough_pending := rch_hist_ok and rch_st_rising
+
+// Capture Logic, High-Side (unified state machine: low-side priority, trough_reset flag)
+is_rph_capture_enabled = false
+rph_capture_state = 0.0
+
+field_1 = mint1.rzh_x
+rph_capture_state := f_capture_state(bool(mint1.rzh_x), mt.to_float(field_1[1]), is_rch_trough_reset, is_rch_trough_pending, rph_capture_state[1])
+
+rph_capture_state_rising = ta.rising(rph_capture_state, 1)
+rph_capture_state_falling = ta.falling(rph_capture_state, 1)
+is_rph_capture_trigger = rph_capture_state_rising and rph_capture_state != 3.0 or rph_capture_state_falling
+
+is_rph_capture_enabled := rph_capture_state > 0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Peak-Price Detection, High-side ///
+p_hi = close > open ? close : open
+is_pph_hit_b = false
+is_pph_hit_w = false
+pph_con_b = p_hi
+pph_con_w = p_hi
+pph_scap = p_hi
+pph_rcap = p_hi
+pph_zcap = 0.0
+is_pph_topk = false
+is_pph_flat = false
+pph_coeff = 1.01
+
+is_pph_hit_w := f_hit_w(-1, m_no_rzh_fall, high, pph_con_w, pph_coeff)
+
+pph_con_b := f_con_b(p_hi[1])
+
+pph_con_w := f_con_w(is_pph_hit_w, pph_con_w[1], high[1])
+
+pph_scap := f_price_scap(-1, is_rph_capture_enabled, m_is_rzh_fall, m_is_rzh_w_fall, pph_con_b[1], pph_scap[1], p_hi)
+
+pph_rcap := f_price_rcap(is_rph_capture_enabled, m_is_rzh_w_fall, pph_scap, pph_rcap[1], p_hi)
+
+pph_rcap_change = ta.change(pph_rcap, 1)
+is_pph_rcap_change = mt.to_bool(pph_rcap_change)
+
+pph_zcap := f_price_zcap(-1, is_rph_capture_enabled, pph_rcap, pph_zcap[1], p_hi)
+
+pph_zcap_rise = ta.rising(pph_zcap, 1)
+pph_zcap_change = ta.change(pph_zcap, 1)
+is_pph_zcap_rise = pph_zcap_rise
+is_pph_zcap_change = mt.to_bool(pph_zcap_change)
+
+is_pph_topk := f_topk(-1, is_rph_capture_enabled, is_pph_zcap_rise, is_pph_rcap_change)
+is_pph_flat := f_flat(is_rph_capture_enabled, m_is_rzh_w_fall, is_pph_zcap_change, is_pph_rcap_change)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// High-Momentum Detection, High-Side ///
+m_hi = mint1.rsi1
+mph_con = mint1.rsi1
+mph_cap = m_mid
+mph_rcap = m_mid
+mph_zcap = m_mid
+is_mph_hit = false
+is_mph_nopk = false
+mph_coeff = 1.01
+
+is_mph_hit := m_no_rzh_fall and m_hi >= mph_con / mph_coeff
+
+mph_con := f_con(is_rph_capture_enabled, is_rch_trough_complete, is_mph_hit, m_hi, mph_con[1], m_hi)
+
+mph_cap := f_mom_cap(-1, is_rph_capture_enabled, m_is_rzh_w_fall, is_rph_capture_trigger, mph_con, mph_cap[1], m_mid)
+
+mph_rcap := f_range_cap(is_rph_capture_enabled, m_is_rzh_w_fall, rch_rp[1], mph_cap[1], mph_rcap[1], m_mid)
+
+mph_zcap := f_mom_zcap(-1, is_rph_capture_enabled, mph_rcap, mph_zcap[1], mp_tol, m_mid)
+
+mph_cap_rising = ta.rising(mph_cap, 1)
+is_mph_cap_trg = mph_cap_rising and mph_cap[1] == m_mid and mph_cap < mph_zcap
+
+mph_zcap_change = ta.change(mph_zcap, 1)
+mph_rcap_change = ta.change(mph_rcap, 1)
+is_mph_nopk := mph_zcap - mph_rcap != 0 and mph_zcap_change == 0 and bool(mph_rcap_change)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// High-side / Bearish Divergence Detection ///
+mrh_div_cnt = 0.0
+
+mrh_div_cnt := f_div_cnt(bool(mint1.rzh_x), is_mph_nopk, is_pph_topk, is_pph_flat, mrh_div_cnt[1])
+mrh_div_cnt_rise = ta.rising(mrh_div_cnt, 1)
+
+mph_trig = l_trig ? is_mph_cap_trg : mrh_div_cnt_rise
+
+plotshape(mph_trig, style = shape.triangledown, size = size.small, location = location.abovebar, color = color.new(color.red, 0))
+
+if mph_trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': M' + str.tostring(mrh_div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Combined momentum divergence ///

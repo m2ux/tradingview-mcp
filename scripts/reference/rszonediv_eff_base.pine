@@ -1,0 +1,289 @@
+//@version=5
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © theansweris42
+
+// Provides a colour-indiciation of momentum intensity at over-bought/over-sold levels.
+//
+// This script uses RSIZones adaptive intensity bands and threshold detection to signal momentum divergence inside those zones using Red heat (overbought) and Blue heat (oversold) zones from RSIZones/RSIHeat.
+// Reference version: 331 (optimized: boolean simplification + dead-code removal; signal logic unchanged)
+
+indicator('RSI Zone Divergence', shorttitle='RSIZoneDiv', overlay=true)
+import theansweris42/RSIZones/1 as mt
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// User Inputs
+l_rsi = input(14, title='RSI Length')
+ip_lx = input.float(20.0, maxval=50, title='Crossover Offset (L) [RSI]')
+ip_hx = input.float(20.0, maxval=50, title='Crossover Offset (H) [RSI]')
+ip_th = input.float(20.0, minval=1, maxval=50, title='Trigger Hysteresis (\\) [RSI]')
+ip_rh = input.float(25.0, minval=1, maxval=50, title='Rebound Hysteresis (/) [RSI]')
+l_trig = input.bool(false, title='High Sensitivity Trigger Enabled')
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Band Signals ///
+var mint1 = mt.mint.new()
+
+float rsi1 = nz(ta.rsi(ohlc4, l_rsi), 50)
+
+float rz0_hys = 5
+float rz1_hys = 5
+
+mint1.calc(rsi1, ip_lx, ip_hx, ip_rh, ip_th, rz0_hys, rz1_hys)
+
+m_mid = 50.0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Range Metrics, Low-Side ///
+rcl_sp = 0.0
+rcl_rp = 0.0
+rcl_zp = 0.0
+rcl_st = 0.0
+is_rcl_trough_complete = false
+is_rcl_trough_pending = false
+is_rcl_trough_reset = false
+
+// User Inputs
+rcl_ip = 4.0
+
+// Summit Peak-Band
+rcl_sp := mint1.rzl_0 ? mint1.no_rzl_rise() ? mint1.rzl > rcl_sp[1] ? mint1.rzl : rcl_sp[1] : mint1.rzl : 0
+
+// Range Peak-Band
+rcl_rp := mint1.rzl_w ? rcl_sp > rcl_rp[1] ? rcl_sp : rcl_rp[1] : 0.0
+
+// Zone Peak-Band
+rcl_zp := mint1.rzl_x ? rcl_sp > rcl_zp[1] ? rcl_sp : rcl_zp[1] : 0.0
+
+// Summit Trough
+rcl_st := mint1.rzl_w ? mint1.rzl < rcl_rp ? rcl_rp - mint1.rzl : 0.0 : 0.0
+
+// Flags (simplified: ta.falling/rising already return bool)
+is_rcl_trough_reset := ta.falling(rcl_st, 1)
+is_rcl_trough_complete := not ta.falling(rcl_st, 1)
+is_rcl_trough_pending := ta.rising(rcl_st, 1)
+
+// Trough pending exit flag
+from_rcl_trough_pending = ta.falling(mt.to_float(is_rcl_trough_pending), 1)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Capture Logic, Low-Side ///
+is_rpl_capture_enabled = false
+rpl_capture_state = 0.0
+
+// Capture State Machine [0=Disabled, 1=Pending, 2=Ready]
+rpl_capture_state := mint1.rzl_x ? mt.to_float(mint1.rzl_x[1]) == 0 ? 1.0 : is_rcl_trough_reset and rpl_capture_state[1] == 2.0 ? 3.0 : is_rcl_trough_pending and (rpl_capture_state[1] == 3.0 or rpl_capture_state[1] == 1.0) ? 2.0 : rpl_capture_state[1] : 0.0
+
+// Capture trigger
+is_rpl_capture_trigger = (ta.rising(rpl_capture_state, 1) and rpl_capture_state != 3.0) or ta.falling(rpl_capture_state, 1)
+
+// Capture enabled
+is_rpl_capture_enabled := rpl_capture_state > 0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Peak-Price Detection, Low-side ///
+p_lo = close < open ? close : open
+is_ppl_hit_b = false
+is_ppl_hit_w = false
+ppl_con_b = p_lo
+ppl_con_w = p_lo
+ppl_scap = p_lo
+ppl_rcap = p_lo
+ppl_zcap = 0.0
+is_ppl_topk = false
+is_ppl_flat = false
+ppl_coeff = 1.01
+
+// Lower-low (hit) price detected (body / wick)
+is_ppl_hit_b := mint1.no_rzl_fall() and p_lo <= ppl_con_b[1] * ppl_coeff
+is_ppl_hit_w := mint1.no_rzl_fall() and low <= ppl_con_w[1]
+
+// Continuous peak-price (body / wicks)
+ppl_con_b := is_rpl_capture_enabled ? is_rcl_trough_complete ? is_ppl_hit_b ? p_lo : ppl_con_b[1] : p_lo : p_lo
+ppl_con_w := is_rpl_capture_enabled ? is_rcl_trough_complete ? is_ppl_hit_w ? low : ppl_con_w[1] : p_lo : p_lo
+
+// Summit captured peak-price
+ppl_scap := is_rpl_capture_enabled ? mint1.is_rzl_w_fall() ? p_lo : is_rpl_capture_trigger ? ppl_con_w < ppl_rcap[1] and ppl_con_b >= ppl_rcap[1] ? ppl_rcap[1] : ppl_con_b < ppl_scap[1] ? ppl_con_b : ppl_scap[1] : ppl_scap[1] : p_lo
+
+// Range captured peak-price
+ppl_rcap := is_rpl_capture_enabled ? mint1.is_rzl_w_fall() and rcl_rp[1] > 1 ? ppl_scap[1] : ppl_rcap[1] : p_lo
+
+is_ppl_rcap_change = mt.to_bool(ta.change(ppl_rcap, 1))
+
+// Zone captured peak-price
+ppl_zcap := is_rpl_capture_enabled ? ppl_rcap < ppl_zcap[1] ? ppl_rcap : ppl_zcap[1] : p_lo
+
+is_ppl_zcap_fall = ta.falling(ppl_zcap, 1)
+is_ppl_zcap_change = mt.to_bool(ta.change(ppl_zcap, 1))
+
+// Zone-peak edge detected / No edge on W fall
+is_ppl_topk := is_rpl_capture_enabled and is_ppl_zcap_fall and is_ppl_zcap_change
+is_ppl_flat := is_rpl_capture_enabled and mint1.is_rzl_w_fall() and not is_ppl_zcap_change and not is_ppl_rcap_change
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Low-Momentum Detection, Low-Side ///
+m_lo = mint1.rsi1
+mpl_con = mint1.rsi1
+mpl_cap = m_mid
+mpl_rcap = m_mid
+mpl_zcap = m_mid
+is_mpl_hit = false
+is_mpl_nopk = false
+mpl_coeff = 1.01
+
+// Peak-momentum tolerance
+mp_tol = 0.25
+
+// Momentum hit detection
+is_mpl_hit := mint1.no_rzl_fall() and m_lo <= mpl_con[1] / mpl_coeff
+
+// Continuous-reset low-momentum
+mpl_con := is_rpl_capture_enabled ? is_rcl_trough_complete ? is_mpl_hit ? m_lo : mpl_con[1] : m_lo : m_lo
+
+// Trigger-captured momentum
+mpl_cap := is_rpl_capture_enabled ? mint1.is_rzl_w_fall() ? m_mid : is_rpl_capture_trigger ? mpl_con < mpl_cap[1] ? mpl_con : mpl_cap[1] : mpl_cap[1] : m_mid
+
+// Range-captured peak momentum
+mpl_rcap := is_rpl_capture_enabled ? mint1.is_rzl_w_fall() and rcl_rp[1] > 1 ? mpl_cap[1] : mpl_rcap[1] : m_mid
+
+// Zone-captured peak momentum
+mpl_zcap := is_rpl_capture_enabled ? mpl_rcap < mpl_zcap[1] - mp_tol ? mpl_rcap : mpl_zcap[1] : m_mid
+
+// New experimental trigger
+is_mpl_cap_trg = ta.falling(mpl_cap, 1) and mpl_cap[1] == m_mid and mpl_cap > mpl_zcap
+
+// Zone non-peak edge detected
+is_mpl_nopk := mpl_zcap - mpl_rcap != 0 and ta.change(mpl_zcap, 1) == 0 and mt.to_bool(ta.change(mpl_rcap, 1))
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Momentum @ Peak-Price Detection, Low-side ///
+mrl_div_cnt = 0.0
+
+// Divergence detection flag
+mrl_div_cnt := mint1.rzl_x ? is_mpl_nopk and (is_ppl_topk or is_ppl_flat) ? mrl_div_cnt[1] + 1.0 : mrl_div_cnt[1] : 0.0
+mrl_div_cnt_rise = ta.rising(mrl_div_cnt, 1)
+
+mpl_trig = l_trig ? is_mpl_cap_trg : mrl_div_cnt_rise
+
+plotshape(mpl_trig, style=shape.triangleup, size=size.small, location=location.belowbar, color=color.new(color.green, 0))
+
+if mpl_trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': W' + str.tostring(mrl_div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Range Metrics, High-Side ///
+rch_sp = 0.0
+rch_rp = 0.0
+rch_st = 0.0
+
+// Summit Peak
+rch_sp := bool(mint1.rzh_0) ? mint1.no_rzh_rise() ? mint1.rzh > rch_sp[1] ? mint1.rzh : rch_sp[1] : mint1.rzh : 0.0
+
+// Range Peak
+rch_rp := bool(mint1.rzh_w) ? rch_sp > rch_rp[1] ? rch_sp : rch_rp[1] : 0.0
+
+// Range-Peak Delta
+rch_st := bool(mint1.rzh_w) ? mint1.rzh < rch_rp ? rch_rp - mint1.rzh : 0.0 : 0.0
+
+// Capture Logic, High-Side
+is_rph_capture_enabled = false
+rph_capture_state = 0.0
+is_rch_trough_complete = false
+is_rch_trough_pending = false
+
+// Trough Complete / Pending
+is_rch_trough_complete := not ta.falling(rch_st, 1)
+is_rch_trough_pending := ta.rising(rch_st, 1)
+
+// Capture State Machine [0=Disabled, 1=Pending, 2=Ready]
+rph_capture_state := bool(mint1.rzh_x) ? not mint1.rzh_x[1] ? 1.0 :
+                                         is_rch_trough_pending and (rph_capture_state[1] == 3.0 or rph_capture_state[1] == 1.0) ? 2.0 :
+                                         not is_rch_trough_complete and rph_capture_state[1] == 2.0 ? 3.0 :
+                                         rph_capture_state[1] :
+                                         0.0
+
+// Capture trigger
+is_rph_capture_trigger = (ta.rising(rph_capture_state, 1) and rph_capture_state != 3.0) or ta.falling(rph_capture_state, 1)
+
+// Capture enabled
+is_rph_capture_enabled := rph_capture_state > 0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Peak-Price Detection, High-side ///
+p_hi = close > open ? close : open
+is_pph_hit_b = false
+is_pph_hit_w = false
+pph_con_b = p_hi
+pph_con_w = p_hi
+pph_scap = p_hi
+pph_rcap = p_hi
+pph_zcap = 0.0
+is_pph_topk = false
+is_pph_flat = false
+pph_coeff = 1.01
+
+// Hit price detected (wick)
+is_pph_hit_w := mint1.no_rzh_fall() and (high >= pph_con_w * pph_coeff)
+
+// Continuous peak-price (body) — preserved verbatim: pph_con_b is the previous bar body (known quirk)
+pph_con_b := p_hi[1]
+
+// Continuous peak-price (wick)
+pph_con_w := is_pph_hit_w ? pph_con_w[1] : high[1]
+
+// Range captured peak-price
+pph_scap := not is_rph_capture_enabled ? p_hi : mint1.is_rzh_fall() and not mint1.is_rzh_w_fall() ? pph_con_b[1] : pph_scap[1]
+pph_rcap := not is_rph_capture_enabled ? p_hi : mint1.is_rzh_w_fall() ? pph_scap : pph_rcap[1]
+
+is_pph_rcap_rise = ta.rising(pph_rcap, 1)
+is_pph_rcap_change = mt.to_bool(ta.change(pph_rcap, 1))
+
+// Zone captured peak-price
+pph_zcap := is_rph_capture_enabled ? pph_rcap > pph_zcap[1] ? pph_rcap : pph_zcap[1] : p_hi
+
+is_pph_zcap_rise = ta.rising(pph_zcap, 1)
+is_pph_zcap_change = mt.to_bool(ta.change(pph_zcap, 1))
+
+// Zone-peak edge detected / No edge on W fall
+is_pph_topk := is_rph_capture_enabled and is_pph_zcap_rise and is_pph_rcap_change
+is_pph_flat := is_rph_capture_enabled and mint1.is_rzh_w_fall() and not is_pph_zcap_change and not is_pph_rcap_change
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// High-Momentum Detection, High-Side ///
+m_hi = mint1.rsi1
+mph_con = mint1.rsi1
+mph_cap = m_mid
+mph_rcap = m_mid
+mph_zcap = m_mid
+is_mph_hit = false
+is_mph_nopk = false
+mph_coeff = 1.01
+
+// Momentum hit detection
+is_mph_hit := mint1.no_rzh_fall() and m_hi >= mph_con / mph_coeff
+
+// Continuous-reset high-momentum
+mph_con := is_rph_capture_enabled ? is_rch_trough_complete ? is_mph_hit ? m_hi : mph_con[1] : m_hi : m_hi
+
+// Trigger-captured momentum
+mph_cap := is_rph_capture_enabled ? mint1.is_rzh_w_fall() ? m_mid : is_rph_capture_trigger ? mph_con > mph_cap[1] ? mph_con : mph_cap[1] : mph_cap[1] : m_mid
+
+// Range-captured peak momentum
+mph_rcap := is_rph_capture_enabled ? mint1.is_rzh_w_fall() and rch_rp[1] > 1 ? mph_cap[1] : mph_rcap[1] : m_mid
+
+// Zone-captured peak momentum
+mph_zcap := is_rph_capture_enabled ? mph_rcap > mph_zcap[1] ? mph_rcap + mp_tol : mph_zcap[1] : m_mid
+
+// New experimental trigger
+is_mph_cap_trg = ta.rising(mph_cap, 1) and mph_cap[1] == m_mid and mph_cap < mph_zcap
+
+// Zone non-peak edge detected
+is_mph_nopk := mph_zcap - mph_rcap != 0 and ta.change(mph_zcap, 1) == 0 and bool(ta.change(mph_rcap, 1))
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// High-side / Bearish Divergence Detection ///
+mrh_div_cnt = 0.0
+
+// Divergence detection flag
+mrh_div_cnt := bool(mint1.rzh_x) ? bool(is_mph_nopk) and (is_pph_topk or is_pph_flat) ? mrh_div_cnt[1] + 1.0 : mrh_div_cnt[1] : 0.0
+mrh_div_cnt_rise = ta.rising(mrh_div_cnt, 1)
+
+mph_trig = l_trig ? is_mph_cap_trg : mrh_div_cnt_rise
+
+plotshape(mph_trig, style=shape.triangledown, size=size.small, location=location.abovebar, color=color.new(color.red, 0))
+
+if mph_trig
+    alert(syminfo.ticker + ', ' + timeframe.period + ': M' + str.tostring(mrh_div_cnt) + ' @ ' + str.tostring(close), alert.freq_once_per_bar)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// Combined momentum divergence ///

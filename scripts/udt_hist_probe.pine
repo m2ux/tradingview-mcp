@@ -1,0 +1,32 @@
+//@version=6
+// Minimal probe: does (udt[1]).field reproduce standalone-series per-field history in v6?
+indicator("UDT Hist Probe", shorttitle="UDTProbe", overlay=false)
+
+type Box
+    float a
+    float b
+
+// Standalone series references (ground truth)
+float sa = 0.0
+float sb = 0.0
+sa := close
+sb := close * 2
+
+// UDT version: var object, mutate fields, read (box[1]).field
+var Box box = Box.new(0.0, 0.0)
+box.a := close
+box.b := close * 2
+
+// Compare previous-bar reads
+float sa_prev = sa[1]
+float sb_prev = sb[1]
+float ba_prev = (box[1]).a
+float bb_prev = (box[1]).b
+
+// Mismatch detector: 1 when UDT history disagrees with standalone series history
+float mismatch = (math.abs(sa_prev - ba_prev) > 1e-9 or math.abs(sb_prev - bb_prev) > 1e-9) ? 1.0 : 0.0
+float total = nz(math.sum(mismatch, 0), 0)
+
+plot(sa_prev, "sa_prev", color=color.green)
+plot(ba_prev, "ba_prev", color=color.red, style=plot.style_circles)
+plot(total, "cumulative_mismatch", color=color.orange)
