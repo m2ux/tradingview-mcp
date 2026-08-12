@@ -126,7 +126,10 @@ slice had 0 LOW and made all three variants look vacuously identical (see `02` �
 3. **The deeper refactor** SymLo was an intermediate toward — now that both sides share one
    side-parameterized chain, the structure is ready for a true library-generic rewrite (the
    original "library-generic rewrite" goal deferred when the verbatim UDT collapse failed).
-   **This is the next real work.**
+   **Planned & deferred (2026-08-12):** see [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20)
+   (branch `feat/rszonediv-generic-refactor`) + `07-library-generic-refactor-plan.md`. Decisions
+   locked (published library; single generic shell; paper-exercise genericity proof at Step 4).
+   Resume at Step 1 (extract pure helpers into the engine library — pure move, expect 58/58).
 4. **Optional tooling:** implement #12 (published-scope read) so future dependency pins don't
    need the `ui_evaluate` workaround; #17/#19 to close the headless lifecycle.
 

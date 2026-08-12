@@ -1,6 +1,6 @@
 # RSIZoneDiv — Library-Generic Refactor Plan
 
-> Work package · tradingview-mcp · 2026-08-12 · **Status:** Planned — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`)
+> Work package · tradingview-mcp · 2026-08-12 · **Status:** Planned & deferred — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`). Decisions locked (§9); implementation not started. Resume at Step 1.
 >
 > **Companion reading:** `01-pine-language-semantics.md` (esp. §1 UDT history, §3 lazy eval),
 > `04-refactoring-playbook.md` (esp. §2 collapse limits, §3 side-parameterization, §7 asymmetry
