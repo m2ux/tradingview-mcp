@@ -1,0 +1,98 @@
+//@version=6
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © theansweris42
+//
+// Library-generic momentum-divergence engine (Step 1: pure move of RSIZoneSymLo helpers).
+// Pure, side-parameterized next-value logic. dir = +1 -> low (bullish) side; dir = -1 -> high (bearish) side.
+// All functions are pure: every series-history value (x[1], ta.*) is computed by the caller in global
+// scope and passed in as an explicit prev* / edge argument. No function here reads history or a concrete
+// zone source — that is what makes the engine reusable over any zone/band adapter.
+library("RSIZoneDivEngine")
+
+// "Is `a` a more extreme peak than `b` for this side?" low: lower is better; high: higher is better.
+export better(float dir, float a, float b) =>
+    dir > 0 ? a < b : a > b
+
+// Capture state machine [0=Disabled, 1=Pending, 2=Ready, 3=Set]. Low-side priority (reset wins over pending).
+export f_capture_state(bool inZone, float prevInZone, bool tReset, bool tPending, float prevState) =>
+    inZone ?
+         prevInZone == 0 ? 1.0 :
+         tReset and prevState == 2.0 ? 3.0 :
+         tPending and (prevState == 3.0 or prevState == 1.0) ? 2.0 :
+         prevState :
+         0.0
+
+// Summit peak-band: track the max zone reading while in zone-0, else hold, else 0. Direction-independent.
+export f_summit_peak(bool inZone0, bool noRise, float rz, float prevSp) =>
+    inZone0 ? noRise ? rz > prevSp ? rz : prevSp : rz : 0.0
+
+// Range/zone peak-band: carry the running max summit peak while in the wider band, else 0.
+export f_band_peak(bool inBand, float sp, float prev) =>
+    inBand ? sp > prev ? sp : prev : 0.0
+
+// Summit trough / range-peak delta: depth below the range peak while in the wider band (both sides identical).
+export f_summit_trough(bool inBand, float rz, float rp) =>
+    inBand ? rz < rp ? rp - rz : 0.0 : 0.0
+
+// Continuous peak (momentum or price-wick): reset to current while capturing and trough complete, hold on no-hit.
+export f_con(bool capEn, bool troughComplete, bool hit, float cur, float prev, float resetVal) =>
+    capEn ? troughComplete ? hit ? cur : prev : resetVal : resetVal
+
+// Trigger-captured momentum peak.
+export f_mom_cap(float dir, bool capEn, bool isWFall, bool trig, float con, float prevCap, float mid) =>
+    capEn ?
+         isWFall ? mid :
+         trig ? better(dir, con, prevCap) ? con : prevCap :
+         prevCap :
+         mid
+
+// Range-captured peak (momentum or price): latch the trigger/summit capture on W-fall once range established.
+export f_range_cap(bool capEn, bool isWFall, float prevRp, float prevCap, float prevSelf, float resetVal) =>
+    capEn ? isWFall and prevRp > 1 ? prevCap : prevSelf : resetVal
+
+// Zone-captured peak momentum with symmetric tolerance (low: rcap < zcap - tol; high: rcap > zcap + tol).
+export f_mom_zcap(float dir, bool capEn, float rcap, float prevZcap, float tol, float mid) =>
+    capEn ? better(dir, rcap, prevZcap - dir * tol) ? rcap : prevZcap : mid
+
+// Zone-captured peak price (no tolerance).
+export f_price_zcap(float dir, bool capEn, float rcap, float prevZcap, float resetVal) =>
+    capEn ? better(dir, rcap, prevZcap) ? rcap : prevZcap : resetVal
+
+// Divergence counter: increment in zone when a non-peak momentum edge coincides with a price peak/flat edge.
+export f_div_cnt(bool inZone, bool nopk, bool topk, bool flat, float prevCnt) =>
+    inZone ? nopk and (topk or flat) ? prevCnt + 1.0 : prevCnt : 0.0
+
+// ---------------------------------------------------------------- LOW-side peak-price chain, direction-parameterized
+// Body-hit: price extreme has crossed the running body peak by the coeff margin, on a non-falling zone bar.
+export f_hit_b(float dir, bool noFall, float extreme, float prevConB, float coeff) =>
+    noFall and (dir > 0 ? extreme <= prevConB * coeff : extreme >= prevConB / coeff)
+
+// Wick-hit: wick has crossed the running wick peak (no coeff), on a non-falling zone bar.
+export f_hit_w(float dir, bool noFall, float wick, float prevConW) =>
+    noFall and (dir > 0 ? wick <= prevConW : wick >= prevConW)
+
+// Summit-captured peak price (LOW-side structure, direction-parameterized).
+// On W-fall: reset to the bar extreme.
+// On trigger: cross-check con_w vs rcapPrev and con_b vs rcapPrev; prefer rcapPrev if it brackets, else track con_b.
+// Else: hold.
+export f_price_scap(float dir, bool capEn, bool isWFall, bool trig, float conW, float conB, float rcapPrev, float scapPrev, float extreme) =>
+    capEn ?
+         isWFall ? extreme :
+         trig ?
+             better(dir, conW, rcapPrev) and not better(dir, conB, rcapPrev) ? rcapPrev :
+             better(dir, conB, scapPrev) ? conB :
+             scapPrev :
+         scapPrev :
+         extreme
+
+// Range-captured peak price (LOW-side structure): latch scapPrev on W-fall once the wider range is established.
+export f_price_rcap(bool capEn, bool isWFall, float prevRp, float scapPrev, float rcapPrev, float extreme) =>
+    capEn ? isWFall and prevRp > 1 ? scapPrev : rcapPrev : extreme
+
+// Top-edge flag (LOW-side structure): a fresh zone-capture extreme is set while the zone capture itself changed.
+export f_topk(float dir, bool capEn, bool zcapEdge, bool zcapChange) =>
+    capEn and zcapEdge and zcapChange
+
+// Flat flag: in the wider band, on W-fall, with no zone-capture change and no range-capture change.
+export f_flat(bool capEn, bool isWFall, bool zcapChange, bool rcapChange) =>
+    capEn and isWFall and not zcapChange and not rcapChange
