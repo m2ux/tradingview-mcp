@@ -13,6 +13,16 @@ export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Extract the declared script title from Pine source (indicator()/strategy()/
+ * library() first string arg). Pure helper, exported for tests.
+ */
+export function extractDeclaredTitle(source) {
+  if (typeof source !== 'string') return null;
+  const m = source.match(/(?:^|\n)\s*(?:indicator|strategy|library|study)\s*\(\s*(?:title\s*=\s*)?(['"])((?:\\.|(?!\1).)*)\1/);
+  return m ? m[2] : null;
+}
+
 // ── Pine Open-script picker helpers (local, consolidated) ───────────────────
 
 /** Page-context: find the visible "Open my script" dialog (falls back to last dialog with an input). */
@@ -29,6 +39,29 @@ const OPEN_DIALOG_ROW_SELECTOR = '[class*="itemRow"], [class*="itemInfo"], [clas
 
 /** Page-context: derive a row's script title (leading text before "Version:"). */
 const ROW_TITLE_EXPR = `(r.textContent || '').trim().split(/version:/i)[0].split('\\n')[0].trim()`;
+
+/**
+ * Detect a placeholder/stub Pine source — the shape an E2E test or blank
+ * template leaves behind: a bare indicator()/strategy()/library()/study()
+ * declaration plus only plot() calls, with no real logic (inputs, assignments,
+ * exports, drawing, etc.). This is the reliable signature of the facade-title
+ * corruption in issue #21: a script whose persisted cloud source was overwritten
+ * by a placeholder, so the facade scriptTitle (derived from that source) no
+ * longer reflects the script's real identity. Legitimate scripts always carry
+ * substantive bodies, so name≠title or a shared title alone are NOT corruption
+ * (they are normal — the title tracks the in-code declaration on every save).
+ */
+export function isPlaceholderStubSource(source) {
+  if (typeof source !== 'string' || !source.trim()) return false;
+  const body = source
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('//'));
+  const substantive = body.filter(
+    (l) => !/^(indicator|strategy|library|study)\s*\(/.test(l) && !/^plot\s*\(/.test(l),
+  );
+  return body.length <= 6 && substantive.length === 0;
+}
 
 /** True when a message is an unpublished / import-resolve failure. */
 export function isImportResolveError(message) {
@@ -441,6 +474,84 @@ export async function dismissOpenDialog(_deps = {}) {
 }
 
 /**
+ * Dismiss any visible blocking modal that would swallow a synthetic keystroke
+ * (issue #21): the "Open my script" picker repeatedly re-opens as a side effect
+ * of DOM flows and eats pine_save's Ctrl+S, so the save silently never
+ * dispatches. We prefer a real close control (Cancel/Close/X) over Escape and
+ * re-check, because Escape alone does not always close the picker.
+ * Returns { dismissed, via } — dismissed=true when no blocking dialog remains.
+ */
+export async function dismissBlockingDialogs(_deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const pressKeyFn = _deps.pressKey || pressKey;
+  const FIND = `
+    var dlg = Array.prototype.slice.call(document.querySelectorAll('[role="dialog"], [aria-modal="true"], [class*="dialog"], [class*="modal"]'))
+      .filter(function(d) { return d.offsetParent !== null || d.getClientRects().length > 0; })
+      .find(function(d) { return /open my script|save this script|already exists|replace\\?/i.test(d.textContent || ''); })
+      || null;
+  `;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const present = await evalFn(`(function(){ ${FIND} return !!dlg; })()`);
+    if (!present) return { dismissed: true, via: attempt === 0 ? 'none' : 'close_control' };
+    const closed = await evalFn(`
+      (function() {
+        ${FIND}
+        if (!dlg) return true;
+        var btns = dlg.querySelectorAll('button, [role="button"], [aria-label]');
+        for (var i = 0; i < btns.length; i++) {
+          var b = btns[i];
+          if (b.offsetParent === null && b.getClientRects().length === 0) continue;
+          var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+          if (/^(cancel|close|dismiss)$/i.test(t) || /close/i.test(b.getAttribute('aria-label') || '')) { b.click(); return true; }
+        }
+        return false;
+      })()
+    `);
+    if (!closed) await pressKeyFn('Escape', 0, _deps);
+    await delay(300);
+  }
+  const stillThere = await evalFn(`(function(){ ${FIND} return !!dlg; })()`);
+  return { dismissed: !stillThere, via: stillThere ? 'failed' : 'escape' };
+}
+
+/**
+ * Restore a stuck-collapsed Pine Editor bottom panel (issue #21): the panel can
+ * get wedged at height:0 where ui_open_panel toggles report "opened" but the
+ * widget never expands and the .tv-script-widget nameButton disappears (which
+ * breaks pine_copy's name-menu flow). Re-activates the script-editor tab via
+ * the bottomWidgetBar API and reports whether a usable name button / Monaco is
+ * now present. Read-only DOM + the app's own widget API — no arbitrary writes.
+ */
+export async function restorePinePanel(_deps = {}) {
+  const evalFn = _deps.evaluate || evaluate;
+  const hasNameButton = () => evalFn(`
+    (function() {
+      var w = document.querySelector('.tv-script-widget');
+      var nb = w ? w.querySelector('[class*="nameButton"]') : document.querySelector('[class*="nameButton"]');
+      if (nb && (nb.offsetParent !== null || nb.getClientRects().length > 0)) return true;
+      var area = document.querySelector('[class*="layout__area--bottom"]');
+      return !!(area && area.offsetHeight > 50);
+    })()
+  `);
+  if (await hasNameButton()) return { restored: true, was_stuck: false };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await evalFn(`
+      (function() {
+        var bwb = window.TradingView && window.TradingView.bottomWidgetBar;
+        if (!bwb) return;
+        if (typeof bwb.activateScriptEditorTab === 'function') bwb.activateScriptEditorTab();
+        else if (typeof bwb.showWidget === 'function') bwb.showWidget('pine-editor');
+        var area = document.querySelector('[class*="layout__area--bottom"]');
+        if (area && area.offsetHeight <= 50 && bwb && typeof bwb.open === 'function') bwb.open();
+      })()
+    `);
+    await delay(400);
+    if (await hasNameButton()) return { restored: true, was_stuck: true };
+  }
+  return { restored: await hasNameButton(), was_stuck: true };
+}
+
+/**
  * Open the Open-script dialog, search for name, select a row.
  * Returns { selected, candidates } or throws.
  */
@@ -824,6 +935,68 @@ export async function fetchScriptSource(scriptIdPart, version = null, _deps = {}
     })()
   `);
   return result || { ok: false, source: null, via: null, attempted: [] };
+}
+
+/**
+ * Page-context probe: walk a saved script's version history on the pine-facade.
+ * TradingView persists every saved version; the on-demand endpoint
+ *   GET <facade>/get/<scriptIdPart>/<version>
+ * serves any explicit version, so we fetch `current`, `current-1`, ... down to
+ * `max_versions` (or until a version returns non-OK / empty). Read-only.
+ *
+ * Each entry: { version, ok, status, source, line_count, char_count, is_stub,
+ *               declared_title } — source is included only when include_sources
+ * is true; otherwise bodies are summarised to keep the payload small.
+ *
+ * Returns { ok, versions: [...], attempted, current_version }.
+ */
+export async function fetchScriptHistory(scriptIdPart, { current_version = null, max_versions = 10, include_sources = false } = {}, _deps = {}) {
+  const evalAsync = _deps.evaluateAsync || evaluateAsync;
+  const id = String(scriptIdPart || '');
+  if (!id) throw new Error('scriptIdPart is required.');
+  const result = await evalAsync(`
+    (async function() {
+      var BASE = ${JSON.stringify(PINE_FACADE)};
+      var id = ${safeString(id)};
+      var cur = ${current_version === null || current_version === undefined ? 'null' : safeString(String(current_version))};
+      var maxV = ${Number.isFinite(max_versions) ? Math.trunc(max_versions) : 10};
+      var wantSrc = ${include_sources ? 'true' : 'false'};
+      function isStub(src) {
+        if (typeof src !== 'string') return false;
+        if (src.length >= 200) return false;
+        var m = src.match(/(?:indicator|strategy|library)\\(\\s*"([^"]*)"/);
+        var decl = m ? m[1] : '';
+        var body = src.replace(/\\/\\/[^\\n]*/g, '').replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
+        body = body.replace(/(?:indicator|strategy|library)\\([^)]*\\)/, '').replace(/plot\\([^)]*\\)/, '').replace(/@\\w+/g, '').trim();
+        return decl.length > 0 && body.length === 0;
+      }
+      function declTitle(src) {
+        var m = (typeof src === 'string') && src.match(/(?:indicator|strategy|library)\\(\\s*"([^"]*)"/);
+        return m ? m[1] : null;
+      }
+      var start = (cur !== null && cur !== undefined && cur !== '' && isFinite(parseFloat(cur))) ? Math.floor(parseFloat(cur)) : null;
+      if (start === null) return { ok: false, error: 'current_version required to walk history', versions: [], attempted: [] };
+      var versions = [];
+      var attempted = [];
+      var floor = Math.max(1, start - maxV + 1);
+      for (var v = start; v >= floor; v--) {
+        var url = BASE + '/get/' + encodeURIComponent(id) + '/' + encodeURIComponent(String(v));
+        attempted.push(v);
+        try {
+          var r = await fetch(url, { credentials: 'include' });
+          if (!r.ok) { versions.push({ version: v, ok: false, status: r.status }); if (r.status === 404) break; continue; }
+          var j = await r.json();
+          var src = (j && (j.source || j.scriptSource)) || null;
+          if (typeof src !== 'string' || src.length === 0) { versions.push({ version: v, ok: false, status: r.status, empty: true }); continue; }
+          var entry = { version: v, ok: true, status: r.status, line_count: src.split('\\n').length, char_count: src.length, is_stub: isStub(src), declared_title: declTitle(src) };
+          if (wantSrc) entry.source = src;
+          versions.push(entry);
+        } catch (e) { versions.push({ version: v, ok: false, error: String(e) }); }
+      }
+      return { ok: true, versions: versions, attempted: attempted, current_version: start };
+    })()
+  `);
+  return result || { ok: false, versions: [], attempted: [], current_version: null };
 }
 
 export async function studyCount(_deps = {}) {

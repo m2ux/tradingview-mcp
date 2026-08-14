@@ -29,6 +29,16 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
+  server.tool('pine_script_history', 'Read a saved Pine Script\'s version history (read-only) by walking the facade per-version endpoint. Returns per-version {version, ok, line_count, char_count, is_stub, declared_title} plus latest_intact_version — the newest version whose source is NOT a placeholder stub. Use to recover the pre-corruption source of a script whose current version was overwritten (e.g. by an E2E stub). Pass include_sources:true to also return each version\'s full source (large).', {
+    name: z.string().optional().describe('Saved script name (exact match preferred; unambiguous substring allowed)'),
+    script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
+    max_versions: z.coerce.number().optional().describe('How many versions back to walk from current (default 10)'),
+    include_sources: z.coerce.boolean().optional().describe('Include each version\'s full source in the response (default false — bodies are summarised)'),
+  }, async ({ name, script_id, max_versions, include_sources } = {}) => {
+    try { return jsonResult(await core.readScriptHistory({ name, script_id, max_versions, include_sources })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
   server.tool('pine_set_source', 'Set Pine Script source code in the editor. Pass script_name to refuse when the editor header identity does not match (prevents overwriting the wrong script).', {
     source: z.string().describe('Pine Script source code to inject'),
     script_name: z.string().optional().describe('Expected editor header name; refuse setValue if identity differs'),
@@ -47,7 +57,7 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted AGAINST THE BUFFER\'S script (not just the header name). Detects the unbound-editor trap (header and buffer bound to different scripts) and reports bound_mismatch instead of a bare verified:false. verified=true means the cloud source now matches the editor buffer. Returns {name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name}.', {}, async () => {
+  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted AGAINST THE BUFFER\'S script (not just the header name). FAILS LOUDLY (success:false) unless the persisted cloud source exactly matches the editor buffer — a save that bumps the version while persisting a different source is reported as an error, not success (issue #21). Detects the unbound-editor trap (bound_mismatch). verified=true means the cloud source now matches the editor buffer. Returns {success, name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name, error?}.', {}, async () => {
     try { return jsonResult(await core.save()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
