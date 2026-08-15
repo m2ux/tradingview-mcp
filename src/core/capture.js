@@ -1,7 +1,7 @@
 /**
  * Core screenshot/capture logic.
  */
-import { getClient, evaluate, getChartCollection, findTargetByRef, makeScopedClient } from '../connection.js';
+import { getClient, evaluate, getChartCollection, findTargetByRef, makeScopedClient, evictScopedClient } from '../connection.js';
 import { captureScreenshot as _capture } from './protocol.js';
 import { waitForChartRender } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
@@ -105,6 +105,6 @@ export async function captureScreenshot({
       size_bytes: Buffer.from(data, 'base64').length,
     };
   } finally {
-    if (scopedClient) { try { await scopedClient.close(); } catch { /* already gone */ } }
+    if (scopedClient) { evictScopedClient(targetInfo.id); try { await scopedClient.close(); } catch { /* already gone */ } }
   }
 }

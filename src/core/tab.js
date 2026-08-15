@@ -9,7 +9,7 @@
  * `.tabs-container .tab`, its close button, and `create-new-tab-button`.
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
-import { getClient, reconnectTo, listTargets, makeScopedClient } from '../connection.js';
+import { getClient, reconnectTo, listTargets, makeScopedClient, evictScopedClient } from '../connection.js';
 import { sleep } from '../wait.js';
 
 /**
@@ -56,11 +56,14 @@ async function withShell(fn) {
           const { result } = await c.Runtime.evaluate({ expression, returnByValue: true });
           return result?.value;
         });
+        evictScopedClient(cand);
         await c.close();
         return out;
       }
+      evictScopedClient(cand);
       await c.close();
     } catch {
+      evictScopedClient(cand);
       try { if (c) await c.close(); } catch { /* already gone */ }
     }
   }
@@ -77,6 +80,7 @@ async function isTargetVisible(targetId) {
   } catch {
     return false;
   } finally {
+    evictScopedClient(targetId);
     try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
@@ -97,6 +101,7 @@ async function withTarget(targetId, fn) {
       return result?.value;
     });
   } finally {
+    evictScopedClient(targetId);
     try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }

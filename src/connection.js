@@ -197,6 +197,27 @@ function _evictScoped(key) {
   try { entry.client.close?.(); } catch { /* already gone */ }
 }
 
+/**
+ * Drop a target's pooled client without closing it. Callers that close a
+ * scoped client themselves call this first so the pool never retains a
+ * reference to a socket it no longer controls.
+ */
+export function evictScopedClient(targetInfo) {
+  const id = targetInfo.id ?? targetInfo;
+  scopedPool.delete(id);
+}
+
+// A pooled client is reusable only while its socket is open. chrome-remote-interface
+// exposes readyState on the client; 1 (OPEN) means live. Anything else is stale.
+function _isLive(client) {
+  try {
+    const rs = client?.readyState ?? client?._ws?.readyState;
+    return rs === undefined || rs === 1;
+  } catch {
+    return false;
+  }
+}
+
 async function _pruneScopedPool() {
   while (scopedPool.size > scopedPoolSize) {
     // Map preserves insertion order — the first entry is the least-recently-used.
@@ -213,11 +234,15 @@ async function _pruneScopedPool() {
 export async function makeScopedClient(targetInfo, opts = {}) {
   const id = targetInfo.id ?? targetInfo;
   if (scopedPool.has(id)) {
-    // LRU refresh: delete + re-insert moves it to the end (most-recently-used).
     const entry = scopedPool.get(id);
+    if (_isLive(entry.client)) {
+      // LRU refresh: delete + re-insert moves it to the end (most-recently-used).
+      scopedPool.delete(id);
+      scopedPool.set(id, entry);
+      return entry.client;
+    }
+    // Stale entry (socket closed outside the pool) — drop it and open fresh.
     scopedPool.delete(id);
-    scopedPool.set(id, entry);
-    return entry.client;
   }
   const client = await _makeScopedClientRaw(targetInfo);
   scopedPool.set(id, { client });
@@ -302,7 +327,7 @@ export async function withTargetEvaluate(ref, fn) {
       }
       await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
     } finally {
-      try { if (c) await c.close(); } catch { /* already gone */ }
+      if (c) { evictScopedClient(target); try { await c.close(); } catch { /* already gone */ } }
     }
   }
   throw lastError;
