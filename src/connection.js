@@ -123,9 +123,18 @@ export async function reconnectTo(targetId) {
   return connect(targetId);
 }
 
-async function findChartTarget() {
+/**
+ * Fetch all CDP page targets from `/json/list`. Single transport-owned
+ * path — finders and tab.js route through here rather than each issuing
+ * their own `fetch` against the HTTP endpoint.
+ */
+export async function listTargets() {
   const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  return resp.json();
+}
+
+async function findChartTarget() {
+  const targets = await listTargets();
   // Prefer targets with tradingview.com/chart in the URL
   return targets.find(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url))
     || targets.find(t => t.type === 'page' && /tradingview/i.test(t.url))
@@ -133,8 +142,7 @@ async function findChartTarget() {
 }
 
 async function findTargetById(id) {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   return targets.find(t => t.id === id) || null;
 }
 
@@ -147,8 +155,7 @@ async function findTargetById(id) {
 export async function findTargetByRef(ref) {
   if (!ref) return null;
   const wanted = String(ref);
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   const pages = targets.filter(t => t.type === 'page');
   const byId = pages.find(t => t.id === wanted);
   if (byId) return byId;
