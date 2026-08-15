@@ -16,7 +16,7 @@ The consequences are practical. Competing private connections caused the connect
 
 ## Solution Overview
 
-*Populated by the producing step (a `stakeholder-overview` call).*
+Repairs the CDP layer stack in five independently mergeable slices, in the research build order: centralize all page paths through the `KNOWN_PATHS` registry (R2); replace the three private-socket bypass sites with a transport-provided scoped-client factory and consolidate target listing (R1); move raw CDP protocol-domain calls behind the protocol layer (R3); route the 32 raw sleeps onto shared wait helpers (R4); and split `core/health.js` into page-probe health, process launch, and update-check modules (R5). The 88-tool surface and CLI stay behaviour-identical throughout, verified by green unit tests plus live-Desktop e2e smoke, with parallel-tab contention checked by a no-`TV_CDP_BUSY` scenario. New manager surfaces and the event-driven (push) direction are explicitly follow-ups on the cleaned base. Full scope and criteria: [requirements](03-requirements-elicitation.md).
 
 ## 📊 Progress
 
@@ -26,8 +26,8 @@ The consequences are practical. Competing private connections caused the connect
 | 2 | [Design philosophy](02-design-philosophy.md) | Problem classification, workflow path | 15-30m | ✅ |
 | 3 | [Assumptions log](02-assumptions-log.md) | Tracked assumptions across activities | 10-15m | ✅ |
 | 4 | Codebase comprehension | Persistent knowledge under comprehension/ | 20-45m | ✅ |
-| 5 | [Requirements elicitation](03-requirements-elicitation.md) | Scope, success criteria, boundaries | 30-60m | 🟡 |
-| 6 | [KB research](04-kb-research.md) | Knowledge-base and web synthesis | 20-45m | ⬚ |
+| 5 | [Requirements elicitation](03-requirements-elicitation.md) | Scope, success criteria, boundaries | 30-60m | ✅ |
+| 6 | [KB research](04-kb-research.md) | Knowledge-base and web synthesis | 20-45m | 🟡 |
 | 7 | [Implementation analysis](05-implementation-analysis.md) | Baselines, gaps, measurement | 20-45m | ⬚ |
 | 8 | [Work package plan](06-work-package-plan.md) | Tasks, estimates, dependencies | 20-45m | ⬚ |
 | 9 | [Test plan](06-test-plan.md) | Test cases, coverage strategy | 15-30m | ⬚ |
