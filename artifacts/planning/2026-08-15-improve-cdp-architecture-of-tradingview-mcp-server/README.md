@@ -36,9 +36,9 @@ For the people relying on it, the guarantee is simple: nothing about how the 88 
 | 10 | [Deferred items](deferred-items.md) | Out-of-scope deferral register | 5-10m | ⬚ |
 | 11 | [Follow-ups](follow-ups.md) | In-task follow-ups register | 5-10m | ⬚ |
 | 12 | Assumptions review | Converge open assumptions | 20-40m | ✅ |
-| 13 | Implementation | Code changes per plan | 1-4h | 🟡 |
-| 14 | [Provenance log](08-provenance-log.md) | Per-task AI-assistance provenance | 5-15m | ⬚ |
-| 15 | Lean-coding audit | Ponytail lean lens on the change | 15-30m | ⬚ |
+| 13 | Implementation | Code changes per plan | 1-4h | ✅ |
+| 14 | [Provenance log](08-provenance-log.md) | Per-task AI-assistance provenance | 5-15m | ✅ |
+| 15 | Lean-coding audit | Ponytail lean lens on the change | 15-30m | 🟡 |
 | 16 | [Code review](09-code-review.md) | Consolidated review findings home | 15-30m | ⬚ |
 | 17 | [Lean change](09-lean-change.md) | Applied lean simplifications record | 10-20m | ⬚ |
 | 18 | Post-implementation review | Quality review before validation | 30-60m | ⬚ |
