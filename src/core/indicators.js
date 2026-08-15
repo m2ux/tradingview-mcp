@@ -1,10 +1,10 @@
 /**
  * Core indicator settings logic.
  */
-import { evaluate, safeString } from '../connection.js';
+import { evaluate, safeString, KNOWN_PATHS } from '../connection.js';
 import { setNativeValueExpression } from './dom.js';
 
-const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
+const CHART_API = KNOWN_PATHS.chartApi;
 const DIALOG = '[data-name="indicators-dialog"]';
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));

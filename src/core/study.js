@@ -11,9 +11,10 @@ import {
   evaluate as _evaluate,
   evaluateAsync as _evaluateAsync,
   safeString,
+  KNOWN_PATHS,
 } from '../connection.js';
 
-const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
+const CHART_API = KNOWN_PATHS.chartApi;
 
 function _resolve(deps) {
   return {

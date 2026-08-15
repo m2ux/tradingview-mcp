@@ -2,7 +2,7 @@
  * Pine Editor DOM helpers — identity, Open dialog, toolbar/dialog clicks.
  * Shared by pine_open / copy / publish / list enrichment.
  */
-import { evaluate, evaluateAsync, safeString } from '../connection.js';
+import { evaluate, evaluateAsync, safeString, KNOWN_PATHS } from '../connection.js';
 import {
   pressKey,
   setNativeValueExpression,
@@ -831,7 +831,7 @@ export async function studyCount(_deps = {}) {
   return evalFn(`
     (function() {
       try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
+        var chart = ${KNOWN_PATHS.chartApi};
         if (chart && typeof chart.getAllStudies === 'function') return chart.getAllStudies().length;
       } catch(e) {}
       return null;

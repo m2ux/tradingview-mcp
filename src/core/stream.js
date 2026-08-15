@@ -2,9 +2,9 @@
  * Core streaming logic — real-time JSONL output from TradingView.
  * Uses efficient poll + dedup: only emits when data changes.
  */
-import { evaluate } from '../connection.js';
+import { evaluate, KNOWN_PATHS } from '../connection.js';
 
-const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
+const CHART_API = KNOWN_PATHS.chartApi;
 const MODEL = `${CHART_API}._chartWidget.model()`;
 
 /**
@@ -290,7 +290,7 @@ export async function streamTables({ interval, filter } = {}) {
 
 // ── Stream: all panes (multi-symbol) ──
 
-const CWC = 'window.TradingViewApi._chartWidgetCollection';
+const CWC = KNOWN_PATHS.chartWidgetCollection;
 
 async function fetchAllPanes() {
   return evaluate(`

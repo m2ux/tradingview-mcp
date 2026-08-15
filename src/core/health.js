@@ -1,7 +1,7 @@
 /**
  * Core health/discovery/launch logic.
  */
-import { getClient, getTargetInfo, evaluate, CDP_HOST, CDP_PORT } from '../connection.js';
+import { getClient, getTargetInfo, evaluate, CDP_HOST, CDP_PORT, KNOWN_PATHS } from '../connection.js';
 import { existsSync, cpSync, rmSync, readdirSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 import { dirname, basename, join } from 'path';
@@ -50,7 +50,7 @@ export async function healthCheck() {
     (function() {
       var result = { url: window.location.href, title: document.title };
       try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
+        var chart = ${KNOWN_PATHS.chartApi};
         result.symbol = chart.symbol();
         result.resolution = chart.resolution();
         result.chartType = chart.chartType();
@@ -87,16 +87,16 @@ export async function discover() {
     (function() {
       var results = {};
       try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
+        var chart = ${KNOWN_PATHS.chartApi};
         var methods = [];
         for (var k in chart) { if (typeof chart[k] === 'function') methods.push(k); }
-        results.chartApi = { available: true, path: 'window.TradingViewApi._activeChartWidgetWV.value()', methodCount: methods.length, methods: methods.slice(0, 50) };
+        results.chartApi = { available: true, path: ${JSON.stringify(KNOWN_PATHS.chartApi)}, methodCount: methods.length, methods: methods.slice(0, 50) };
       } catch(e) { results.chartApi = { available: false, error: e.message }; }
       try {
-        var col = window.TradingViewApi._chartWidgetCollection;
+        var col = ${KNOWN_PATHS.chartWidgetCollection};
         var colMethods = [];
         for (var k in col) { if (typeof col[k] === 'function') colMethods.push(k); }
-        results.chartWidgetCollection = { available: !!col, path: 'window.TradingViewApi._chartWidgetCollection', methodCount: colMethods.length, methods: colMethods.slice(0, 30) };
+        results.chartWidgetCollection = { available: !!col, path: ${JSON.stringify(KNOWN_PATHS.chartWidgetCollection)}, methodCount: colMethods.length, methods: colMethods.slice(0, 30) };
       } catch(e) { results.chartWidgetCollection = { available: false, error: e.message }; }
       try {
         var ws = window.ChartApiInstance;
@@ -111,12 +111,12 @@ export async function discover() {
         results.bottomWidgetBar = { available: !!bwb, path: 'window.TradingView.bottomWidgetBar', methodCount: bwbMethods.length, methods: bwbMethods.slice(0, 20) };
       } catch(e) { results.bottomWidgetBar = { available: false, error: e.message }; }
       try {
-        var replay = window.TradingViewApi._replayApi;
-        results.replayApi = { available: !!replay, path: 'window.TradingViewApi._replayApi' };
+        var replay = ${KNOWN_PATHS.replayApi};
+        results.replayApi = { available: !!replay, path: ${JSON.stringify(KNOWN_PATHS.replayApi)} };
       } catch(e) { results.replayApi = { available: false, error: e.message }; }
       try {
-        var alerts = window.TradingViewApi._alertService;
-        results.alertService = { available: !!alerts, path: 'window.TradingViewApi._alertService' };
+        var alerts = ${KNOWN_PATHS.alertService};
+        results.alertService = { available: !!alerts, path: ${JSON.stringify(KNOWN_PATHS.alertService)} };
       } catch(e) { results.alertService = { available: false, error: e.message }; }
       return results;
     })()
@@ -242,11 +242,11 @@ export async function uiState() {
       }
       ui.blocking_dialog = ui.dialogs.length > 0 ? ui.dialogs[ui.dialogs.length - 1] : null;
       try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
+        var chart = ${KNOWN_PATHS.chartApi};
         ui.chart = { symbol: chart.symbol(), resolution: chart.resolution(), chartType: chart.chartType(), study_count: chart.getAllStudies().length };
       } catch(e) { ui.chart = { error: e.message }; }
       try {
-        var replay = window.TradingViewApi._replayApi;
+        var replay = ${KNOWN_PATHS.replayApi};
         function unwrap(v) { return (v && typeof v === 'object' && typeof v.value === 'function') ? v.value() : v; }
         ui.replay = { available: unwrap(replay.isReplayAvailable()), started: unwrap(replay.isReplayStarted()) };
       } catch(e) { ui.replay = { error: e.message }; }

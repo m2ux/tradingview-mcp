@@ -1,4 +1,4 @@
-import { evaluate as _defaultEvaluate } from './connection.js';
+import { evaluate as _defaultEvaluate, KNOWN_PATHS } from './connection.js';
 
 const DEFAULT_TIMEOUT = 10000;
 const POLL_INTERVAL = 200;
@@ -91,7 +91,7 @@ export async function waitForChartRender(timeout = 5000, evaluate = _defaultEval
         var rect = canvas ? canvas.getBoundingClientRect() : null;
         var symbol = '', resolution = '';
         try {
-          var chart = window.TradingViewApi._activeChartWidgetWV.value();
+          var chart = ${KNOWN_PATHS.chartApi};
           symbol = chart.symbol();
           resolution = chart.resolution();
         } catch(e) {}
