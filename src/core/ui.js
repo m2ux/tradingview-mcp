@@ -4,8 +4,7 @@
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
 import { pressKey, clickAt, findElementExpression } from './dom.js';
 import { dispatchMouse, insertText } from './protocol.js';
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+import { sleep } from '../wait.js';
 
 export async function click({ by, value, trusted = false } = {}) {
   const find = findElementExpression({ by, value, targetVar: 'el' });
@@ -34,7 +33,7 @@ export async function click({ by, value, trusted = false } = {}) {
   // React/native handlers that ignore untrusted events honour it.
   let via = 'synthetic';
   if (trusted && result.pressed === false && Number.isFinite(result.x) && Number.isFinite(result.y)) {
-    await delay(50);
+    await sleep(50);
     await clickAt(result.x, result.y, { button: 'left' });
     via = 'trusted';
   }
@@ -104,7 +103,7 @@ export async function waitFor({ expression, timeout_ms = 5000, interval_ms = 150
     last = await evalFn(`(function(){ return (${expression}); })()`);
     if (last) return { success: true, met: true, value: last };
     if (Date.now() >= deadline) break;
-    await delay(poll);
+    await sleep(poll);
   }
   return { success: false, met: false, timeout_ms: budget, last: last ?? null };
 }
@@ -300,7 +299,7 @@ export async function layoutSwitch({ name }) {
   if (!result?.success) throw new Error(result?.error || 'Unknown error switching layout');
 
   // Handle "unsaved changes" confirmation dialog
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
   const dismissed = await evaluate(`
     (function() {
       var btns = document.querySelectorAll('button');
@@ -315,7 +314,7 @@ export async function layoutSwitch({ name }) {
     })()
   `);
 
-  if (dismissed) await new Promise(r => setTimeout(r, 1000));
+  if (dismissed) await sleep(1000);
   return { success: true, layout: result.name || name, layout_id: result.id, source: result.source, action: 'switched', unsaved_dialog_dismissed: dismissed };
 }
 
@@ -384,7 +383,7 @@ export async function mouseClick({ x, y, button, double_click }) {
     { type: 'mouseReleased', x, y, button: btn },
   );
   if (double_click) {
-    await new Promise(r => setTimeout(r, 50));
+    await sleep(50);
     await dispatchMouse(c,
       { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 },
       { type: 'mouseReleased', x, y, button: btn },

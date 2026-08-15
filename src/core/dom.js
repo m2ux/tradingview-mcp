@@ -14,8 +14,7 @@
  */
 import { getClient, safeString } from '../connection.js';
 import { dispatchMouse, dispatchKey } from './protocol.js';
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+import { sleep } from '../wait.js';
 
 /**
  * Dispatch a trusted mouse click (move → press → release) at page

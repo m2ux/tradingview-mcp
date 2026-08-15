@@ -3,6 +3,7 @@
  * Uses efficient poll + dedup: only emits when data changes.
  */
 import { evaluate, KNOWN_PATHS } from '../connection.js';
+import { sleep } from '../wait.js';
 
 const CHART_API = KNOWN_PATHS.chartApi;
 const MODEL = `${CHART_API}._chartWidget.model()`;
@@ -52,10 +53,8 @@ async function pollLoop(fetcher, { interval = 500, dedupe = true, label = 'strea
 
   process.stderr.write(`[stream:${label}] stopped after ${((Date.now() - start) / 1000).toFixed(1)}s\n`);
   process.removeListener('SIGINT', cleanup);
-  process.removeListener('SIGTERM', cleanup);
+    process.removeListener('SIGTERM', cleanup);
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Stream: quote ──
 

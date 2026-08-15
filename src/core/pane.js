@@ -3,6 +3,7 @@
  * Controls multi-chart layouts (split panes) in TradingView.
  */
 import { evaluate, evaluateAsync, getClient, safeString, KNOWN_PATHS } from '../connection.js';
+import { sleep } from '../wait.js';
 
 const CWC = KNOWN_PATHS.chartWidgetCollection;
 
@@ -124,7 +125,7 @@ export async function setLayout({ layout }) {
   }
 
   await evaluateAsync(`${CWC}.setLayout(${safeString(resolved)})`);
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
 
   const state = await list();
   return {
@@ -166,7 +167,7 @@ export async function setSymbol({ index, symbol }) {
 
   // Focus the target pane first
   await focus({ index: idx });
-  await new Promise(r => setTimeout(r, 300));
+  await sleep(300);
 
   // Now set symbol on the now-active chart
   await evaluateAsync(`

@@ -10,6 +10,7 @@
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
 import { getClient, reconnectTo, listTargets, makeScopedClient } from '../connection.js';
+import { sleep } from '../wait.js';
 
 /**
  * List all open chart tabs (CDP page targets).
@@ -123,7 +124,7 @@ export async function newTab({ layout, name } = {}) {
         })()
       `);
       if (!clicked) throw new Error('New-tab button not found in shell window.');
-      await new Promise(r => setTimeout(r, 1500));
+      await sleep(1500);
       const after = await evalIn(`document.querySelectorAll('.tabs-container .tab').length`);
       return { before, after };
     });
@@ -157,7 +158,7 @@ export async function newTab({ layout, name } = {}) {
       // disabled until the name input is filled (React controlled input, so
       // the native value setter + input event are required).
       await evalIn(`(function(){ var b = document.querySelector('.create-new-layout-button'); if (b) b.click(); })()`);
-      await new Promise(r => setTimeout(r, 700));
+      await sleep(700);
       const filled = await evalIn(`
         (function() {
           // The dialog's name field (not the landing page's Search box).
@@ -174,7 +175,7 @@ export async function newTab({ layout, name } = {}) {
         })()
       `);
       if (filled !== 'filled') throw new Error(`Create-layout dialog did not open as expected (${filled}).`);
-      await new Promise(r => setTimeout(r, 400));
+      await sleep(400);
       const created = await evalIn(`
         (function() {
           var scope = document.querySelector('[class*="dialog"], [role="dialog"]') || document;
@@ -207,7 +208,7 @@ export async function newTab({ layout, name } = {}) {
     if (!foundTitle) {
       // Not in the recents — expand the full layout list and retry.
       await evalIn(`(function(){ var b = document.querySelector('.layout-list-expand-button'); if (b) b.click(); })()`);
-      await new Promise(r => setTimeout(r, 800));
+      await sleep(800);
       foundTitle = await evalIn(clickByTitle);
     }
     return foundTitle;
@@ -220,7 +221,7 @@ export async function newTab({ layout, name } = {}) {
   // Wait for a chart target that wasn't there before the pick.
   let chartTarget = null;
   for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 500));
+    await sleep(500);
     const targets = await listTargets();
     chartTarget = targets.find(x =>
       x.type === 'page' && /tradingview\.com\/chart/i.test(x.url) && !chartIdsBefore.has(x.id)
@@ -230,7 +231,7 @@ export async function newTab({ layout, name } = {}) {
   if (!chartTarget) throw new Error(`Picked "${picked}" but no new chart target appeared.`);
 
   // Give the chart a moment to boot, then follow it.
-  await new Promise(r => setTimeout(r, 2000));
+  await sleep(2000);
   await reconnectTo(chartTarget.id);
   return {
     success: true,
@@ -262,7 +263,7 @@ export async function closeTab() {
       })()
     `);
     if (!clicked) throw new Error('Close button not found on the active tab.');
-    await new Promise(r => setTimeout(r, 1000));
+    await sleep(1000);
     return evalIn(`document.querySelectorAll('.tabs-container .tab').length`);
   });
 
@@ -295,7 +296,7 @@ export async function switchTab({ index }) {
       const order = [...new Set([Math.min(idx, count - 1), ...Array.from({ length: count }, (_, k) => k)])];
       for (const k of order) {
         await evalIn(`document.querySelectorAll('.tabs-container .tab')[${k}].click()`);
-        await new Promise(r => setTimeout(r, 400));
+        await sleep(400);
         if (await isTargetVisible(target.id)) return k;
       }
       return null;

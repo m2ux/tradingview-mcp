@@ -3,7 +3,7 @@
  */
 import { evaluate, evaluateAsync, getClient, getChartApi, getChartCollection, safeString } from '../connection.js';
 import { captureScreenshot as _capture } from './protocol.js';
-import { waitForChartReady } from '../wait.js';
+import { waitForChartReady, sleep } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -33,7 +33,7 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
         }
 
         await waitForChartReady(symbol);
-        await new Promise(r => setTimeout(r, delay));
+        await sleep(delay);
 
         let actionResult;
         if (action === 'screenshot') {
@@ -57,7 +57,7 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
             })
           `);
         } else if (action === 'get_strategy_results') {
-          await new Promise(r => setTimeout(r, 1000));
+          await sleep(1000);
           actionResult = await evaluate(`
             (function() {
               var metrics = {};

@@ -3,11 +3,10 @@
  */
 import { evaluate, safeString, KNOWN_PATHS } from '../connection.js';
 import { setNativeValueExpression } from './dom.js';
+import { sleep } from '../wait.js';
 
 const CHART_API = KNOWN_PATHS.chartApi;
 const DIALOG = '[data-name="indicators-dialog"]';
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Read result rows out of the open Indicators dialog. The results pane is a
 // VIRTUALIZED list of absolutely-positioned rows: section headers contain an
@@ -49,7 +48,7 @@ async function openDialog() {
   `);
   if (opened === 'no-button') throw new Error('Indicators toolbar button not found.');
   for (let i = 0; i < 20; i++) {
-    await delay(200);
+    await sleep(200);
     const ready = await evaluate(`!!document.querySelector('${DIALOG} input')`);
     if (ready) return;
   }
@@ -64,7 +63,7 @@ async function typeQuery(query) {
       return (${setNativeValueExpression(query, 'inp')});
     })()
   `);
-  await delay(1200);
+  await sleep(1200);
 }
 
 async function closeDialog() {
@@ -76,7 +75,7 @@ async function closeDialog() {
       if (close) { close.click(); return; }
     })()
   `);
-  await delay(300);
+  await sleep(300);
 }
 
 /**
@@ -149,7 +148,7 @@ export async function addStudyFromSearch({ query, match, section, retries = 3 } 
 
     lastError = clicked?.error || 'No match';
     await closeDialog();
-    if (attempt < attempts) await delay(1200);
+    if (attempt < attempts) await sleep(1200);
   }
 
   if (clicked && clicked.error) {
@@ -160,7 +159,7 @@ export async function addStudyFromSearch({ query, match, section, retries = 3 } 
     );
   }
 
-  await delay(1500);
+  await sleep(1500);
   await closeDialog();
 
   const after = await evaluate(`${CHART_API}.getAllStudies().map(function(s){return { id: s.id, name: s.getStudyMeta ? s.getStudyMeta().description : (s.name || null) };})`);

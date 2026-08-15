@@ -3,6 +3,13 @@ import { evaluate as _defaultEvaluate, KNOWN_PATHS } from './connection.js';
 const DEFAULT_TIMEOUT = 10000;
 const POLL_INTERVAL = 200;
 
+/**
+ * Shared sleep helper. Use when a delay has no nameable condition to poll
+ * (e.g. UI settle, animation, connection backoff). When a condition exists,
+ * prefer a bounded poll-until via waitForChartReady/waitForChartRender instead.
+ */
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 export async function waitForChartReady(expectedSymbol = null, expectedTf = null, timeout = DEFAULT_TIMEOUT, evaluate = _defaultEvaluate) {
   const start = Date.now();
   let lastBarCount = -1;

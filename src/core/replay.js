@@ -2,6 +2,7 @@
  * Core replay mode logic.
  */
 import { evaluate as _evaluate, getReplayApi as _getReplayApi } from '../connection.js';
+import { sleep } from '../wait.js';
 
 export const VALID_AUTOPLAY_DELAYS = [100, 143, 200, 300, 1000, 2000, 3000, 5000, 10000];
 
@@ -45,7 +46,7 @@ export async function start({ date, _deps } = {}) {
     started = await evaluate(wv(`${rp}.isReplayStarted()`));
     currentDate = await evaluate(wv(`${rp}.currentDate()`));
     if (started && currentDate !== null) break;
-    await new Promise(r => setTimeout(r, 250));
+    await sleep(250);
   }
 
   if (!started) {
@@ -67,7 +68,7 @@ export async function step({ _deps } = {}) {
   // Poll until it changes or timeout after 3s.
   let currentDate = before;
   for (let i = 0; i < 12; i++) {
-    await new Promise(r => setTimeout(r, 250));
+    await sleep(250);
     currentDate = await evaluate(wv(`${rp}.currentDate()`));
     if (currentDate !== before) break;
   }

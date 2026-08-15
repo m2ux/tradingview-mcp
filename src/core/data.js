@@ -2,7 +2,7 @@
  * Core data access logic.
  */
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString, withTargetEvaluate } from '../connection.js';
-import { waitForChartReady as _defaultWaitForChartReady } from '../wait.js';
+import { waitForChartReady as _defaultWaitForChartReady, sleep } from '../wait.js';
 
 // Resolve the evaluate function for a read: an injected _deps.evaluate (tests)
 // wins, then an optional `target` (chart_id / URL substring) scoped evaluate,
@@ -265,7 +265,7 @@ async function ensureStrategyTesterReady(maxWaitMs = 6000) {
       })()
     `);
     if (ready === 'ready' || ready === 'no-strategy') { status = ready; break; }
-    await new Promise(r => setTimeout(r, 500));
+    await sleep(500);
   }
   return { status, unhidden: unhidden || [] };
 }
