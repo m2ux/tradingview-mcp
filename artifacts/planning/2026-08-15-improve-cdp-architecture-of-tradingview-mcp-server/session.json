@@ -663,7 +663,9 @@
             "respondedAt": "2026-08-15T07:21:36.000Z"
           }
         },
-        "completedActivities": [],
+        "completedActivities": [
+          "start-work-package"
+        ],
         "condition": "",
         "currentActivity": "start-work-package",
         "currentTechnique": "update-pr::create-pr",
@@ -1926,17 +1928,36 @@
             },
             "timestamp": "2026-08-15T07:31:34.512Z",
             "type": "resource_fetched"
+          },
+          {
+            "activity": "start-work-package",
+            "timestamp": "2026-08-15T07:36:09.129Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "start-work-package",
+            "timestamp": "2026-08-15T07:36:09.129Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "start-work-package",
+            "data": {
+              "agentId": "w-start-work-package-we6p3q",
+              "usage": {}
+            },
+            "timestamp": "2026-08-15T07:36:43.210Z",
+            "type": "activity_usage"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 24,
+        "seq": 26,
         "sessionIndex": "WE6P3Q",
         "skippedActivities": [],
         "startedAt": "2026-08-15T07:12:21.243Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1786779094,
+        "ts": 1786779403,
         "variables": {
           "artifact_name": "",
           "artifact_publish_ref": "",
