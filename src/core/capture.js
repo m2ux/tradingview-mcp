@@ -2,6 +2,7 @@
  * Core screenshot/capture logic.
  */
 import { getClient, evaluate, getChartCollection, findTargetByRef, makeScopedClient } from '../connection.js';
+import { captureScreenshot as _capture } from './protocol.js';
 import { waitForChartRender } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -97,7 +98,7 @@ export async function captureScreenshot({
     const params = { format: 'png' };
     if (clip) params.clip = clip;
 
-    const { data } = await client.Page.captureScreenshot(params);
+    const { data } = await _capture(client, params);
     writeFileSync(filePath, Buffer.from(data, 'base64'));
 
     return {

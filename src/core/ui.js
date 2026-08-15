@@ -3,6 +3,7 @@
  */
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
 import { pressKey, clickAt, findElementExpression } from './dom.js';
+import { dispatchMouse, insertText } from './protocol.js';
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -325,7 +326,7 @@ export async function keyboard({ key, modifiers }) {
 
 export async function typeText({ text }) {
   const c = await getClient();
-  await c.Input.insertText({ text });
+  await insertText(c, text);
   return { success: true, typed: text.substring(0, 100), length: text.length };
 }
 
@@ -351,7 +352,7 @@ export async function hover({ by, value }) {
   `);
   if (!coords) throw new Error('Element not found for ' + by + '="' + value + '"');
   const c = await getClient();
-  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x: coords.x, y: coords.y });
+  await dispatchMouse(c, { type: 'mouseMoved', x: coords.x, y: coords.y });
   return { success: true, hovered: { by, value, tag: coords.tag, x: coords.x, y: coords.y } };
 }
 
@@ -369,7 +370,7 @@ export async function scroll({ direction, amount }) {
   let deltaX = 0, deltaY = 0;
   if (direction === 'up') deltaY = -px; else if (direction === 'down') deltaY = px;
   else if (direction === 'left') deltaX = -px; else if (direction === 'right') deltaX = px;
-  await c.Input.dispatchMouseEvent({ type: 'mouseWheel', x: center.x, y: center.y, deltaX, deltaY });
+  await dispatchMouse(c, { type: 'mouseWheel', x: center.x, y: center.y, deltaX, deltaY });
   return { success: true, direction, amount: px };
 }
 
@@ -377,13 +378,17 @@ export async function mouseClick({ x, y, button, double_click }) {
   const c = await getClient();
   const btn = button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left';
   const btnNum = btn === 'right' ? 2 : btn === 'middle' ? 1 : 0;
-  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x, y });
-  await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 });
-  await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+  await dispatchMouse(c,
+    { type: 'mouseMoved', x, y },
+    { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 },
+    { type: 'mouseReleased', x, y, button: btn },
+  );
   if (double_click) {
     await new Promise(r => setTimeout(r, 50));
-    await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 });
-    await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+    await dispatchMouse(c,
+      { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 },
+      { type: 'mouseReleased', x, y, button: btn },
+    );
   }
   return { success: true, x, y, button: btn, double_click: !!double_click };
 }
