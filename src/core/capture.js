@@ -11,11 +11,6 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(dirname(dirname(__dirname)), 'screenshots');
 
-// Default scoped-client factory for targeted captures. Injectable via
-// _deps.makeScopedClient so tests can substitute a stub CDP connection.
-// Delegates to the transport-owned factory/pool in connection.js.
-const _makeScopedClient = makeScopedClient;
-
 export async function captureScreenshot({
   region, filename, method, waitForRender = false, stabilize_ms, target, _deps,
 } = {}) {
@@ -23,12 +18,13 @@ export async function captureScreenshot({
 
   // When a target tab is given, run against a dedicated connection to that tab
   // (clip bounds evaluate + Page.captureScreenshot) instead of the shared client.
-  const makeScopedClient = _deps?.makeScopedClient || _makeScopedClient;
+  // _deps.makeScopedClient lets tests substitute a stub CDP connection.
+  const scopedFactory = _deps?.makeScopedClient || makeScopedClient;
   const targetInfo = target ? await findTargetByRef(target) : null;
   let scopedClient = null;
   // Lazily connected on first use so the no-target path never opens a socket.
   const ensureScoped = async () => {
-    if (!scopedClient) scopedClient = await makeScopedClient(targetInfo.id);
+    if (!scopedClient) scopedClient = await scopedFactory(targetInfo.id);
     return scopedClient;
   };
   const evalFn = target

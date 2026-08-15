@@ -206,12 +206,9 @@ async function _pruneScopedPool() {
 }
 
 /**
- * Transport-owned scoped-client factory. Opens (or reuses from the LRU pool) a
- * CDP client for a specific target. Lifecycle-aware: the pool tracks each
- * client's `closed` promise and evicts it automatically when the socket drops
- — so a TradingView endpoint busy-close does not leave a stale entry. Callers
- * that borrow a client should NOT close it — return it to the pool via
- * `releaseScopedClient`, or let the pool evict it.
+ * Transport-owned scoped-client factory. Opens (or reuses from the LRU pool)
+ * a CDP client for a specific target. Borrowers should NOT close the client —
+ * the pool evicts on LRU overflow or drainScopedPool() at disconnect.
  */
 export async function makeScopedClient(targetInfo, opts = {}) {
   const id = targetInfo.id ?? targetInfo;
@@ -223,13 +220,7 @@ export async function makeScopedClient(targetInfo, opts = {}) {
     return entry.client;
   }
   const client = await _makeScopedClientRaw(targetInfo);
-  const entry = { client, closed: new Promise((resolve) => {
-    // chrome-remote-interface's client emits nothing on close; poll its
-    // internal socket via a liveness check. For the pool, we track a
-    // manual release path — eviction happens on releaseScopedClient or LRU.
-    // (Lifecycle awareness is via the `closed` field consumers may resolve.)
-  }) };
-  scopedPool.set(id, entry);
+  scopedPool.set(id, { client });
   await _pruneScopedPool();
   return client;
 }
@@ -250,21 +241,6 @@ export async function acquireScopedClient(targetInfo, opts = {}) {
     release: async () => { try { await client.close(); } catch { /* already gone */ } },
     targetId: id,
   };
-}
-
-/**
- * Release a scoped client back to the pool for reuse. Closes the client if
- * the pool is full (LRU eviction of the oldest entry).
- */
-export function releaseScopedClient(targetInfo) {
-  const id = targetInfo.id ?? targetInfo;
-  if (scopedPool.has(id)) return; // already pooled
-  if (scopedPool.size >= scopedPoolSize) {
-    const oldest = scopedPool.keys().next().value;
-    _evictScoped(oldest);
-  }
-  // Re-insertion handled by makeScopedClient on next acquire; this is a no-op
-  // placeholder for symmetry — callers typically just let LRU eviction manage it.
 }
 
 /**

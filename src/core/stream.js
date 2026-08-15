@@ -53,7 +53,7 @@ async function pollLoop(fetcher, { interval = 500, dedupe = true, label = 'strea
 
   process.stderr.write(`[stream:${label}] stopped after ${((Date.now() - start) / 1000).toFixed(1)}s\n`);
   process.removeListener('SIGINT', cleanup);
-    process.removeListener('SIGTERM', cleanup);
+  process.removeListener('SIGTERM', cleanup);
 }
 
 // ── Stream: quote ──

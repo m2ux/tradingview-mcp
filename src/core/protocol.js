@@ -1,6 +1,6 @@
 /**
- * CDP protocol helpers — the single designated module for Page.*, Input.*,
- * and Emulation.* calls. Domain modules (dom, ui, capture, batch) consume
+ * CDP protocol helpers — the single designated module for Page.* and
+ * Input.* calls. Domain modules (dom, ui, capture, batch) consume
  * these helpers instead of issuing raw CDP domain calls themselves.
  *
  * Each helper takes a CDP `client` (obtained via getClient() or the scoped-
