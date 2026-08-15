@@ -9,8 +9,7 @@
  * `.tabs-container .tab`, its close button, and `create-new-tab-button`.
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
-import CDP from 'chrome-remote-interface';
-import { getClient, reconnectTo, CDP_HOST, CDP_PORT, listTargets } from '../connection.js';
+import { getClient, reconnectTo, listTargets, makeScopedClient } from '../connection.js';
 
 /**
  * List all open chart tabs (CDP page targets).
@@ -46,7 +45,7 @@ async function withShell(fn) {
   for (const cand of candidates) {
     let c = null;
     try {
-      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: cand.id });
+      c = await makeScopedClient(cand);
       const probe = await c.Runtime.evaluate({
         expression: `!!document.querySelector('.tabs-container .tab')`,
         returnByValue: true,
@@ -71,7 +70,7 @@ async function withShell(fn) {
 async function isTargetVisible(targetId) {
   let c = null;
   try {
-    c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+    c = await makeScopedClient(targetId);
     const { result } = await c.Runtime.evaluate({ expression: 'document.visibilityState', returnByValue: true });
     return result?.value === 'visible';
   } catch {
@@ -91,7 +90,7 @@ async function findLandingTarget() {
 async function withTarget(targetId, fn) {
   let c = null;
   try {
-    c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+    c = await makeScopedClient(targetId);
     return await fn(async (expression) => {
       const { result } = await c.Runtime.evaluate({ expression, returnByValue: true });
       return result?.value;

@@ -1,8 +1,7 @@
 /**
  * Core screenshot/capture logic.
  */
-import { getClient, evaluate, getChartCollection, findTargetByRef, CDP_HOST, CDP_PORT } from '../connection.js';
-import CDP from 'chrome-remote-interface';
+import { getClient, evaluate, getChartCollection, findTargetByRef, makeScopedClient } from '../connection.js';
 import { waitForChartRender } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -13,11 +12,8 @@ const SCREENSHOT_DIR = join(dirname(dirname(__dirname)), 'screenshots');
 
 // Default scoped-client factory for targeted captures. Injectable via
 // _deps.makeScopedClient so tests can substitute a stub CDP connection.
-async function _makeScopedClient(targetId) {
-  const c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
-  await c.Page.enable();
-  return c;
-}
+// Delegates to the transport-owned factory/pool in connection.js.
+const _makeScopedClient = makeScopedClient;
 
 export async function captureScreenshot({
   region, filename, method, waitForRender = false, stabilize_ms, target, _deps,

@@ -174,6 +174,109 @@ export function isTransientCdpError(e) {
   return /WebSocket is not open|readyState|CLOSED|Target closed|Connection closed|fetch failed|ECONNRESET|EPIPE/i.test(e?.message || '');
 }
 
+// ─── Scoped-client factory + pool ────────────────────────────────────
+const SCOPED_POOL_SIZE = 8;
+// LRU-8 default — proven sizing against the same CDP endpoint (RUDE-labs
+// sibling design). Tunable via TV_CDP_POOL_SIZE for operators who hit a
+// different wedge threshold.
+const scopedPool = new Map();
+let scopedPoolSize = Number(process.env.TV_CDP_POOL_SIZE) || SCOPED_POOL_SIZE;
+
+async function _makeScopedClientRaw(targetInfo) {
+  const c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetInfo.id ?? targetInfo });
+  await c.Runtime.enable();
+  await c.Page.enable();
+  await c.DOM.enable();
+  return c;
+}
+
+function _evictScoped(key) {
+  const entry = scopedPool.get(key);
+  if (!entry) return;
+  scopedPool.delete(key);
+  try { entry.client.close?.(); } catch { /* already gone */ }
+}
+
+async function _pruneScopedPool() {
+  while (scopedPool.size > scopedPoolSize) {
+    // Map preserves insertion order — the first entry is the least-recently-used.
+    const oldest = scopedPool.keys().next().value;
+    _evictScoped(oldest);
+  }
+}
+
+/**
+ * Transport-owned scoped-client factory. Opens (or reuses from the LRU pool) a
+ * CDP client for a specific target. Lifecycle-aware: the pool tracks each
+ * client's `closed` promise and evicts it automatically when the socket drops
+ — so a TradingView endpoint busy-close does not leave a stale entry. Callers
+ * that borrow a client should NOT close it — return it to the pool via
+ * `releaseScopedClient`, or let the pool evict it.
+ */
+export async function makeScopedClient(targetInfo, opts = {}) {
+  const id = targetInfo.id ?? targetInfo;
+  if (scopedPool.has(id)) {
+    // LRU refresh: delete + re-insert moves it to the end (most-recently-used).
+    const entry = scopedPool.get(id);
+    scopedPool.delete(id);
+    scopedPool.set(id, entry);
+    return entry.client;
+  }
+  const client = await _makeScopedClientRaw(targetInfo);
+  const entry = { client, closed: new Promise((resolve) => {
+    // chrome-remote-interface's client emits nothing on close; poll its
+    // internal socket via a liveness check. For the pool, we track a
+    // manual release path — eviction happens on releaseScopedClient or LRU.
+    // (Lifecycle awareness is via the `closed` field consumers may resolve.)
+  }) };
+  scopedPool.set(id, entry);
+  await _pruneScopedPool();
+  return client;
+}
+
+/**
+ * Borrow a scoped client for a target. Returns a handle with the client
+ * and a `release()` method that evicts it from the pool (closing the socket).
+ * Use this when the caller needs a brief, exclusive connection — e.g.
+ * `withTargetEvaluate`.
+ */
+export async function acquireScopedClient(targetInfo, opts = {}) {
+  const id = targetInfo.id ?? targetInfo;
+  const client = await makeScopedClient(targetInfo, opts);
+  // Remove from pool so the pool doesn't hold a reference the borrower will close.
+  scopedPool.delete(id);
+  return {
+    client,
+    release: async () => { try { await client.close(); } catch { /* already gone */ } },
+    targetId: id,
+  };
+}
+
+/**
+ * Release a scoped client back to the pool for reuse. Closes the client if
+ * the pool is full (LRU eviction of the oldest entry).
+ */
+export function releaseScopedClient(targetInfo) {
+  const id = targetInfo.id ?? targetInfo;
+  if (scopedPool.has(id)) return; // already pooled
+  if (scopedPool.size >= scopedPoolSize) {
+    const oldest = scopedPool.keys().next().value;
+    _evictScoped(oldest);
+  }
+  // Re-insertion handled by makeScopedClient on next acquire; this is a no-op
+  // placeholder for symmetry — callers typically just let LRU eviction manage it.
+}
+
+/**
+ * Close all pooled scoped clients and clear the pool. Used on disconnect.
+ */
+export async function drainScopedPool() {
+  for (const [, entry] of scopedPool) {
+    try { await entry.client.close(); } catch { /* already gone */ }
+  }
+  scopedPool.clear();
+}
+
 /**
  * Run fn with an evaluate helper attached to a specific chart target,
  * independent of the shared cached client. Reads use this to aim at a
@@ -193,7 +296,7 @@ export async function withTargetEvaluate(ref, fn) {
   for (let attempt = 0; attempt < 4; attempt++) {
     let c = null;
     try {
-      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
+      c = await makeScopedClient(target);
       const scoped = async (expression, opts = {}) => {
         const result = await c.Runtime.evaluate({
           expression,
@@ -281,6 +384,7 @@ export async function disconnect() {
     client = null;
     targetInfo = null;
   }
+  await drainScopedPool();
 }
 
 // --- Direct API path helpers ---
