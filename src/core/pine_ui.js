@@ -23,6 +23,81 @@ export function extractDeclaredTitle(source) {
   return m ? m[2] : null;
 }
 
+/** Normalize Pine source newlines so CRLF facades compare equal to LF injects. */
+export function normalizePineNewlines(source) {
+  if (typeof source !== 'string') return source;
+  return source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+export function pineSourcesEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  return normalizePineNewlines(a) === normalizePineNewlines(b);
+}
+
+/**
+ * Parse published/saved library `export` names (types, enums, methods, functions).
+ * Used by pine_library_exports so agents can probe user/Lib/N without compiling a consumer.
+ */
+export function extractExportedNames(source) {
+  if (typeof source !== 'string') return [];
+  const out = [];
+  const seen = new Set();
+  const re = /^\s*export\s+(type\s+|enum\s+|method\s+)?([A-Za-z_][A-Za-z0-9_]*)/gm;
+  let m;
+  while ((m = re.exec(source))) {
+    const kindToken = (m[1] || '').trim();
+    const kind = kindToken === 'type' ? 'type'
+      : kindToken === 'enum' ? 'enum'
+        : kindToken === 'method' ? 'method'
+          : 'fn';
+    const name = m[2];
+    const key = `${kind}:${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name, kind });
+  }
+  return out;
+}
+
+/**
+ * Classify a visible dialog snapshot (text + buttons) into a Pine wizard/picker
+ * kind so tv_ui_state can surface Update-existing / Open-my-script surfaces
+ * that lack role=dialog (issue #26).
+ */
+export function classifyUiDialog(dlg = {}) {
+  const buttons = Array.isArray(dlg.buttons) ? dlg.buttons : [];
+  const text = `${dlg.text || ''} ${buttons.join(' ')}`;
+  const titleUpdate = text.match(/Update\s+['"]([^'"]+)['"]\s+(library|script|indicator|strategy)/i);
+  if (/open my script/i.test(text)) {
+    return { ...dlg, kind: 'pine_open_dialog', step: 'open_picker', title: 'Open my script' };
+  }
+  if (titleUpdate) {
+    const step = /publish new version|final touches|private|public/i.test(text) && !/release notes/i.test(text)
+      ? 'privacy_final'
+      : (/continue/i.test(text) ? 'update' : 'update');
+    return {
+      ...dlg,
+      kind: 'pine_publish_wizard',
+      step,
+      mode: 'update',
+      title: titleUpdate[0].replace(/\s+/g, ' ').trim(),
+    };
+  }
+  if (/update existing (script|library)/i.test(text)) {
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'update', mode: 'update', title: 'Update existing script' };
+  }
+  if (/publish new script/i.test(text) && !/update existing/i.test(text)) {
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'create', mode: 'create', title: 'Publish new script' };
+  }
+  if (/publish new version|publish private|final touches/i.test(text)) {
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'privacy_final', title: 'Final touches' };
+  }
+  if (/release notes/i.test(text) && /continue/i.test(text)) {
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'release_notes', mode: 'update', title: 'Release notes' };
+  }
+  return { ...dlg, kind: dlg.kind || 'dialog', step: dlg.step ?? null };
+}
+
 
 // ── Pine Open-script picker helpers (local, consolidated) ───────────────────
 
@@ -283,24 +358,37 @@ export async function getVisibleDialogs(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   const dialogs = await evalFn(`
     (function() {
+      function isPineWizardText(text) {
+        return /update\\s+['"][^'"]+['"]\\s+(library|script|indicator|strategy)/i.test(text)
+          || /update existing (script|library)/i.test(text)
+          || /publish new version/i.test(text)
+          || /final touches/i.test(text)
+          || /release notes/i.test(text)
+          || /open my script/i.test(text)
+          || /publish (?:new|existing) script/i.test(text);
+      }
       function isDialogSurface(node) {
         if (node.matches('[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"]')) {
           return true;
         }
-        if (!node.matches('[class~="js-dialog"]')) return false;
         var text = (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (node.querySelector && node.querySelector('.monaco-editor') && !isPineWizardText(text)) return false;
+        if (node.matches('[class~="js-dialog"], [class*="dialog"], [class*="modal"], [class*="popup"], [class*="wizard"]')) {
+          if (isPineWizardText(text)) return true;
+        }
+        if (!node.matches('[class~="js-dialog"]')) return false;
         var controls = node.querySelectorAll('button, [role="button"], [role="radio"], label');
         for (var c = 0; c < controls.length; c++) {
           var label = ((controls[c].getAttribute('aria-label') || '') + ' ' + (controls[c].textContent || ''))
             .replace(/\\s+/g, ' ')
             .trim();
-          if (/publish new script|publish existing script|publish private|publish public/i.test(label)) return true;
+          if (/publish new script|publish existing script|publish private|publish public|update existing|publish new version/i.test(label)) return true;
         }
         return /publish (?:new|existing) script/i.test(text)
           && /(?:continue|next|privacy|private|public|description)/i.test(text);
       }
       var nodes = document.querySelectorAll(
-        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"]'
+        '[role="dialog"], [aria-modal="true"], [data-name="confirm-dialog"], [data-name="warning-dialog"], [class~="js-dialog"], [class*="dialog"], [class*="modal"], [class*="popup"], [class*="wizard"]'
       );
       var out = [];
       var seen = [];
@@ -340,10 +428,34 @@ export async function getVisibleDialogs(_deps = {}) {
           input_count: dlg.querySelectorAll('input, textarea').length,
         });
       }
+      if (out.length === 0) {
+        var body = (document.body && document.body.innerText) ? document.body.innerText.replace(/\\s+/g, ' ').trim() : '';
+        if (isPineWizardText(body)) {
+          var cta = [];
+          var allBtns = document.querySelectorAll('button, [role="button"]');
+          for (var k = 0; k < allBtns.length; k++) {
+            var cb = allBtns[k];
+            if (cb.offsetParent === null && cb.getClientRects().length === 0) continue;
+            var cl = (cb.textContent || cb.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+            if (/^(continue|next|private|public|publish new version|publish private|publish public|update existing|publish new script|close menu|cancel)$/i.test(cl)
+              || /update existing|publish new version|publish private/i.test(cl)) {
+              if (cl && cta.indexOf(cl) === -1) cta.push(cl.substring(0, 80));
+            }
+          }
+          var titleMatch = body.match(/Update\\s+['"][^'"]+['"]\\s+(library|script|indicator|strategy)/i);
+          out.push({
+            text: (titleMatch ? titleMatch[0] + ' ' : '') + body.substring(0, 400),
+            buttons: cta,
+            input_count: document.querySelectorAll('textarea, input').length,
+            via: 'body_fallback',
+          });
+        }
+      }
       return out;
     })()
   `);
-  return Array.isArray(dialogs) ? dialogs : [];
+  const list = Array.isArray(dialogs) ? dialogs : [];
+  return list.map(classifyUiDialog);
 }
 
 export async function fillDialogInput(value, { placeholderRegex } = {}, _deps = {}) {
@@ -503,7 +615,14 @@ export async function dismissBlockingDialogs(_deps = {}) {
           var b = btns[i];
           if (b.offsetParent === null && b.getClientRects().length === 0) continue;
           var t = ((b.textContent || '') + ' ' + (b.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
-          if (/^(cancel|close|dismiss)$/i.test(t) || /close/i.test(b.getAttribute('aria-label') || '')) { b.click(); return true; }
+          if (/^(cancel|close|dismiss|close menu)$/i.test(t) || /close menu/i.test(t) || /close/i.test(b.getAttribute('aria-label') || '')) { b.click(); return true; }
+        }
+        var pageBtns = document.querySelectorAll('button, [role="button"]');
+        for (var p = 0; p < pageBtns.length; p++) {
+          var pb = pageBtns[p];
+          if (pb.offsetParent === null && pb.getClientRects().length === 0) continue;
+          var pt = ((pb.textContent || '') + ' ' + (pb.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+          if (/^close menu$/i.test(pt) || /close menu/i.test(pt)) { pb.click(); return true; }
         }
         return false;
       })()
@@ -581,14 +700,17 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   }
   await sleep(900);
 
+  const wantId = String(_deps.script_id || '').replace(/^(USER|PUB);/i, '');
   const pick = await evalFn(`
     (function() {
       var target = ${safeString(target.toLowerCase())};
+      var wantId = ${safeString(wantId)};
       ${FIND_OPEN_DIALOG_EXPR}
       if (!dlg) return { error: 'Open script dialog closed unexpectedly' };
       var rows = dlg.querySelectorAll(${JSON.stringify(OPEN_DIALOG_ROW_SELECTOR)});
       var candidates = [];
       var exact = null;
+      var byId = null;
       var contains = [];
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
@@ -596,6 +718,9 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
         var t = ${ROW_TITLE_EXPR};
         if (!t || t.length > 120) continue;
         if (/^(open|cancel|close|my scripts|built-in)/i.test(t)) continue;
+        var siRow = (${readFiberPropExpression('scriptItem', 'r')});
+        var rowId = siRow && siRow.id ? String(siRow.id).replace(/^(USER|PUB);/i, '') : '';
+        if (wantId && rowId && rowId === wantId) { byId = { el: r, title: t }; candidates.push(t); continue; }
         var tl = t.toLowerCase();
         if (tl === target) { if (!exact) exact = { el: r, title: t }; candidates.push(t); continue; }
         if (tl.indexOf(target) !== -1) { contains.push({ el: r, title: t }); candidates.push(t); }
@@ -607,10 +732,10 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
         seen[k] = true;
         return true;
       });
-      var pick = exact;
+      var pick = byId || exact;
       if (!pick && contains.length === 1) pick = contains[0];
       if (!pick && contains.length > 1) {
-        return { error: 'Ambiguous script name "' + ${safeString(target)} + '". Candidates: ' + candidates.slice(0, 8).join(', '), candidates: candidates };
+        return { error: 'Ambiguous script name "' + ${safeString(target)} + '". Candidates: ' + candidates.slice(0, 8).join(', ') + '. Pass script_id to disambiguate.', candidates: candidates };
       }
       if (!pick) return { error: 'Script "' + ${safeString(target)} + '" not found in Open script dialog.', candidates: candidates };
       pick.el.click();
@@ -861,14 +986,25 @@ export async function fetchFacadeList(filter = 'saved', _deps = {}) {
   return result || { scripts: [], error: 'No response' };
 }
 
-export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
-  const { scripts, error } = await fetchFacadeList('saved', _deps);
+function idsMatch(entryId, wanted) {
+  if (!entryId || !wanted) return false;
+  const a = String(entryId);
+  const b = String(wanted);
+  if (a === b) return true;
+  const bareA = a.replace(/^(USER|PUB);/i, '');
+  const bareB = b.replace(/^(USER|PUB);/i, '');
+  return bareA === bareB || a === `USER;${bareB}` || a === `PUB;${bareB}`
+    || b === `USER;${bareA}` || b === `PUB;${bareA}`;
+}
+
+export async function lookupFacadeScript({ name, id, filter = 'saved' } = {}, _deps = {}) {
+  const { scripts, error } = await fetchFacadeList(filter, _deps);
   if (error && (!scripts || !scripts.length)) throw new Error(error);
   if (id) {
-    const byId = scripts.find((s) => s.scriptIdPart === id || s.id === id);
-    if (!byId) throw tvError('TV_SCRIPT_NOT_FOUND', `Script id "${id}" not found in saved list.`, {
-      resolution: { by: 'script_id', id },
-      hint: 'Call pine_list_scripts to enumerate saved scripts and confirm the script_id (scriptIdPart), then retry.',
+    const byId = scripts.find((s) => idsMatch(s.scriptIdPart, id) || idsMatch(s.id, id));
+    if (!byId) throw tvError('TV_SCRIPT_NOT_FOUND', `Script id "${id}" not found in ${filter} list.`, {
+      resolution: { by: 'script_id', id, filter },
+      hint: 'Call pine_list_scripts to enumerate scripts and confirm the script_id (scriptIdPart), then retry.',
     });
     return byId;
   }  if (!name) throw new Error('name or id is required.');

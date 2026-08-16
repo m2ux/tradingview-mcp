@@ -115,6 +115,8 @@ describe('getVisibleDialogs surface filter', () => {
     assert.match(expression, /publish private\|publish public/);
     assert.match(expression, /if \(!isDialogSurface\(dlg\)\) continue/);
     assert.match(expression, /hasVisibleNestedDialog/);
+    assert.match(expression, /update existing|publish new version|open my script/);
+    assert.match(expression, /body_fallback|isPineWizardText/);
   });
 });
 

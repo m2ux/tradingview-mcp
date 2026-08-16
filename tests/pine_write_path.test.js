@@ -170,6 +170,24 @@ describe('save() — buffer-aware verification (issue #17)', () => {
     assert.equal(r.buffer_title, 'Pin Bar RSI Divergence with Auto Fibonacci');
   });
 
+  it('treats CRLF facade vs LF buffer as a persist match (issue #26)', async () => {
+    const lf = BUFFER_SRC;
+    const crlf = BUFFER_SRC.replace(/\n/g, '\r\n');
+    const _deps = {
+      evaluate: async () => false,
+      ensurePineEditorOpen: async () => true,
+      pressKey: async () => {},
+      getEditorIdentity: async () => ({ name: 'Test_Script_1' }),
+      getEditorBufferInfo: async () => ({ source: lf, declared_title: 'Pin Bar RSI Divergence with Auto Fibonacci', char_count: lf.length }),
+      lookupFacadeScript: async () => ({ scriptIdPart: 'USER;test1', scriptName: 'Test_Script_1', scriptTitle: 'Pin Bar RSI Divergence with Auto Fibonacci', version: '43.0', modified: 1673466816 }),
+      fetchScriptSource: async () => ({ ok: true, source: crlf, via: 'GET /get/id' }),
+    };
+    const r = await save({ _deps });
+    assert.equal(r.success, true);
+    assert.equal(r.verified, true);
+    assert.equal(r.persisted_matches_buffer, true);
+  });
+
   it('flags bound_mismatch when header and buffer resolve to different scripts', async () => {
     const _deps = {
       evaluate: async () => false,

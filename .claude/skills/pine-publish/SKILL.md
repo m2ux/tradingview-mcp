@@ -109,7 +109,7 @@ Never use create mode to “retry” a failed update.
 1. `tv_health_check` / `tv_ui_state`
 2. `pine_open` only if header ≠ target
 3. Optional: `pine_set_source` + stamp for updates; `pine_save`
-4. Prefer `pine_publish` only for simple first-time paths; **fall back to this skill’s UI walk** when dialogs appear or update is required
+4. Prefer `pine_publish` (it now takes Update-existing when `published_version` is set and fails if the snapshot does not bump). **Fall back to this skill’s UI walk** when the wizard is leftover or `TV_PINE_PUBLISH_STALE` is returned
 5. `ui_evaluate` / `ui_click` / `ui_set_input` / `ui_wait_for` for wizard steps
 6. Verify with `tv_ui_state`, `pine_list_scripts`, and/or editor version chip
 

@@ -27,6 +27,9 @@ export const TV_ERROR_CODES = Object.freeze({
   TV_SCRIPT_AMBIGUOUS: 'Pine script name matched multiple scripts.',
   TV_PINE_EDITOR_CLOSED: 'The Pine Editor (Monaco) is not open.',
   TV_PINE_UNBOUND: 'pine_save ran without a verified buffer↔script binding.',
+  TV_PINE_IDENTITY_MISMATCH: 'Pine editor header identity does not match the requested script.',
+  TV_PINE_PUBLISH_STALE: 'Publish reported success without bumping the published import snapshot.',
+  TV_PINE_BLOCKED_DIALOG: 'A leftover Pine dialog is blocking Save / Open / Add to chart.',
   // UI automation
   TV_ELEMENT_NOT_FOUND: 'UI element did not match any on-page control.',
   TV_PANEL_NOT_OPEN: 'A required panel is collapsed/closed.',

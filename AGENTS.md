@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-88 tools by default (95 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+89 tools by default (96 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -48,20 +48,21 @@ Manual sequence (when you need to cherry-pick):
 - `chart_set_visible_range` → zoom to exact date range (unix timestamps)
 
 ### "Work on Pine Script"
-1. `pine_open` → open by registered identity (Open dialog); never treat Monaco inject as open
+1. `pine_open` → open by registered identity (Open dialog, accepts `script_id`); never treat Monaco inject as open
 2. `pine_copy` / `pine_save_as` → registered copy for publishable scripts (not orphan facade save/new)
 3. `pine_set_source` → inject code (pass `script_name` to refuse wrong header identity)
-4. `pine_save` → save to TradingView cloud and verify against the buffer's script (flags `bound_mismatch` on the unbound-editor trap); if `verified:false` or `bound_mismatch`, run `pine_bind` first
-4b. `pine_bind` → fetch a saved script's facade source into the buffer and confirm the match — establishes the binding `pine_save` verifies against
+4. `pine_save` → save to TradingView cloud and verify against the buffer's script (CRLF/LF normalized; flags `bound_mismatch`); if `verified:false` or `bound_mismatch`, run `pine_bind` first
+4b. `pine_bind` → switch Open/Save/Publish identity then load facade source — refuses if the header differs (never injects into the wrong script)
 5. `pine_add_to_chart` → add open script to chart (prefer over `indicator_add` for fresh My scripts)
-6. `pine_publish` → publish library/script; returns pubId + version for `import user/Lib/N`
-7. `pine_smart_compile` → compile + check errors (`import_errors` for unpublished imports)
+6. `pine_publish` → publish library/script; Update-existing when already published; returns `mode` + `published_version`; fails if the import snapshot is unchanged
+7. `pine_smart_compile` → compile + check errors (`import_errors` for unpublished imports); `clicked: "Pine Save"` / `persisted:true` when that button is the path
 8. `pine_list_scripts` → list with `ui_visible` / `published_version` (orphan detection)
 9. `indicator_get_inputs` → align `in_*` inputs before visual verify
 10. `pine_get_errors` / `pine_get_console` → compilation errors and log.info()
 11. `pine_get_source` → read current code back (WARNING: can be very large for complex scripts)
 12. `pine_new` → blank template only (does not register cloud identity)
-13. `pine_read_script` → read a saved script's source by name/id **without opening it** (no editor/dialog side effects); prefer over `pine_open` + `pine_get_source` for read-only access to a dependency
+13. `pine_read_script` → read saved or published (`scope` + `version`) source **without opening it**; prefer over `pine_open` + `pine_get_source`
+14. `pine_library_exports` → list `export` names for `user/Lib/N` without compiling a consumer
 
 ### "Practice trading with replay"
 1. `replay_start` with `date: "2025-03-01"` → enter replay mode
