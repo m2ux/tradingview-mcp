@@ -1,6 +1,6 @@
 # RSIZoneDiv — Library-Generic Refactor Plan
 
-> Work package · tradingview-mcp · 2026-08-16 · **Status:** Steps 1–2 **gated green** (58/58, 27 LOW / 31 HIGH, 8968/8968 overlap). Resume at **Step 3** (`step()` + explicit `prev*`). Engine privately published as `import theansweris42/RSIZoneDivEng/1`. Verify layout `RSIZoneDiv-verify` (`mOJFbuuv`). [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) branch `feat/rszonediv-generic-refactor`. Decisions locked (§9). **Do not overwrite RSIZones.**
+> Work package · tradingview-mcp · 2026-08-16 · **Status:** Steps 1–5 **gated green** (58/58, 27 LOW / 31 HIGH, 8968/8968 overlap). Generic pinned to `import theansweris42/RSIZoneDivEng/2`. Verify layout `RSIZoneDiv-verify` (`mOJFbuuv`). [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) branch `feat/rszonediv-generic-refactor`. Decisions locked (§9). **Do not overwrite RSIZones.**
 >
 > **Companion reading:** `01-pine-language-semantics.md` (esp. §1 UDT history, §3 lazy eval),
 > `04-refactoring-playbook.md` (esp. §2 collapse limits, §3 side-parameterization, §7 asymmetry
@@ -249,8 +249,8 @@ The §10 publish blocker was bypassed by **creating a new library identity** (`R
 | Script | ID | State |
 |--------|----|--------|
 | **RSIZones** | `USER;5b48c567b4984921b0262ea4db325dca` | Healthy library, v8.0, published 1.0. **Leave alone.** |
-| **RSIZoneDivEng** | `USER;5b5dedfb24ae434b93faa73bc3e6ac19` | Healthy library, saved v3.0, privately published **1.0**. pubId `PUB;72abc288ee55459991046fecfbc23326`. Import: `import theansweris42/RSIZoneDivEng/1 as eng` |
-| **RSIZoneDivGeneric** | `USER;55dab092b81d4ea8a41c4527b6bc7432` | Study, saved **v3.0**, title `RSI Zone Divergence Generic`. Step-2 source (ZoneState adapter in the shell). |
+| **RSIZoneDivEng** | `USER;5b5dedfb24ae434b93faa73bc3e6ac19` | Healthy library, saved **v5.0**, privately published **2.0**. pubId `PUB;72abc288ee55459991046fecfbc23326`. Import: `import theansweris42/RSIZoneDivEng/2 as eng` |
+| **RSIZoneDivGeneric** | `USER;55dab092b81d4ea8a41c4527b6bc7432` | Study, saved **v6.0**, title `RSI Zone Divergence Generic`. Thin shell: `eng.ZoneState` / `eng.step`, `[1]` on flat globals. |
 | RSIZoneDivEngine / EngineLib | `USER;7de16a87…` / `USER;611abf85…` | Still E2E-corrupt. Ignore. |
 
 ### Verify layout
@@ -274,9 +274,81 @@ Valid gate: fetch `count ≥ total_available` (9300+), then compare only bars wi
 |------|----------------|------|
 | **1** | Pure helpers in published `RSIZoneDivEng`; shell calls `eng.*`. `[1]`/`ta.*` stay global. | **PASS** — 58/58, 27/31, 8968 overlap, plot drift 0 |
 | **2** | Shell-local non-`var` `ZoneState` snapshot per side (`zsL`/`zsH`). State machine reads the snapshot. `field_0`/`field_1` remain flat copies of `zx` for `[1]`. Hoisted `mint1.*()` edges still run every bar (L2). Engine **not** republished. | **PASS** — same 58/58 |
+| **3** | Per-side machine collapsed to `step(dir, ZoneState, body, wick, mid, mpTol, hiSens, SidePrev)`. All `[1]` stay on flat globals; edges are `histOk`-gated vs `SidePrev`. SymLo asymmetries preserved. Published `/1` did not export types/`step()` — they lived in the shell and called `eng.*`. | **PASS** — 58/58, 27/31, 8968 overlap |
+| **4** | Paper exercise (§12). Nested-band contract kept; rename `z0/zw/zx` → `inCore/inWide/inZone`, `isWFall` → `wideExit`, `rz` → `intensity`. | n/a (no chart change until Step 5) |
+| **5** | Renames in engine + shell. UI-walk **Update existing** (not `pine_publish`) → published **2.0**. Generic v6 pins `import theansweris42/RSIZoneDivEng/2` and calls `eng.step`. | **PASS** — 58/58, 27/31, 8968 overlap, 0 missing/changed/extra-in-window; extra HIGH after freeze `2026-08-12T08:30Z` is new data |
 
-### Resume here — Step 3
+### Package complete
 
-Move the per-side state machine into the engine as `step()`, with `prev*` passed explicitly. Keep every `[1]` / `ta.*` on flat globals in the shell (the constraint that killed the UDT collapse). Expected: 58/58. Then Step 4 paper exercise, Step 5 pin if the published API changes.
+Worktree sources uncommitted until asked. Main checkout is a different branch — do not switch it.
 
-Worktree: `/home/mike1/projects/dev/tradingview-mcp/.worktrees/2026-08-12-tradingview-mcp-pine-debug-principles` on `feat/rszonediv-generic-refactor`. Main checkout is a different branch — do not switch it.
+---
+
+## 12. Step 4 — paper exercise (2026-08-16)
+
+`step()` reads `ZoneState` as eight fields. Engine meaning (not RSIZones names):
+
+| Field today | What `step()` actually does with it |
+|-------------|-------------------------------------|
+| `z0` | Inner/summit membership → `f_summit_peak` |
+| `zw` | Wider-band membership → range peak + trough |
+| `zx` | Capture-zone membership → capture SM + `f_div_cnt` |
+| `rz` | Scalar intensity of the inner reading while in-band |
+| `noRise` | Hold the running summit instead of snapping to current `rz` |
+| `noFall` | Permit a new body/wick/mom extreme this bar |
+| `isWFall` | Reset/latch trigger: scap→extreme, rcap latch, momCap→mid, `f_flat` |
+| `mom` | Oscillator the momentum chain tracks (not required to be RSI) |
+
+`mid` / `mpTol` are already `step()` args (shell today passes `50` / `0.25`). A non-RSI source must pass its own midline.
+
+### (a) Fixed-threshold RSI
+
+Low / high, example 30/70 with a 10-pt wide collar and a 10-pt core:
+
+| Field | Low adapter | High adapter |
+|-------|-------------|--------------|
+| `z0` | `rsi < 20` | `rsi > 80` |
+| `zw` | `rsi < 40` | `rsi > 60` |
+| `zx` | `rsi < 30` | `rsi > 70` |
+| `rz` | `max(0, 30 - rsi)` (or 0–4 stepped) | `max(0, rsi - 70)` |
+| `noRise` | `not ta.rising(rsi)` (hoist) | same |
+| `noFall` | `not ta.falling(rsi)` (hoist) | same |
+| `isWFall` | `ta.falling(zw)` or `zw[1] and not zw` (hoist; copy `zw` to a flat first) | same |
+| `mom` | `rsi` | `rsi` |
+
+Maps cleanly. The three bools are a **nested-band contract** (core ⊂ wide, capture ⊂ wide), not “RSIZones 0/w/x”. Intensity is any monotone “how deep” scalar.
+
+### (b) Bollinger %B
+
+`pctB = (close - lower) / (upper - lower)`. Midline for `step()` is `0.5`, not `50`. `mpTol` scales to %B units (e.g. `0.02`).
+
+| Field | Low (below band) | High (above band) |
+|-------|------------------|-------------------|
+| `z0` | `pctB < 0` (beyond lower) | `pctB > 1` |
+| `zw` | `pctB < 0.2` | `pctB > 0.8` |
+| `zx` | `pctB < 0` (or `< 0.1` if capture should arm earlier) | `pctB > 1` (or `> 0.9`) |
+| `rz` | `max(0, -pctB)` | `max(0, pctB - 1)` |
+| `noRise` / `noFall` | hoist `ta.rising/falling(pctB)` | same |
+| `isWFall` | wide-band exit: `wide[1] and not wide` | same |
+| `mom` | `pctB` **or** keep RSI and let %B be zone-only | same |
+
+Two-source split is allowed: zone from %B, `mom` still RSI. The engine does not care. What it *does* require is that `isWFall` means “wide membership just collapsed”, not RSIZones’ named `is_rz*_w_fall`.
+
+### Leaks to fix before Step 5 locks the published type
+
+1. **`z0` / `zw` / `zx`** — RSIZones vocabulary. Engine contract is nested bands: **`inCore` / `inWide` / `inZone`**.
+2. **`isWFall`** — RSIZones W-fall. Engine contract is **`wideExit`** (wide membership falling/leaving).
+3. **`rz`** — keep as intensity, or rename **`intensity`**. Comment “0..4” is RSIZones-only; any monotone depth works.
+4. **`mom` / `noRise` / `noFall`** — generic enough; document `mom` as “oscillator”, not “RSI”.
+5. **Shell `m_mid = 50`** — RSI adapter default, not an engine constant. Already parameterized.
+
+No field needs to be dropped. The three-band model is the contract, not a leak, once renamed. `wideExit` is the reset edge any band source can compute from `inWide` history (flat copy + `[1]`, never `zs.inWide[1]`).
+
+RSIZones adapter after rename (no behavior change):
+
+```pine
+zsL = ZoneState.new(mint1.rzl_0, mint1.rzl_w, mint1.rzl_x, mint1.rzl,
+     m_no_rzl_rise, m_no_rzl_fall, m_is_rzl_w_fall, mint1.rsi1)
+```
+
+Apply the rename in the shell (and saved engine v4) **before** Update-existing, then re-gate 58/58. That is the last source change before the published API is pinned.

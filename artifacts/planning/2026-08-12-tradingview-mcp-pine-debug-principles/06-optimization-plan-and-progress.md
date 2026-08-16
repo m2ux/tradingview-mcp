@@ -124,10 +124,9 @@ slice had 0 LOW and made all three variants look vacuously identical (see `02` �
    merged source (entity `va74LI`, `TV_MAX_BARS=9000`) and diffed vs the frozen baseline —
    58/58 signals identical, 8968/8968 shared bars, max plot drift 0. Paper trail verified.
 3. **The deeper refactor** — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20), worktree
-   `.worktrees/2026-08-12-tradingview-mcp-pine-debug-principles`, plan in `07`. **Steps 1–2 gated
-   green (2026-08-16):** published `theansweris42/RSIZoneDivEng/1`; generic shell
-   `RSIZoneDivGeneric` v3.0 on verify layout `mOJFbuuv` entity `NDQ14t`; 58/58 on the overlapping
-   30m window. **Resume at Step 3** (`step()` + explicit `prev*`). See `07` §11.
+   `.worktrees/2026-08-12-tradingview-mcp-pine-debug-principles`, plan in `07`. **Steps 1–5 gated
+   green (2026-08-16):** `import theansweris42/RSIZoneDivEng/2`; generic `RSIZoneDivGeneric` v6.0
+   on verify layout `mOJFbuuv` entity `NDQ14t`; 58/58 on the overlapping 30m window. See `07` §11.
 4. **Optional tooling:** implement #12 (published-scope read) so future dependency pins don't
    need the `ui_evaluate` workaround; #17/#19 to close the headless lifecycle.
 
@@ -145,5 +144,5 @@ git -C /home/mike1/projects/dev/tradingview-mcp show main:scripts/rszonediv_sym_
 # Reference chart: TVC:UKOIL 30m (entity va74LI in the 2026-08-12 session — re-derive after restart, never cache entity IDs)
 ```
 
-**Resume:** Step 3 of `07` (engine `step()`). Do not switch the main checkout (`feat/capture-snapshot`).
-Work in the pine-debug-principles worktree. Do not overwrite RSIZones.
+**Resume:** `07` Steps 1–5 complete. Do not switch the main checkout (`feat/capture-snapshot`).
+Worktree sources for the generic refactor are uncommitted until asked. Do not overwrite RSIZones.
