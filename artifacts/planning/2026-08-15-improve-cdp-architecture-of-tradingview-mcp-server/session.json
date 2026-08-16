@@ -807,7 +807,7 @@
         ],
         "condition": "review_requires_changes==false",
         "currentActivity": "complete",
-        "currentTechnique": "review-outcome-analysis",
+        "currentTechnique": "finalize-documentation::ensure-docs",
         "deliveredContent": {
           "orchestrator": {
             "resource:pr-description#template-initial": "dd48a34467051e68",
@@ -902,6 +902,37 @@
             "technique:rules:8e81c699e76befb4": "8e81c699e76befb4",
             "technique:rules:9b8300c9a26abf6a": "9b8300c9a26abf6a",
             "technique:rules:b33a79fc5801d2e5": "b33a79fc5801d2e5"
+          },
+          "w-complete-we6p3q": {
+            "activity_rules:148ebfb566580534": "148ebfb566580534",
+            "bundle:rules:10a1d5254cc0b16f": "10a1d5254cc0b16f",
+            "bundle:variable-binding": "69962c9fd66c4d9a",
+            "bundle:workflow-engine::activity-worker": "c81c6e7803027e7a",
+            "bundle:workflow-engine::finalize-activity": "31fa43cca3fda282",
+            "bundle:workflow-engine::resume-from-checkpoint": "c5d39964aebc52ea",
+            "bundle:workflow-engine::yield-checkpoint": "9c288d31d7ef9773",
+            "resource:adr#rules": "c30ea3603825392d",
+            "resource:adr#template": "8e2b3a5b4c961941",
+            "resource:architecture-review#adr-template": "e41b7723f99f1377",
+            "resource:complete-wp-guide#template": "aed91df6fce3e884",
+            "resource:deferred-items": "37f4d232ed66ee32",
+            "resource:follow-ups": "a56b861a2d0d4f39",
+            "resource:meta/writing-register": "837d8dcdc0dbeed3",
+            "resource:session-trace#template": "64748d1c9d32c056",
+            "resource:test-plan": "0e65677e6789fbe0",
+            "resource:test-plan#test-plan-structure": "b3bfc60fece67633",
+            "resource:workflow-retrospective#mechanical-classes-from-the-resolved-trace": "027125ac701327c3",
+            "resource:workflow-retrospective#output-section-template": "e211e4489bd2cca1",
+            "technique:conduct-retrospective::retrospective": "15cb51c6e99e5c48",
+            "technique:conduct-retrospective::select-next": "f3b0cf1d70e83cfd",
+            "technique:create-adr": "c777911dc3237bd8",
+            "technique:finalize-documentation::create-complete-doc": "be978e7407c84047",
+            "technique:finalize-documentation::ensure-docs": "92c037f7294761a8",
+            "technique:finalize-documentation::finalize-test-plan": "f5a7a19befa4a187",
+            "technique:finalize-documentation::render-token-usage": "ab1f132496597523",
+            "technique:finalize-documentation::update-adr": "b8d2a7803528a862",
+            "technique:manage-artifacts::verify-artifact-links": "e36e2b4ea8afba92",
+            "technique:workflow-engine::read-session": "782329266352f540"
           },
           "w-implement-we6p3q": {
             "activity_rules:148ebfb566580534": "148ebfb566580534",
@@ -10039,17 +10070,378 @@
           {
             "timestamp": "2026-08-16T04:51:11.970Z",
             "type": "workflow_completed"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 82650,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 5767,
+              "delivery": "full",
+              "stepId": "create-complete-doc",
+              "techniqueId": "finalize-documentation::create-complete-doc"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "create-complete-doc"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 6524,
+              "delivery": "full",
+              "stepId": "render-token-usage",
+              "techniqueId": "finalize-documentation::render-token-usage"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "render-token-usage"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 3324,
+              "delivery": "full",
+              "stepId": "read-session",
+              "techniqueId": "workflow-engine::read-session"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "read-session"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 6665,
+              "delivery": "full",
+              "stepId": "conduct-retrospective",
+              "techniqueId": "conduct-retrospective::retrospective"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "conduct-retrospective"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 11895,
+              "delivery": "full",
+              "stepId": "verify-artifact-links",
+              "techniqueId": "manage-artifacts::verify-artifact-links"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "verify-artifact-links"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4269,
+              "delivery": "full",
+              "stepId": "select-next",
+              "techniqueId": "conduct-retrospective::select-next"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "select-next"
+            },
+            "timestamp": "2026-08-16T04:51:23.171Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4213,
+              "delivery": "full",
+              "stepId": "create-adr",
+              "techniqueId": "create-adr"
+            },
+            "timestamp": "2026-08-16T04:52:21.050Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "create-adr"
+            },
+            "timestamp": "2026-08-16T04:52:21.050Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1282,
+              "delivery": "full",
+              "resourceId": "architecture-review#adr-template"
+            },
+            "timestamp": "2026-08-16T04:52:21.353Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 635,
+              "delivery": "full",
+              "resourceId": "adr#template"
+            },
+            "timestamp": "2026-08-16T04:52:27.312Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 892,
+              "delivery": "full",
+              "resourceId": "adr#rules"
+            },
+            "timestamp": "2026-08-16T04:52:27.661Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1986,
+              "delivery": "full",
+              "resourceId": "meta/writing-register"
+            },
+            "timestamp": "2026-08-16T04:52:28.036Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4138,
+              "delivery": "full",
+              "stepId": "update-adr-status",
+              "techniqueId": "finalize-documentation::update-adr"
+            },
+            "timestamp": "2026-08-16T04:53:18.221Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "update-adr-status"
+            },
+            "timestamp": "2026-08-16T04:53:18.221Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4198,
+              "delivery": "full",
+              "stepId": "finalize-test-plan",
+              "techniqueId": "finalize-documentation::finalize-test-plan"
+            },
+            "timestamp": "2026-08-16T04:53:24.027Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "finalize-test-plan"
+            },
+            "timestamp": "2026-08-16T04:53:24.027Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 372,
+              "delivery": "full",
+              "resourceId": "test-plan#test-plan-structure"
+            },
+            "timestamp": "2026-08-16T04:53:26.760Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4099,
+              "delivery": "full",
+              "resourceId": "test-plan"
+            },
+            "timestamp": "2026-08-16T04:53:40.969Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 2065,
+              "delivery": "full",
+              "resourceId": "complete-wp-guide#template"
+            },
+            "timestamp": "2026-08-16T04:54:18.983Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1381,
+              "delivery": "full",
+              "resourceId": "follow-ups"
+            },
+            "timestamp": "2026-08-16T04:54:19.074Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1878,
+              "delivery": "full",
+              "resourceId": "deferred-items"
+            },
+            "timestamp": "2026-08-16T04:54:19.371Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 4080,
+              "delivery": "full",
+              "stepId": "ensure-docs",
+              "techniqueId": "finalize-documentation::ensure-docs"
+            },
+            "timestamp": "2026-08-16T04:54:42.148Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "stepId": "ensure-docs"
+            },
+            "timestamp": "2026-08-16T04:54:42.148Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 688,
+              "delivery": "full",
+              "resourceId": "session-trace#template"
+            },
+            "timestamp": "2026-08-16T04:55:20.319Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1340,
+              "delivery": "full",
+              "resourceId": "workflow-retrospective#output-section-template"
+            },
+            "timestamp": "2026-08-16T04:55:20.457Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "chars": 1392,
+              "delivery": "full",
+              "resourceId": "workflow-retrospective#mechanical-classes-from-the-resolved-trace"
+            },
+            "timestamp": "2026-08-16T04:55:32.848Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "complete",
+            "data": {
+              "agentId": "w-complete-we6p3q",
+              "usage": {}
+            },
+            "timestamp": "2026-08-16T04:57:30.058Z",
+            "type": "activity_usage"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 195,
+        "seq": 214,
         "sessionIndex": "WE6P3Q",
         "skippedActivities": [],
         "startedAt": "2026-08-15T07:12:21.243Z",
         "status": "completed",
         "triggeredWorkflows": [],
-        "ts": 1786855871,
+        "ts": 1786856250,
         "variables": {
           "architecture_summary": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-architecture-summary-1.md",
           "artifact_name": "",

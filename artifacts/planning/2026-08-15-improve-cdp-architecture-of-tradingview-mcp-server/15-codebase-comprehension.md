@@ -2,7 +2,7 @@
 
 > [2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server](README.md) · 2026-08-15 · complete · coverage: CDP transport layer and consumers, read at `chore/24-improve-cdp-architecture` @ `4ff5104`
 
-The questions this pass asked, the investigation that answered them, and the items it left open. Settled facts live in the corpus artifact at [tradingview-mcp.md](../../../comprehension/tradingview-mcp.md); this log carries only the session-specific reasoning.
+The questions this pass asked, the investigation that answered them, and the items it left open. Settled facts live in the corpus artifact at [tradingview-mcp.md](../../comprehension/tradingview-mcp.md); this log carries only the session-specific reasoning.
 
 ## Open Questions
 

@@ -36,7 +36,7 @@ A clean, stratified CDP layer stack — one transport module owning all client l
 ### Dependencies
 - Live TradingView Desktop required for verification (e2e)
 - Prior read-only research: [breach analysis R1–R5](../2026-08-15-tradingview-mcp-cdp-architecture/01-existing-architecture-analysis.md), [external research + build order](../2026-08-15-tradingview-mcp-cdp-architecture/02-external-research-and-opportunities.md)
-- Comprehension corpus: [tradingview-mcp.md](../../../comprehension/tradingview-mcp.md) (CDP-transport depth at `4ff5104`)
+- Comprehension corpus: [tradingview-mcp.md](../../comprehension/tradingview-mcp.md) (CDP-transport depth at `4ff5104`)
 
 ### Constraints
 - **Technical:** No public TradingView API — CDP is the only path; backward compatibility of the existing 88-tool surface is mandatory; loopback-only CDP default must be preserved
@@ -63,7 +63,7 @@ A clean, stratified CDP layer stack — one transport module owning all client l
 5. Changing tool behaviour/output shapes (fencing, gating) — settled by the 2026-08-08 mitigations package
 
 ### Deferred
-Deferred scope items: [deferred-items register](deferred-items.md) — record each item there, not here.
+Deferred scope items stay in Out of Scope above — no deferred-items register was created for this run.
 
 ## Success Criteria
 
