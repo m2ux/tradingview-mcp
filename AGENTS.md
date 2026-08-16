@@ -77,7 +77,7 @@ Manual sequence (when you need to cherry-pick):
 
 ### "Draw on the chart"
 - `draw_shape` → horizontal_line, trend_line, rectangle, text (pass point + optional point2)
-- `draw_fib_channel` → Fibonacci channel. Required: `template` (any LineToolFibChannel name), `direction` (`bullish` = L→H→L, `bearish` = H→L→H), three `time`s (TV click order). Optional `price` per locus overrides the OHLC extreme. Refuses if the template name is missing from `/drawing-templates/LineToolFibChannel/`
+- `draw_fib_channel` → Fibonacci channel. Required: `template` (any LineToolFibChannel name), `direction` (`bullish` = L→H→L, `bearish` = H→L→H), three `time`s (TV click order). Optional `price` per locus overrides the OHLC extreme. Optional `timeframe` selects which resolution supplies OHLC (omit = active chart; original resolution is restored after lookup). Refuses if the template name is missing from `/drawing-templates/LineToolFibChannel/`
 - `draw_list` → see what's drawn
 - `draw_remove_one` → remove by ID
 - `draw_clear` → remove all
@@ -87,7 +87,7 @@ Saved style templates for a drawing tool (Fib Channel, parallel channel, etc.):
 1. `draw_template_list` with `drawing_type: "fibonacci channel"` → template names (omit type to list aliases)
 2. `draw_template_get` with `drawing_type` + `name` → native content object
 3. `draw_template_save` with `drawing_type` + `name` + `content` and/or `from_template` (clone then deep-merge) → create/overwrite in TradingView cloud
-4. `draw_fib_channel` → pass `template` + `direction` + three bar times (do not reconstruct `createMultipointShape` via `ui_evaluate`)
+4. `draw_fib_channel` → pass `template` + `direction` + three bar times (do not reconstruct `createMultipointShape` via `ui_evaluate`). Optional `timeframe` for OHLC; omit uses the active chart.
 
 Use friendly types (`fibonacci channel`, `parallel channel`, `trend line`) or raw `LineTool*` ids.
 

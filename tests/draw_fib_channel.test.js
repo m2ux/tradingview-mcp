@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 import {
   drawFibChannel,
   normalizeFibDirection,
+  normalizeFibTimeframe,
+  sameResolution,
+  pickBarForTime,
   FIB_DIRECTION_SOURCES,
 } from '../src/core/drawing.js';
 
@@ -45,19 +48,38 @@ function mockChart(opts = {}) {
   const newId = opts.newId ?? 'PZ9yZF';
   const barMap = opts.bars ?? BARS;
   const calls = [];
+  const setResolutionCalls = [];
+  let resolution = opts.resolution ?? '12';
   let created = false;
+
+  const pick = (t) => {
+    if (barMap[t]) return barMap[t];
+    const times = Object.keys(barMap).map(Number).sort((a, b) => a - b);
+    return pickBarForTime(times.map((time) => barMap[time]), t);
+  };
 
   const evaluate = async (expr) => {
     calls.push({ kind: 'evaluate', expr });
     if (expr.includes('drawFibChannel_lookupBars')) {
       const wantMatch = expr.match(/var want = (\[[^\]]*\])/);
       const want = wantMatch ? JSON.parse(wantMatch[1]) : [];
-      const found = want.map((t) => barMap[t] || null);
+      const found = want.map((t) => pick(t) || null);
       const missing = want.filter((t, i) => !found[i]);
       if (missing.length) {
         return { ok: false, error: `No loaded bar at time(s): ${missing.join(', ')}`, missing };
       }
       return { ok: true, bars: found };
+    }
+    if (expr.includes('setResolution')) {
+      const m = expr.match(/setResolution\((['"])(.*?)\1/);
+      if (m) {
+        resolution = m[2];
+        setResolutionCalls.push(resolution);
+      }
+      return undefined;
+    }
+    if (expr.includes('.resolution()')) {
+      return resolution;
     }
     if (expr.includes('getAllShapes')) {
       return created ? [newId] : [];
@@ -88,11 +110,14 @@ function mockChart(opts = {}) {
 
   return {
     calls,
+    setResolutionCalls,
     created: () => created,
+    resolution: () => resolution,
     _deps: {
       evaluate,
       evaluateAsync,
       getChartApi: async () => 'window.__api',
+      waitForChartReady: async () => true,
     },
   };
 }
@@ -135,6 +160,7 @@ describe('drawFibChannel', () => {
     assert.equal(result.entity_id, 'PZ9yZF');
     assert.equal(result.template, '_Accel_T');
     assert.equal(result.direction, 'bullish');
+    assert.equal(result.timeframe, '12');
     assert.deepEqual(result.sources, ['low', 'high', 'low']);
     assert.equal(result.points[0].price, 80.5);
     assert.equal(result.points[0].source, 'price');
@@ -293,5 +319,119 @@ describe('drawFibChannel', () => {
       /point3\.time must be a finite number/,
     );
     assert.equal(createCalls(mock).length, 0);
+  });
+
+  it('omitted timeframe uses the active chart resolution and does not switch', async () => {
+    const mock = mockChart({ resolution: '45' });
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      ...TIMES_ONLY,
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.timeframe, '45');
+    assert.deepEqual(mock.setResolutionCalls, []);
+  });
+
+  it('matching timeframe does not switch', async () => {
+    const mock = mockChart({ resolution: 'D' });
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      timeframe: '1D',
+      ...TIMES_ONLY,
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.timeframe, 'D');
+    assert.deepEqual(mock.setResolutionCalls, []);
+  });
+
+  it('switches to the requested OHLC timeframe then restores the active resolution', async () => {
+    const mock = mockChart({ resolution: '12' });
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      timeframe: 'D',
+      ...TIMES_ONLY,
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.timeframe, 'D');
+    assert.deepEqual(mock.setResolutionCalls, ['D', '12']);
+    assert.equal(mock.resolution(), '12');
+  });
+
+  it('restores the active timeframe when OHLC lookup fails', async () => {
+    const mock = mockChart({ resolution: '12' });
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      timeframe: 'D',
+      point: { time: T1 },
+      point2: { time: T2 },
+      point3: { time: 111 },
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, false);
+    assert.match(result.error, /No loaded bar/);
+    assert.equal(result.timeframe, 'D');
+    assert.deepEqual(mock.setResolutionCalls, ['D', '12']);
+    assert.equal(createCalls(mock).length, 0);
+  });
+
+  it('does not switch timeframe when every locus has an explicit price', async () => {
+    const mock = mockChart({ resolution: '12' });
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      timeframe: 'D',
+      ...EXPLICIT,
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, true);
+    assert.deepEqual(mock.setResolutionCalls, []);
+    assert.equal(lookupCalls(mock).length, 0);
+  });
+
+  it('resolves a time inside a bar to that bar\'s OHLC on the lookup timeframe', async () => {
+    const mock = mockChart();
+    const result = await drawFibChannel({
+      template: '_Base_T',
+      direction: 'bullish',
+      point: { time: T1 + 60 },
+      point2: { time: T2 },
+      point3: { time: T3 },
+      _deps: mock._deps,
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.points[0].price, 79.5);
+    assert.equal(result.points[0].time, T1);
+  });
+});
+
+describe('normalizeFibTimeframe / pickBarForTime', () => {
+  it('canonicalizes D/W/M aliases and treats empty as omit', () => {
+    assert.equal(normalizeFibTimeframe(undefined), null);
+    assert.equal(normalizeFibTimeframe('  '), null);
+    assert.equal(normalizeFibTimeframe('1D'), 'D');
+    assert.equal(normalizeFibTimeframe('daily'), 'D');
+    assert.equal(normalizeFibTimeframe('45'), '45');
+    assert.equal(sameResolution('D', '1D'), true);
+    assert.equal(sameResolution('12', 'D'), false);
+    assert.equal(sameResolution('45', '45'), true);
+  });
+
+  it('matches exact bar time or the containing [open, nextOpen) bar', () => {
+    const bars = [
+      { time: 1000, low: 1 },
+      { time: 2000, low: 2 },
+      { time: 3000, low: 3 },
+    ];
+    assert.equal(pickBarForTime(bars, 2000).low, 2);
+    assert.equal(pickBarForTime(bars, 2500).low, 2);
+    assert.equal(pickBarForTime(bars, 999), null);
+    assert.equal(pickBarForTime(bars, 3001), null);
   });
 });
