@@ -17,7 +17,7 @@ export function registerDrawingTools(server) {
 
   server.tool(
     'draw_fib_channel',
-    'Draw a Fibonacci channel from a saved LineToolFibChannel template, bullish/bearish direction, and three bar times (TV click order: baseline point→point2, offset point3)',
+    'Draw a Fibonacci channel from a saved LineToolFibChannel template, bullish/bearish direction, and three bar times (TV click order: baseline point→point2, offset point3). Optional timeframe selects which resolution supplies OHLC (omit = active chart).',
     {
       template: z.string().describe(
         'Required. Any exact saved LineToolFibChannel template name (caller-supplied; no default). Must exist on /drawing-templates/LineToolFibChannel/ — refuses otherwise, no factory-default fallback.',
@@ -34,9 +34,12 @@ export function registerDrawingTools(server) {
       point3: z.object({ time: z.coerce.number(), price: z.coerce.number().optional() }).describe(
         'Third locus (TV click 3; parallel / width). Time required; price optional (else low if bullish, high if bearish).',
       ),
+      timeframe: z.string().optional().describe(
+        'Resolution whose bars supply OHLC when a locus omits price (e.g. "D", "60", "45"). Omit to use the active chart timeframe. The original resolution is restored after lookup.',
+      ),
     },
-    async ({ template, direction, point, point2, point3 }) => {
-      try { return jsonResult(await core.drawFibChannel({ template, direction, point, point2, point3 })); }
+    async ({ template, direction, point, point2, point3, timeframe }) => {
+      try { return jsonResult(await core.drawFibChannel({ template, direction, point, point2, point3, timeframe })); }
       catch (err) { return jsonResult({ success: false, error: err.message }, true); }
     },
   );

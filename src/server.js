@@ -70,7 +70,7 @@ Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester" 
 Snapshot: capture_snapshot → one-call headless capture of the displayed chart — visible time & price range, OHLCV over visible bars, active studies + per-bar series, user drawings, Pine graphics (lines/labels/tables/boxes), and a screenshot (file_path). Use instead of the multi-tool "Analyze my chart" sequence; set include_series=false for a compact snapshot
 Replay: replay_start → replay_step → replay_trade → replay_status → replay_stop
 Batch: batch_run → run action across multiple symbols/timeframes (gated)
-Drawing: draw_shape → horizontal_line, trend_line, rectangle, text; draw_fib_channel → template + direction (bullish L→H→L / bearish H→L→H) + three bar times
+Drawing: draw_shape → horizontal_line, trend_line, rectangle, text; draw_fib_channel → template + direction (bullish L→H→L / bearish H→L→H) + three bar times; optional timeframe for OHLC (omit = active chart)
 Drawing templates: draw_template_list / draw_template_get / draw_template_save (drawing_type + name; save accepts content and/or from_template)
 Alerts: alert_create, alert_list; alert_delete (gated)
 Launch: tv_launch (gated) → auto-detect and start TradingView with CDP on any platform

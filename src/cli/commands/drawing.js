@@ -33,6 +33,7 @@ register('draw', {
         price2: { type: 'string', description: 'Optional second-locus price override' },
         time3: { type: 'string', description: 'Third locus unix timestamp' },
         price3: { type: 'string', description: 'Optional third-locus price override' },
+        timeframe: { type: 'string', short: 'r', description: 'OHLC resolution (e.g. D, 60). Omit to use the active chart' },
       },
       handler: (opts) => {
         const locus = (time, price) => {
@@ -46,6 +47,7 @@ register('draw', {
           point: locus(opts.time, opts.price),
           point2: locus(opts.time2, opts.price2),
           point3: locus(opts.time3, opts.price3),
+          timeframe: opts.timeframe,
         });
       },
     }],
