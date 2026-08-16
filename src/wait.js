@@ -1,7 +1,14 @@
-import { evaluate as _defaultEvaluate } from './connection.js';
+import { evaluate as _defaultEvaluate, KNOWN_PATHS } from './connection.js';
 
 const DEFAULT_TIMEOUT = 10000;
 const POLL_INTERVAL = 200;
+
+/**
+ * Shared sleep helper. Use when a delay has no nameable condition to poll
+ * (e.g. UI settle, animation, connection backoff). When a condition exists,
+ * prefer a bounded poll-until via waitForChartReady/waitForChartRender instead.
+ */
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function waitForChartReady(expectedSymbol = null, expectedTf = null, timeout = DEFAULT_TIMEOUT, evaluate = _defaultEvaluate) {
   const start = Date.now();
@@ -91,7 +98,7 @@ export async function waitForChartRender(timeout = 5000, evaluate = _defaultEval
         var rect = canvas ? canvas.getBoundingClientRect() : null;
         var symbol = '', resolution = '';
         try {
-          var chart = window.TradingViewApi._activeChartWidgetWV.value();
+          var chart = ${KNOWN_PATHS.chartApi};
           symbol = chart.symbol();
           resolution = chart.resolution();
         } catch(e) {}

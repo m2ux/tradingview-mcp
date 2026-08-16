@@ -2,9 +2,10 @@
  * Core pane/layout management logic.
  * Controls multi-chart layouts (split panes) in TradingView.
  */
-import { evaluate, evaluateAsync, getClient, safeString } from '../connection.js';
+import { evaluate, evaluateAsync, safeString, KNOWN_PATHS } from '../connection.js';
+import { sleep } from '../wait.js';
 
-const CWC = 'window.TradingViewApi._chartWidgetCollection';
+const CWC = KNOWN_PATHS.chartWidgetCollection;
 
 const LAYOUT_NAMES = {
   's': '1 chart',
@@ -80,7 +81,7 @@ export async function list() {
       }
 
       // Check which pane is active
-      var activeChart = window.TradingViewApi._activeChartWidgetWV.value();
+      var activeChart = ${KNOWN_PATHS.chartApi};
       var activeIndex = null;
       for (var j = 0; j < all.length; j++) {
         try {
@@ -124,7 +125,7 @@ export async function setLayout({ layout }) {
   }
 
   await evaluateAsync(`${CWC}.setLayout(${safeString(resolved)})`);
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
 
   const state = await list();
   return {
@@ -166,12 +167,12 @@ export async function setSymbol({ index, symbol }) {
 
   // Focus the target pane first
   await focus({ index: idx });
-  await new Promise(r => setTimeout(r, 300));
+  await sleep(300);
 
   // Now set symbol on the now-active chart
   await evaluateAsync(`
     (function() {
-      var chart = window.TradingViewApi._activeChartWidgetWV.value();
+      var chart = ${KNOWN_PATHS.chartApi};
       return new Promise(function(resolve) {
         chart.setSymbol(${safeString(symbol)}, {});
         setTimeout(resolve, 500);

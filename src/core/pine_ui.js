@@ -2,16 +2,15 @@
  * Pine Editor DOM helpers — identity, Open dialog, toolbar/dialog clicks.
  * Shared by pine_open / copy / publish / list enrichment.
  */
-import { evaluate, evaluateAsync, safeString } from '../connection.js';
+import { evaluate, evaluateAsync, safeString, KNOWN_PATHS } from '../connection.js';
 import {
   pressKey,
   setNativeValueExpression,
   readFiberPropExpression,
 } from './dom.js';
+import { sleep } from '../wait.js';
 
 export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Pine Open-script picker helpers (local, consolidated) ───────────────────
 
@@ -385,7 +384,7 @@ export async function confirmReplaceIfNeeded(replace, _deps = {}) {
   }
   const yes = await clickVisibleButton(/^(yes|replace|ok)$/i, { withinDialog: true }, _deps);
   if (!yes) throw new Error('Replace confirmation dialog found but Yes/Replace button missing.');
-  await delay(500);
+  await sleep(500);
   return { prompted: true, replaced: true };
 }
 
@@ -408,10 +407,10 @@ export async function openOpenScriptDialog(_deps = {}) {
   `);
   if (!viaMenu?.opened) {
     await pressKey('o', 2, _deps);
-    await delay(500);
+    await sleep(500);
     return { via: 'key' };
   }
-  await delay(500);
+  await sleep(500);
   const clicked = await evalFn(`
     (function() {
       var candidates = document.querySelectorAll('[role="menuitem"], [role="menu"] button, [class*="menu"] button, [class*="popup"] button, button');
@@ -428,16 +427,16 @@ export async function openOpenScriptDialog(_deps = {}) {
     // close menu then fall back to key
     await pressKey('Escape', 0, _deps);
     await pressKey('o', 2, _deps);
-    await delay(500);
+    await sleep(500);
     return { via: 'key' };
   }
-  await delay(500);
+  await sleep(500);
   return { via: 'menu' };
 }
 
 export async function dismissOpenDialog(_deps = {}) {
   await pressKey('Escape', 0, _deps);
-  await delay(200);
+  await sleep(200);
 }
 
 /**
@@ -450,7 +449,7 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   if (!target) throw new Error('Script name is required.');
 
   await openOpenScriptDialog(_deps);
-  await delay(400);
+  await sleep(400);
 
   // Focus search within the "Open my script" picker and type name
   const typed = await evalFn(`
@@ -467,7 +466,7 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
     await dismissOpenDialog(_deps);
     throw new Error(typed.error);
   }
-  await delay(900);
+  await sleep(900);
 
   const pick = await evalFn(`
     (function() {
@@ -529,7 +528,7 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
   // Attempt to open the selected script via the dialog's native gesture
   // (double-click on the row). This is best-effort; openScript() verifies the
   // header and falls back to the facade scriptIdPart URL when it doesn't take.
-  await delay(300);
+  await sleep(300);
   const confirmed = await evalFn(`
     (function() {
       var target = ${safeString((pick.selected || target).toLowerCase())};
@@ -550,7 +549,7 @@ export async function openScriptDialogAndSelect(name, _deps = {}) {
       return { confirmed: false };
     })()
   `);
-  await delay(800);
+  await sleep(800);
 
   return {
     selected: pick.selected,
@@ -614,7 +613,7 @@ export async function openViaOpenDialog(name, _deps = {}) {
 
   if (invoked?.invoked) {
     for (let i = 0; i < 16; i++) {
-      await delay(400);
+      await sleep(400);
       identity = await getEditorIdentity(_deps).catch(() => null);
       if (matches(identity?.name)) {
         await dismissOpenDialog(_deps).catch(() => {});
@@ -642,7 +641,7 @@ export async function openViaOpenDialog(name, _deps = {}) {
       })()
     `);
     for (let i = 0; i < 40; i++) {
-      await delay(500);
+      await sleep(500);
       identity = await getEditorIdentity(_deps).catch(() => null);
       if (matches(identity?.name)) {
         return { opened: true, name: identity.name, via: 'script_id_url', scriptIdPart };
@@ -660,7 +659,7 @@ export async function openViaOpenDialog(name, _deps = {}) {
 export async function scrapeOpenDialogNames(_deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   await openOpenScriptDialog(_deps);
-  await delay(600);
+  await sleep(600);
 
   // Focus the search input and type to force the (virtualized) list to render,
   // then harvest the visible itemRow titles.
@@ -672,7 +671,7 @@ export async function scrapeOpenDialogNames(_deps = {}) {
       if (inp) (${setNativeValueExpression(' ', 'inp')});
     })()
   `);
-  await delay(900);
+  await sleep(900);
 
   const names = await evalFn(`
     (function() {
@@ -706,7 +705,7 @@ export async function scrapeOpenDialogNames(_deps = {}) {
 export async function isNameInOpenDialog(name, _deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
   await openOpenScriptDialog(_deps);
-  await delay(500);
+  await sleep(500);
   await evalFn(`
     (function() {
       ${FIND_OPEN_DIALOG_EXPR}
@@ -717,7 +716,7 @@ export async function isNameInOpenDialog(name, _deps = {}) {
       return true;
     })()
   `);
-  await delay(600);
+  await sleep(600);
   const found = await evalFn(`
     (function() {
       var target = ${safeString(String(name).toLowerCase())};
@@ -831,7 +830,7 @@ export async function studyCount(_deps = {}) {
   return evalFn(`
     (function() {
       try {
-        var chart = window.TradingViewApi._activeChartWidgetWV.value();
+        var chart = ${KNOWN_PATHS.chartApi};
         if (chart && typeof chart.getAllStudies === 'function') return chart.getAllStudies().length;
       } catch(e) {}
       return null;
@@ -889,5 +888,3 @@ export async function getEditorBufferInfo(_deps = {}) {
   `);
   return result || null;
 }
-
-export { delay };

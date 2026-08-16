@@ -5,12 +5,12 @@
  */
 import { evaluate } from '../connection.js';
 import { pressKey, setNativeValueExpression } from './dom.js';
+import { sleep } from '../wait.js';
 import {
   assertEditorIdentity,
   classifyCompileErrors,
   clickVisibleButton,
   confirmReplaceIfNeeded,
-  delay,
   fetchFacadeList,
   fetchScriptSource,
   fillDialogInput,
@@ -145,7 +145,7 @@ export async function ensurePineEditorOpen() {
     `);
 
     for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
       const ready = await evaluate(FIND_PINE_OVERLAY_READY);
       if (ready) return true;
       // Accept plain Monaco once overlay chrome is unlikely to appear this attempt.
@@ -168,7 +168,7 @@ export async function ensurePineEditorOpen() {
       })()
     `);
     for (let i = 0; i < 15; i++) {
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
       const ready = await evaluate(FIND_MONACO_CONTAINER);
       if (ready) return true;
     }
@@ -433,7 +433,7 @@ export async function compile() {
     await pressKey('Enter', 2);
   }
 
-  await new Promise(r => setTimeout(r, 2000));
+  await sleep(2000);
   return { success: true, button_clicked: clicked || 'keyboard_shortcut', source: 'dom_fallback' };
 }
 
@@ -545,7 +545,7 @@ export async function save({ _deps } = {}) {
   }
 
   await pressKeyFn('s', 2);
-  await new Promise(r => setTimeout(r, 800));
+  await sleep(800);
 
   // Handle "Save Script" name dialog that appears for new/unsaved scripts
   const dialogHandled = await evalFn(`
@@ -564,7 +564,7 @@ export async function save({ _deps } = {}) {
     })()
   `);
 
-  if (dialogHandled) await new Promise(r => setTimeout(r, 500));
+  if (dialogHandled) await sleep(500);
 
   // Re-resolve the saved identity and confirm the persisted source matches the
   // buffer. Re-fetching the source is the only reliable persistence signal here
@@ -768,7 +768,7 @@ export async function smartCompile({ require_published_imports = false } = {}) {
     await pressKey('Enter', 2);
   }
 
-  await delay(2500);
+  await sleep(2500);
 
   const errors = await evaluate(`
     (function() {
@@ -870,7 +870,7 @@ export async function addToChart({ _deps } = {}) {
     throw new Error('Add to chart / Update on chart button not found in Pine toolbar.');
   }
 
-  await delay(2000);
+  await sleep(2000);
 
   // Post-click: did a blocking dialog appear (e.g. "Save this script before
   // adding?")? If so the apply was intercepted — report it, don't claim success.
@@ -1023,11 +1023,11 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
     })()
   `);
   if (!menuOpened) throw new Error('Could not open Pine script name menu.');
-  await delay(700);
+  await sleep(700);
 
   const copyClicked = await clickVisibleButton(/make a copy/i);
   if (!copyClicked) throw new Error('"Make a copy…" menu item not found.');
-  await delay(600);
+  await sleep(600);
 
   // "Make a copy…" reveals an inline rename input prefilled "<name> copy".
   // Set it to new_name and submit with Enter (no separate confirm button).
@@ -1048,16 +1048,16 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
     })()
   `);
   if (submitted?.err) throw new Error(`Could not set new script name: ${submitted.err}`);
-  await delay(800);
+  await sleep(800);
 
   // Trusted Enter as a fallback submit
   try {
     await pressKey('Enter', 0);
   } catch { /* non-fatal */ }
-  await delay(900);
+  await sleep(900);
 
   await confirmReplaceIfNeeded(!!replace);
-  await delay(1000);
+  await sleep(1000);
 
   await assertEditorIdentity(String(new_name).trim());
 
@@ -1121,7 +1121,7 @@ export async function publishScript({ name, id, privacy = 'private', description
 
   let publishClicked = await clickVisibleButton(/publish script/i);
   if (!publishClicked) throw new Error('Publish script button not found.');
-  await delay(800);
+  await sleep(800);
 
   // Gate: script not on chart
   const notOnChart = await evaluate(`
@@ -1136,15 +1136,15 @@ export async function publishScript({ name, id, privacy = 'private', description
     if (!interstitialAdd) {
       try { await addToChart(); } catch { /* continue */ }
     }
-    await delay(1000);
+    await sleep(1000);
     publishClicked = await clickVisibleButton(/publish script/i);
     if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
-    await delay(800);
+    await sleep(800);
   }
 
   // Wizard continue
   await clickVisibleButton(/^(continue|next)$/i, { withinDialog: true });
-  await delay(500);
+  await sleep(500);
 
   // Privacy
   if (privacy === 'private') {
@@ -1164,11 +1164,11 @@ export async function publishScript({ name, id, privacy = 'private', description
   } else {
     await clickVisibleButton(/^public$/i, { withinDialog: true });
   }
-  await delay(400);
+  await sleep(400);
 
   if (description) {
     await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
-    await delay(300);
+    await sleep(300);
   }
 
   const finalBtn = privacy === 'private'
@@ -1180,7 +1180,7 @@ export async function publishScript({ name, id, privacy = 'private', description
     if (!any) throw new Error('Final Publish button not found in wizard.');
   }
 
-  await delay(2500);
+  await sleep(2500);
 
   const published = await fetchFacadeList('published');
   const want = String(scriptName).toLowerCase();

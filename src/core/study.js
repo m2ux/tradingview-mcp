@@ -11,9 +11,11 @@ import {
   evaluate as _evaluate,
   evaluateAsync as _evaluateAsync,
   safeString,
+  KNOWN_PATHS,
 } from '../connection.js';
+import { sleep } from '../wait.js';
 
-const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
+const CHART_API = KNOWN_PATHS.chartApi;
 
 function _resolve(deps) {
   return {
@@ -55,7 +57,7 @@ async function studyIds(evaluate) {
 // surfaces success:false) rather than returning a wrong/absent id.
 async function waitForNewStudyId(evaluate, beforeIds, { attempts = 12, intervalMs = 250 } = {}) {
   for (let i = 0; i < attempts; i++) {
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await sleep(intervalMs);
     const after = await studyIds(evaluate);
     if (!after) continue;
     const fresh = after.filter((id) => !(beforeIds || []).includes(id));
@@ -232,7 +234,7 @@ export async function studyRemove({ entity_id, undo, _deps } = {}) {
     })()
   `);
 
-  await new Promise((r) => setTimeout(r, 300));
+  await sleep(300);
   const after = await studyIds(evaluate);
   const removed = after ? !after.includes(entity_id) : null;
 

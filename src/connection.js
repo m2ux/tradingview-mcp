@@ -123,9 +123,18 @@ export async function reconnectTo(targetId) {
   return connect(targetId);
 }
 
-async function findChartTarget() {
+/**
+ * Fetch all CDP page targets from `/json/list`. Single transport-owned
+ * path — finders and tab.js route through here rather than each issuing
+ * their own `fetch` against the HTTP endpoint.
+ */
+export async function listTargets() {
   const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  return resp.json();
+}
+
+async function findChartTarget() {
+  const targets = await listTargets();
   // Prefer targets with tradingview.com/chart in the URL
   return targets.find(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url))
     || targets.find(t => t.type === 'page' && /tradingview/i.test(t.url))
@@ -133,8 +142,7 @@ async function findChartTarget() {
 }
 
 async function findTargetById(id) {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   return targets.find(t => t.id === id) || null;
 }
 
@@ -147,8 +155,7 @@ async function findTargetById(id) {
 export async function findTargetByRef(ref) {
   if (!ref) return null;
   const wanted = String(ref);
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   const pages = targets.filter(t => t.type === 'page');
   const byId = pages.find(t => t.id === wanted);
   if (byId) return byId;
@@ -165,6 +172,92 @@ export async function findTargetByRef(ref) {
  */
 export function isTransientCdpError(e) {
   return /WebSocket is not open|readyState|CLOSED|Target closed|Connection closed|fetch failed|ECONNRESET|EPIPE/i.test(e?.message || '');
+}
+
+// ─── Scoped-client factory + pool ────────────────────────────────────
+const SCOPED_POOL_SIZE = 8;
+// LRU-8 default — proven sizing against the same CDP endpoint (RUDE-labs
+// sibling design). Tunable via TV_CDP_POOL_SIZE for operators who hit a
+// different wedge threshold.
+const scopedPool = new Map();
+let scopedPoolSize = Number(process.env.TV_CDP_POOL_SIZE) || SCOPED_POOL_SIZE;
+
+async function _makeScopedClientRaw(targetInfo) {
+  const c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetInfo.id ?? targetInfo });
+  await c.Runtime.enable();
+  await c.Page.enable();
+  await c.DOM.enable();
+  return c;
+}
+
+function _evictScoped(key) {
+  const entry = scopedPool.get(key);
+  if (!entry) return;
+  scopedPool.delete(key);
+  try { entry.client.close?.(); } catch { /* already gone */ }
+}
+
+/**
+ * Drop a target's pooled client without closing it. Callers that close a
+ * scoped client themselves call this first so the pool never retains a
+ * reference to a socket it no longer controls.
+ */
+export function evictScopedClient(targetInfo) {
+  const id = targetInfo.id ?? targetInfo;
+  scopedPool.delete(id);
+}
+
+// A pooled client is reusable only while its socket is open. chrome-remote-interface
+// exposes readyState on the client; 1 (OPEN) means live. Anything else is stale.
+function _isLive(client) {
+  try {
+    const rs = client?.readyState ?? client?._ws?.readyState;
+    return rs === undefined || rs === 1;
+  } catch {
+    return false;
+  }
+}
+
+async function _pruneScopedPool() {
+  while (scopedPool.size > scopedPoolSize) {
+    // Map preserves insertion order — the first entry is the least-recently-used.
+    const oldest = scopedPool.keys().next().value;
+    _evictScoped(oldest);
+  }
+}
+
+/**
+ * Transport-owned scoped-client factory. Opens (or reuses from the LRU pool)
+ * a CDP client for a specific target. Borrowers should NOT close the client —
+ * the pool evicts on LRU overflow or drainScopedPool() at disconnect.
+ */
+export async function makeScopedClient(targetInfo, opts = {}) {
+  const id = targetInfo.id ?? targetInfo;
+  if (scopedPool.has(id)) {
+    const entry = scopedPool.get(id);
+    if (_isLive(entry.client)) {
+      // LRU refresh: delete + re-insert moves it to the end (most-recently-used).
+      scopedPool.delete(id);
+      scopedPool.set(id, entry);
+      return entry.client;
+    }
+    // Stale entry (socket closed outside the pool) — drop it and open fresh.
+    scopedPool.delete(id);
+  }
+  const client = await _makeScopedClientRaw(targetInfo);
+  scopedPool.set(id, { client });
+  await _pruneScopedPool();
+  return client;
+}
+
+/**
+ * Close all pooled scoped clients and clear the pool. Used on disconnect.
+ */
+export async function drainScopedPool() {
+  for (const [, entry] of scopedPool) {
+    try { await entry.client.close(); } catch { /* already gone */ }
+  }
+  scopedPool.clear();
 }
 
 /**
@@ -186,7 +279,7 @@ export async function withTargetEvaluate(ref, fn) {
   for (let attempt = 0; attempt < 4; attempt++) {
     let c = null;
     try {
-      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
+      c = await makeScopedClient(target);
       const scoped = async (expression, opts = {}) => {
         const result = await c.Runtime.evaluate({
           expression,
@@ -216,7 +309,7 @@ export async function withTargetEvaluate(ref, fn) {
       }
       await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
     } finally {
-      try { if (c) await c.close(); } catch { /* already gone */ }
+      if (c) { evictScopedClient(target); try { await c.close(); } catch { /* already gone */ } }
     }
   }
   throw lastError;
@@ -274,6 +367,7 @@ export async function disconnect() {
     client = null;
     targetInfo = null;
   }
+  await drainScopedPool();
 }
 
 // --- Direct API path helpers ---
