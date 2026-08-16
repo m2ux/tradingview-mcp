@@ -218,6 +218,8 @@ export async function studyRemove({ entity_id, undo, _deps } = {}) {
       entity_id,
       removed: false,
       error: `Study "${entity_id}" is not on the chart (stale id? entity ids are per-session — re-read chart_get_state).`,
+      code: 'TV_STUDY_NOT_FOUND',
+      hint: 'Entity ids are per-session and go stale after re-renders. Call chart_get_state for fresh ids, then retry with the current entity_id.',
       study_ids: before,
     };
   }

@@ -1,10 +1,20 @@
 /**
  * Core UI automation logic.
  */
-import { evaluate, evaluateAsync, getClient } from '../connection.js';
+import { evaluate, evaluateAsync as _evaluateAsync, getClient } from '../connection.js';
 import { pressKey, clickAt, findElementExpression } from './dom.js';
+import { tvError } from './err.js';
 import { dispatchMouse, insertText } from './protocol.js';
 import { sleep } from '../wait.js';
+
+const elementNotFound = (by, value) => tvError(
+  'TV_ELEMENT_NOT_FOUND',
+  `No matching element found for ${by}="${value}"`,
+  {
+    resolution: { by, value },
+    hint: 'If the control is inside a collapsed panel, open it first with ui_open_panel({ panel, action: "open" }). For clicks a React handler may swallow synthetic events — retry ui_click with trusted: true. Otherwise refine the selector (broader text / data-name / aria-label).',
+  },
+);
 
 export async function click({ by, value, trusted = false } = {}) {
   const find = findElementExpression({ by, value, targetVar: 'el' });
@@ -26,7 +36,7 @@ export async function click({ by, value, trusted = false } = {}) {
       };
     })()
   `);
-  if (!result || !result.found) throw new Error('No matching element found for ' + by + '="' + value + '"');
+  if (!result || !result.found) throw elementNotFound(by, value);
 
   // trusted=true escalates: if the synthetic click left the control reporting
   // an un-activated aria state, re-issue a trusted CDP click at its centre so
@@ -134,7 +144,7 @@ export async function fiberAction({ by, value, prop = 'onClick', args = [] } = {
       catch (e) { return { found: true, invoked: false, reason: 'handler threw: ' + (e.message || '').slice(0, 80) }; }
     })()
   `);
-  if (!result || !result.found) throw new Error('No matching element found for ' + by + '="' + value + '"');
+  if (!result || !result.found) throw elementNotFound(by, value);
   if (!result.invoked) throw new Error('fiber action not invoked: ' + (result.reason || 'unknown'));
   return { success: true, ...result };
 }
@@ -149,7 +159,7 @@ export async function netRequest({ url, method = 'GET', body, headers = {}, time
   if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
     throw new Error('net_request only permits absolute https: URLs');
   }
-  const result = await evaluateAsync(`
+  const result = await _evaluateAsync(`
     (function() {
       var ctrl = new AbortController();
       var t = setTimeout(function() { ctrl.abort(); }, ${Number(timeout_ms) || 8000});
@@ -228,7 +238,7 @@ export async function openPanel({ panel, action }) {
         var btn = null;
         for (var d = 0; d < dataNames.length && !btn; d++) btn = document.querySelector('[data-name="' + dataNames[d] + '"]');
         for (var a = 0; a < ariaLabels.length && !btn; a++) btn = document.querySelector('[aria-label="' + ariaLabels[a] + '"]');
-        if (!btn) return { error: 'Button not found for panel: ' + ${JSON.stringify(panel)} };
+        if (!btn) return { error: 'Panel button not found for panel: ' + ${JSON.stringify(panel)} };
         var isActive = btn.getAttribute('aria-pressed') === 'true' || btn.classList.contains('isActive') || btn.classList.toString().indexOf('active') !== -1 || btn.classList.toString().indexOf('Active') !== -1;
         var rightArea = document.querySelector('[class*="layout__area--right"]');
         var sidebarOpen = !!(rightArea && rightArea.offsetWidth > 50);
@@ -255,27 +265,84 @@ export async function fullscreen() {
       return { found: true };
     })()
   `);
-  if (!result || !result.found) throw new Error('Fullscreen button not found');
+  if (!result || !result.found) throw elementNotFound('data-name', 'header-toolbar-fullscreen');
   return { success: true, action: 'fullscreen_toggled' };
 }
 
-export async function layoutList() {
-  const layouts = await evaluateAsync(`
+export async function layoutList(_deps = {}) {
+  const evaluateAsync = _deps.evaluateAsync || _evaluateAsync;
+  // getSavedCharts() returns the saved chart descriptors. Its `symbol` /
+  // `resolution` are the values captured at last save, which can be stale once
+  // the chart has been changed after opening. For the layout that is currently
+  // loaded, overwrite them with the live chart's symbol/resolution so acting on
+  // the list (e.g. chart_set_symbol) never targets the wrong instrument.
+  const data = await evaluateAsync(`
     new Promise(function(resolve) {
+      var readLive = function() {
+        var out = { name: null, symbol: null, resolution: null };
+        try {
+          var root = window.TradingViewApi || {};
+          var chart = root._activeChartWidgetWV && root._activeChartWidgetWV.value ? root._activeChartWidgetWV.value() : null;
+          if (chart) {
+            try { out.symbol = chart.symbol(); } catch (e) {}
+            try { out.resolution = chart.resolution(); } catch (e) {}
+          }
+          var col = root._chartWidgetCollection;
+          if (col && typeof col.currentChart === 'function') {
+            var meta = null;
+            try { meta = col.currentChart(); } catch (e) {}
+            if (meta) {
+              var ln = meta.name || (meta.metaInfo && (meta.metaInfo.name || meta.metaInfo.title)) || null;
+              if (ln) out.name = ln;
+            }
+          }
+          // Desktop 3.3+ dropped currentChart(); layout name is on the
+          // load-service chartList, keyed by this page's chart_id.
+          if (!out.name) {
+            try {
+              var id = (location.pathname.split('/chart/')[1] || '').split('/')[0];
+              var load = root._loadChartService;
+              var state = load && load._state && typeof load._state.value === 'function' ? load._state.value() : null;
+              var list = state && state.chartList;
+              if (id && Array.isArray(list)) {
+                for (var i = 0; i < list.length; i++) {
+                  if (list[i] && list[i].url === id && list[i].name) { out.name = list[i].name; break; }
+                }
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+        return out;
+      };
+      var live = readLive();
       try {
         window.TradingViewApi.getSavedCharts(function(charts) {
-          if (!charts || !Array.isArray(charts)) { resolve({layouts: [], source: 'internal_api', error: 'getSavedCharts returned no data'}); return; }
+          if (!charts || !Array.isArray(charts)) { resolve({layouts: [], live: live, source: 'internal_api', error: 'getSavedCharts returned no data'}); return; }
           var result = charts.map(function(c) { return { id: c.id || c.chartId || null, name: c.name || c.title || 'Untitled', symbol: c.symbol || null, resolution: c.resolution || null, modified: c.timestamp || c.modified || null }; });
-          resolve({layouts: result, source: 'internal_api'});
+          for (var i = 0; i < result.length; i++) {
+            var isCurrent = (live.name && result[i].name && result[i].name.toLowerCase() === live.name.toLowerCase());
+            if (isCurrent && live.symbol) result[i].symbol = live.symbol;
+            if (isCurrent && live.resolution) result[i].resolution = live.resolution;
+            result[i].is_current = !!isCurrent;
+          }
+          resolve({layouts: result, live: live, source: 'internal_api'});
         });
-        setTimeout(function() { resolve({layouts: [], source: 'internal_api', error: 'getSavedCharts timed out'}); }, 5000);
-      } catch(e) { resolve({layouts: [], source: 'internal_api', error: e.message}); }
+        setTimeout(function() { resolve({layouts: [], live: live, source: 'internal_api', error: 'getSavedCharts timed out'}); }, 5000);
+      } catch(e) { resolve({layouts: [], live: live, source: 'internal_api', error: e.message}); }
     })
   `);
-  return { success: true, layout_count: layouts?.layouts?.length || 0, source: layouts?.source, layouts: layouts?.layouts || [], error: layouts?.error };
+  return {
+    success: true,
+    layout_count: data?.layouts?.length || 0,
+    source: data?.source,
+    current_layout: data?.live?.name || null,
+    layouts: data?.layouts || [],
+    error: data?.error,
+  };
 }
 
-export async function layoutSwitch({ name }) {
+export async function layoutSwitch({ name, _deps } = {}) {
+  const evaluateAsync = _deps?.evaluateAsync || _evaluateAsync;
   const escaped = JSON.stringify(name);
   const result = await evaluateAsync(`
     new Promise(function(resolve) {
@@ -296,7 +363,16 @@ export async function layoutSwitch({ name }) {
       } catch(e) { resolve({success: false, error: e.message, source: 'internal_api'}); }
     })
   `);
-  if (!result?.success) throw new Error(result?.error || 'Unknown error switching layout');
+  if (!result?.success) {
+    const msg = result?.error || 'Unknown error switching layout';
+    if (/not found/i.test(msg)) {
+      throw tvError('TV_LAYOUT_NOT_FOUND', msg, {
+        resolution: { by: 'layout', name },
+        hint: 'Call layout_list to enumerate saved layouts (is_current flags the open one), then retry with an exact name or numeric id.',
+      });
+    }
+    throw new Error(msg);
+  }
 
   // Handle "unsaved changes" confirmation dialog
   await sleep(500);
@@ -349,7 +425,7 @@ export async function hover({ by, value }) {
       return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, tag: el.tagName.toLowerCase() };
     })()
   `);
-  if (!coords) throw new Error('Element not found for ' + by + '="' + value + '"');
+  if (!coords) throw elementNotFound(by, value);
   const c = await getClient();
   await dispatchMouse(c, { type: 'mouseMoved', x: coords.x, y: coords.y });
   return { success: true, hovered: { by, value, tag: coords.tag, x: coords.x, y: coords.y } };

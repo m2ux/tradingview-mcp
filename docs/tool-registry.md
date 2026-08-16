@@ -194,7 +194,7 @@ Drive the app's interface when there's no dedicated tool.
 - **Limitations:** Pure view state.
 
 ### `layout_list` / `layout_switch`
-- **Offers:** List saved layouts; switch by name or ID.
+- **Offers:** List saved layouts (the currently-open layout is flagged `is_current` and its `symbol`/`resolution` reflect the live chart, not the stale saved values); switch by name or ID.
 - **Limitations:** Only your saved layouts.
 
 ---
@@ -312,8 +312,10 @@ The server and the TradingView process itself.
 ## Tab
 
 ### `tab_list` / `tab_new` / `tab_close` / `tab_switch`
-- **Offers:** List tabs, open a new one (optionally with a layout), close the current, switch by index.
+- **Offers:** List tabs (each chart tab shows its live `layout_name` so a layout/tab title can be resolved to a `chart_id` and passed as a read/capture `target`), open a new one (optionally with a layout), close the current, switch by index.
 - **Limitations:** `tab_close` acts on the *current* tab; `tab_switch` uses 0-based index.
+
+Read/capture tools that take a `target` accept a chart_id, URL substring, CDP target id, **or a saved layout/tab name** (e.g. `capture_snapshot({ target: 'OIL_IG' })`; `layout:<name>` forces layout-name matching).
 
 ### `layout_new`
 - **Offers:** Create a named blank layout in a new tab.

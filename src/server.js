@@ -24,7 +24,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 87 tools by default (94 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 88 tools by default (95 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -66,6 +66,7 @@ Pine Script development (create → publish → render → verify):
 - WARNING: pine_get_source can return 200KB+ for complex scripts — avoid unless editing
 
 Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester" (stabilize_ms soft wait)
+Snapshot: capture_snapshot → one-call headless capture of the displayed chart — visible time & price range, OHLCV over visible bars, active studies + per-bar series, user drawings, Pine graphics (lines/labels/tables/boxes), and a screenshot (file_path). Use instead of the multi-tool "Analyze my chart" sequence; set include_series=false for a compact snapshot
 Replay: replay_start → replay_step → replay_trade → replay_status → replay_stop
 Batch: batch_run → run action across multiple symbols/timeframes (gated)
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text

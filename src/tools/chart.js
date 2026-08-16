@@ -4,7 +4,7 @@ import * as core from '../core/chart.js';
 
 export function registerChartTools(server) {
   server.tool('chart_get_state', 'Get current chart state (symbol, timeframe, chart type, indicators)', {
-    target: z.string().optional().describe('Target tab: chart_id, URL substring, or CDP target id (from tab_list). Reads this tab without switching the active tab. Omit for the attached tab. If the response has "retryable": true, TradingView is momentarily busy — wait ~1s and retry.'),
+    target: z.string().optional().describe('Target tab: chart_id, URL substring, CDP target id, or a saved LAYOUT/tab name (e.g. "OIL_IG"; use "layout:<name>" to force layout-name matching). Reads this tab without switching the active tab. Omit for the attached tab. Names come from tab_list (layout_name). If the response has "retryable": true, TradingView is momentarily busy — wait ~1s and retry.'),
   }, async ({ target }) => {
     try { return jsonResult(await core.getState({ target })); }
     catch (err) { return errorResult(err); }

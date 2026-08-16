@@ -97,7 +97,9 @@ function saveDeps(script) {
 }
 
 describe('save() — verifiable saved identity', () => {
-  it('returns script_id/version and verified=true when the version bumps', async () => {
+  it('does NOT verify on a version bump alone (no readable buffer to match)', async () => {
+    // With no readable buffer there is no source to confirm against the cloud,
+    // so a version bump is not accepted as success (issue #21 fail-loud).
     const _deps = saveDeps({
       name: 'RSI Zone Divergence',
       dialogHandled: false,
@@ -107,26 +109,27 @@ describe('save() — verifiable saved identity', () => {
       ],
     });
     const r = await save({ _deps });
-    assert.equal(r.success, true);
+    assert.equal(r.success, false);
     assert.equal(r.action, 'saved');
     assert.equal(r.script_id, 'abc');
     assert.equal(r.version, 5);
-    assert.equal(r.verified, true);
+    assert.equal(r.verified, false);
+    assert.ok(r.error);
   });
 
-  it('marks verified=false and notes when the identity cannot be re-resolved', async () => {
+  it('fails loud when the identity cannot be re-resolved', async () => {
     const _deps = saveDeps({
       name: 'Ghost',
       dialogHandled: false,
       entries: [null, null], // both facade lookups fail
     });
     const r = await save({ _deps });
-    assert.equal(r.success, true);
+    assert.equal(r.success, false);
     assert.equal(r.verified, false);
-    assert.match(r.note, /may not have persisted/);
+    assert.match(r.error, /did not verifiably persist/);
   });
 
-  it('reports saved_with_dialog when the name dialog was confirmed', async () => {
+  it('reports saved_with_dialog and verifies a freshly-created script (no buffer)', async () => {
     const _deps = saveDeps({
       name: 'New Script',
       dialogHandled: true,
@@ -135,7 +138,8 @@ describe('save() — verifiable saved identity', () => {
     const r = await save({ _deps });
     assert.equal(r.action, 'saved_with_dialog');
     assert.equal(r.script_id, 'xyz');
-    assert.equal(r.verified, true); // freshly created
+    assert.equal(r.verified, true); // freshly created via the name dialog
+    assert.equal(r.success, true);
   });
 });
 
@@ -181,8 +185,9 @@ describe('save() — buffer-aware verification (issue #17)', () => {
       fetchScriptSource: async () => ({ ok: false, source: null, via: null }),
     };
     const r = await save({ _deps });
+    assert.equal(r.success, false);
     assert.equal(r.bound_mismatch, true);
-    assert.match(r.warning, /bound to different scripts/);
+    assert.match(r.error, /bound to different scripts/);
   });
 });
 

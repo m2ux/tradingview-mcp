@@ -208,7 +208,10 @@ describe('captureScreenshot({ target })', () => {
     try {
       const res = await captureScreenshot({
         region: 'full', filename: fname, target: 'od9I4OCz',
-        _deps: { makeScopedClient: async (tid) => { assert.equal(tid, targetId); return client; } },
+        _deps: {
+          skipCompositorActivate: true,
+          makeScopedClient: async (tid) => { assert.equal(tid, targetId); return client; },
+        },
       });
       assert.equal(res.success, true);
       assert.equal(res.chart_id, 'od9I4OCz');
@@ -229,6 +232,75 @@ describe('captureScreenshot({ target })', () => {
       await assert.rejects(() => captureScreenshot({ target: 'nope', _deps: { makeScopedClient: async () => ({}) } }), /No open chart tab matches/);
     } finally {
       globalThis.fetch = original;
+    }
+  });
+
+  it('skips shell activate when the target is already .tab.active', async () => {
+    const restore = stubFetchForTarget();
+    const png = Buffer.from('fake-png-active').toString('base64');
+    const { client } = makeScopedSpy(png);
+    const fname = `test_composited_${Date.now()}`;
+    const path = (await import('path')).join(process.cwd(), 'screenshots', `${fname}.png`);
+    let activated = 0;
+    try {
+      const res = await captureScreenshot({
+        region: 'full', filename: fname, target: 'od9I4OCz',
+        _deps: {
+          makeScopedClient: async () => client,
+          getLayoutNameForTarget: async () => 'OIL_IG',
+          listShellTabs: async () => [{ layout: 'OIL_IG', active: true }, { layout: 'GOLD', active: false }],
+          activateShellTab: async () => { activated += 1; return 'OIL_IG'; },
+        },
+      });
+      assert.equal(res.success, true);
+      assert.equal(activated, 0);
+    } finally {
+      restore();
+      if (existsSync(path)) rmSync(path);
+    }
+  });
+
+  it('focuses the shell tab when the target is not composited', async () => {
+    const restore = stubFetchForTarget();
+    const png = Buffer.from('fake-png-focus').toString('base64');
+    const { client } = makeScopedSpy(png);
+    const fname = `test_focus_${Date.now()}`;
+    const path = (await import('path')).join(process.cwd(), 'screenshots', `${fname}.png`);
+    const focused = [];
+    try {
+      await captureScreenshot({
+        region: 'full', filename: fname, target: 'od9I4OCz',
+        _deps: {
+          makeScopedClient: async () => client,
+          getLayoutNameForTarget: async () => 'OIL_IG',
+          listShellTabs: async () => [{ layout: 'GOLD', active: true }, { layout: 'OIL_IG', active: false }],
+          activateShellTab: async ({ layout_name }) => { focused.push(layout_name); return layout_name; },
+        },
+      });
+      assert.deepEqual(focused, ['OIL_IG']);
+    } finally {
+      restore();
+      if (existsSync(path)) rmSync(path);
+    }
+  });
+
+  it('fails fast when the named tab cannot be focused', async () => {
+    const restore = stubFetchForTarget();
+    try {
+      await assert.rejects(
+        () => captureScreenshot({
+          target: 'od9I4OCz',
+          _deps: {
+            makeScopedClient: async () => ({}),
+            getLayoutNameForTarget: async () => 'OIL_IG',
+            listShellTabs: async () => [{ layout: 'GOLD', active: true }],
+            activateShellTab: async () => null,
+          },
+        }),
+        (err) => err.code === 'TV_TAB_NOT_COMPOSITED',
+      );
+    } finally {
+      restore();
     }
   });
 });

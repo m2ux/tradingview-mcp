@@ -60,6 +60,14 @@ export function errorResult(err, extra = {}) {
     payload.retryable = true;
     payload.code = err.code || 'TV_CDP_BUSY';
     payload.hint = 'TradingView is temporarily busy (its CDP endpoint closed the connection). Wait ~1s and retry the same call — do not treat this as a fatal error.';
+  } else if (err && (err.code || err.hint || err.resolution)) {
+    // Structured non-retryable errors (e.g. TV_TARGET_NOT_FOUND /
+    // TV_TAB_NOT_OPEN from target resolution) carry a machine-readable code,
+    // a resolution record, and an actionable hint so the agent can react
+    // programmatically (e.g. open the tab with tab_new, then retry).
+    if (err.code) payload.code = err.code;
+    if (err.resolution) payload.resolution = err.resolution;
+    if (err.hint) payload.hint = err.hint;
   }
   return jsonResult(payload, true);
 }

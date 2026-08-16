@@ -5,6 +5,7 @@
  */
 import { evaluate } from '../connection.js';
 import { pressKey, setNativeValueExpression } from './dom.js';
+import { tvError } from './err.js';
 import { sleep } from '../wait.js';
 import {
   assertEditorIdentity,
@@ -12,6 +13,7 @@ import {
   clickVisibleButton,
   confirmReplaceIfNeeded,
   fetchFacadeList,
+  fetchScriptHistory,
   fetchScriptSource,
   fillDialogInput,
   getEditorBufferInfo,
@@ -21,6 +23,7 @@ import {
   lookupFacadeScript,
   mergeScriptLists,
   openViaOpenDialog,
+  restorePinePanel,
   scrapeOpenDialogNames,
   studyCount,
 } from './pine_ui.js';
@@ -358,7 +361,9 @@ export async function check({ source, _deps } = {}) {
 
 export async function getSource() {
   const editorReady = await ensurePineEditorOpen();
-  if (!editorReady) throw new Error('Could not open Pine Editor or Monaco not found in React fiber tree.');
+  if (!editorReady) throw tvError('TV_PINE_EDITOR_CLOSED', 'Could not open Pine Editor or Monaco not found in React fiber tree.', {
+    hint: 'Open the editor with ui_open_panel({ panel: "pine-editor", action: "open" }), then retry.',
+  });
 
   const source = await evaluate(`
     (function() {
@@ -460,16 +465,6 @@ export async function getErrors() {
     error_count: errors?.length || 0,
     errors: errors || [],
   };
-}
-
-/**
- * Extract the declared script title from Pine source (indicator()/strategy()/
- * library() first string arg). Pure helper, exported for tests.
- */
-export function extractDeclaredTitle(source) {
-  if (typeof source !== 'string') return null;
-  const m = source.match(/(?:^|\n)\s*(?:indicator|strategy|library|study)\s*\(\s*(?:title\s*=\s*)?(['"])((?:\\.|(?!\1).)*)\1/);
-  return m ? m[2] : null;
 }
 
 /**
@@ -591,29 +586,32 @@ export async function save({ _deps } = {}) {
     version = entry?.version ?? null;
     modified = entry?.modified ?? null;
 
+    // Sole success criterion: the persisted cloud source matches the buffer
+    // exactly. Version-bump / modified-cleared heuristics are NOT accepted —
+    // a save that bumps the version while persisting a different (e.g. stub)
+    // source is precisely the silent-corruption failure this must not report
+    // as success (issue #21).
     if (script_id && bufferSource !== null) {
       const fetched = await fetchSourceFn(script_id, entry?.version ?? null).catch(() => null);
       if (fetched?.ok && typeof fetched.source === 'string') {
         persisted_matches_buffer = fetched.source === bufferSource;
         verified = persisted_matches_buffer;
       }
-    }
-    // Fallbacks when we could not verify against the buffer: version-bump /
-    // modified-cleared heuristics, plus freshly-created (a script that had no
-    // saved identity before the dialog-driven save but resolves to one now).
-    if (!verified && entry) {
-      if (before) {
-        const bumped = version != null && before.version != null && version !== before.version;
-        const cleared = before.modified && (modified === null || modified === false || modified === 0);
-        verified = !!(bumped || cleared);
-      } else if (dialogHandled) {
-        verified = true; // freshly created by the name dialog
-      }
+    } else if (dialogHandled && !before && entry && bufferSource === null) {
+      // Freshly created via the name dialog with no buffer to compare against.
+      verified = true;
     }
   }
 
+  // Fail loud: an unverified save is a failed save, not a success-with-caveat.
+  const failure = verified ? null : (bound_mismatch
+    ? `Editor header ("${headerName}") and buffer ("${declaredTitle}") are bound to different scripts; the save persisted the BUFFER's script and did not verify against the intended target. Run pine_bind to realign, then pine_save again.`
+    : entry === null
+      ? 'Could not re-resolve a saved cloud identity after save (facade lookup failed) — the save did not verifiably persist.'
+      : 'Save did not persist the buffer source to the cloud (persisted source does not match the buffer). This is the silent-corruption case: nothing was reported as success. Run pine_bind to load the intended script, then pine_save again.');
+
   return {
-    success: true,
+    success: verified,
     action: dialogHandled ? 'saved_with_dialog' : 'saved',
     name: entry?.scriptName || entry?.scriptTitle || targetName,
     script_id,
@@ -624,16 +622,10 @@ export async function save({ _deps } = {}) {
     resolved_by,
     buffer_title: declaredTitle || undefined,
     header_name: headerName || undefined,
-    ...(bound_mismatch && {
-      bound_mismatch: true,
-      warning: `Editor header ("${headerName}") and buffer ("${declaredTitle}") are bound to different scripts. The save persisted the BUFFER's script. Run pine_bind to realign before editing.`,
-    }),
-    ...(!verified && entry === null && {
-      note: 'Could not re-resolve a saved cloud identity (facade lookup failed) — the save may not have persisted.',
-    }),
-    ...(!verified && entry !== null && {
-      note: 'Save did not verify against the buffer script (source mismatch, no-op save, or unbound editor). Run pine_bind to load the intended script, then pine_save again.',
-    }),
+    ...(failure && { error: failure }),
+    ...(failure && !verified && { code: 'TV_PINE_UNBOUND' }),
+    ...(failure && !verified && { hint: 'Run pine_bind to load the intended script into the buffer and establish the binding, then pine_save again.' }),
+    ...(bound_mismatch && { bound_mismatch: true }),
   };
 }
 
@@ -929,7 +921,9 @@ export async function newScript({ type }) {
     })()
   `);
 
-  if (!set) throw new Error('Monaco editor not found. Ensure Pine Editor is open.');
+  if (!set) throw tvError('TV_PINE_EDITOR_CLOSED', 'Monaco editor not found. Ensure Pine Editor is open.', {
+    hint: 'Open the editor with ui_open_panel({ panel: "pine-editor", action: "open" }), then retry.',
+  });
 
   return { success: true, type, action: 'new_script_created', template: typeMap[type] };
 }
@@ -990,12 +984,17 @@ export async function openScript({ name }) {
 /**
  * Make a registered copy of a script via Pine UI (never pine-facade save/new alone).
  */
-export async function copyScript({ from_name, from_id, new_name, replace = false } = {}) {
+export async function copyScript({ from_name, from_id, new_name, replace = false, _deps } = {}) {
   if (!new_name || !String(new_name).trim()) throw new Error('new_name is required.');
   if (!from_name && !from_id) throw new Error('from_name or from_id is required.');
 
+  const restoreFn = _deps?.restorePinePanel || restorePinePanel;
   const editorReady = await ensurePineEditorOpen();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
+
+  // The name-menu flow needs the script widget's nameButton, which disappears
+  // when the bottom panel is stuck collapsed (issue #21). Restore it first.
+  await restoreFn().catch(() => null);
 
   const sourceMeta = await lookupFacadeScript({ name: from_name, id: from_id });
   const fromName = sourceMeta.scriptName || sourceMeta.scriptTitle;
@@ -1022,7 +1021,12 @@ export async function copyScript({ from_name, from_id, new_name, replace = false
       return false;
     })()
   `);
-  if (!menuOpened) throw new Error('Could not open Pine script name menu.');
+  if (!menuOpened) {
+    throw new Error(
+      'Could not open Pine script name menu. The Pine Editor panel may be collapsed/stuck '
+      + 'or a dialog is open — expand the Pine Editor (or run pine_open) and retry.',
+    );
+  }
   await sleep(700);
 
   const copyClicked = await clickVisibleButton(/make a copy/i);
@@ -1206,7 +1210,7 @@ export async function publishScript({ name, id, privacy = 'private', description
   };
 }
 
-export async function listScripts({ check_ui_visible = true } = {}) {
+export async function listScripts({ check_ui_visible = true, _deps } = {}) {
   const saved = await fetchFacadeList('saved');
   const published = await fetchFacadeList('published');
 
@@ -1221,6 +1225,7 @@ export async function listScripts({ check_ui_visible = true } = {}) {
   }
 
   const scripts = mergeScriptLists(saved.scripts || [], published.scripts || [], uiNames);
+
   return {
     success: true,
     scripts,
@@ -1266,5 +1271,40 @@ export async function readScript({ name, script_id } = {}) {
   };
 }
 
+export async function readScriptHistory({ name, script_id, max_versions = 10, include_sources = false } = {}) {
+  if (!name && !script_id) throw new Error('name or script_id is required.');
+  const entry = await lookupFacadeScript({ name, id: script_id });
+  const id = entry.scriptIdPart || entry.id;
+  const currentVersion = parseFloat(entry.version);
+  if (!Number.isFinite(currentVersion)) {
+    throw new Error(`Could not determine current version for "${entry.scriptName || name || script_id}" (id ${id}).`);
+  }
+  const hist = await fetchScriptHistory(id, { current_version: currentVersion, max_versions, include_sources });
+  if (!hist.ok) throw new Error(hist.error || `Could not fetch version history for id ${id}.`);
+  const versions = (hist.versions || []).map((v) => ({
+    ...v,
+    source: include_sources ? v.source : undefined,
+  }));
+  const intact = versions.filter((v) => v.ok && !v.is_stub);
+  return {
+    success: true,
+    name: entry.scriptName || entry.scriptTitle || name || null,
+    title: entry.scriptTitle || null,
+    script_id: id,
+    current_version: hist.current_version,
+    version_count: versions.length,
+    intact_version_count: intact.length,
+    latest_intact_version: intact.length ? intact[0].version : null,
+    versions,
+  };
+}
+
 // Re-export pure helpers for tests
-export { classifyCompileErrors, mergeScriptLists, isImportResolveError, fetchScriptSource } from './pine_ui.js';
+export {
+  classifyCompileErrors,
+  mergeScriptLists,
+  isImportResolveError,
+  extractDeclaredTitle,
+  fetchScriptSource,
+  fetchScriptHistory,
+} from './pine_ui.js';

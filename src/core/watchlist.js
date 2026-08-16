@@ -15,6 +15,7 @@
  * Unicode-minus / tick-notation parsing fragility.
  */
 import { evaluateAsync as _evaluateAsync } from '../connection.js';
+import { tvError } from './err.js';
 
 const API_BASE = 'https://www.tradingview.com/api/v1/symbols_list/custom/';
 
@@ -67,10 +68,15 @@ async function resolveList(evaluateAsync, { list_id } = {}) {
   let list = null;
   if (list_id !== undefined && list_id !== null) {
     list = lists.find((l) => String(l.id) === String(list_id));
-    if (!list) throw new Error(`Watchlist id "${list_id}" not found.`);
+    if (!list) throw tvError('TV_LIST_NOT_FOUND', `Watchlist id "${list_id}" not found.`, {
+      resolution: { by: 'list_id', id: list_id },
+      hint: 'Call watchlist_get (no args) to list all watchlists with their ids, then retry with a valid list_id or omit it to use the active list.',
+    });
   } else {
     list = lists.find((l) => l.active) || null;
-    if (!list) throw new Error('No active watchlist found in symbols_list payload.');
+    if (!list) throw tvError('TV_LIST_NOT_FOUND', 'No active watchlist found in symbols_list payload.', {
+      hint: 'No list is flagged active. Pass an explicit list_id from watchlist_get, or activate a list in TradingView and retry.',
+    });
   }
   return { list, lists };
 }

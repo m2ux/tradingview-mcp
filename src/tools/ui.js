@@ -64,7 +64,7 @@ export function registerUiTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('layout_list', 'List saved chart layouts', {}, async () => {
+  server.tool('layout_list', 'List saved chart layouts. The currently-open layout is flagged is_current and its symbol/resolution reflect the live chart (not the stale values captured at last save).', {}, async () => {
     try { return jsonResult(await core.layoutList()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });

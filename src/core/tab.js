@@ -9,27 +9,111 @@
  * `.tabs-container .tab`, its close button, and `create-new-tab-button`.
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
-import { getClient, reconnectTo, listTargets, makeScopedClient, evictScopedClient } from '../connection.js';
+import { getClient, reconnectTo, getLayoutNameForTarget, listTargets, makeScopedClient, evictScopedClient } from '../connection.js';
+import { tvError } from './err.js';
 import { sleep } from '../wait.js';
 
+/** Parse the layout name from a Desktop shell tab's textContent. */
+export function layoutNameFromShellTabText(text) {
+  const name = String(text || '').replace(/close-tab-button$/i, '');
+  const slash = name.lastIndexOf('/');
+  return (slash >= 0 ? name.slice(slash + 1) : name).trim();
+}
+
+/** Layout name of the shell tab with class `active`, or null. */
+export function activeShellLayout(shellTabs) {
+  return (shellTabs || []).find((t) => t.active)?.layout || null;
+}
+
+/** True when `layoutName` is the composited (`.tab.active`) shell tab. */
+export function isLayoutComposited(layoutName, shellTabs) {
+  const active = activeShellLayout(shellTabs);
+  if (!layoutName || !active) return false;
+  return String(layoutName).toLowerCase() === String(active).toLowerCase();
+}
+
 /**
- * List all open chart tabs (CDP page targets).
+ * Read Desktop shell tabs: `{ layout, active }[]`.
+ * `.tab.active` is the only reliable compositor signal — chart-page
+ * `document.visibilityState` can be "visible" on a guest that is not painted.
+ */
+export async function listShellTabs() {
+  return withShell(async (evalIn) => evalIn(`
+    (function() {
+      var tabs = document.querySelectorAll('.tabs-container .tab');
+      var out = [];
+      for (var i = 0; i < tabs.length; i++) {
+        var text = (tabs[i].textContent || '').replace(/close-tab-button$/i, '');
+        var slash = text.lastIndexOf('/');
+        out.push({
+          layout: (slash >= 0 ? text.slice(slash + 1) : text).trim(),
+          active: tabs[i].classList.contains('active'),
+        });
+      }
+      return out;
+    })()
+  `));
+}
+
+/**
+ * Click the Desktop shell tab whose label matches `layout_name`.
+ * Chart-page Page.captureScreenshot only returns for the composited
+ * (active) tab; background guests hang. Exact name wins over substring.
+ */
+export async function activateShellTab({ layout_name }) {
+  if (!layout_name) return null;
+  return withShell(async (evalIn) => evalIn(`
+    (function() {
+      var q = ${JSON.stringify(String(layout_name).toLowerCase())};
+      var tabs = document.querySelectorAll('.tabs-container .tab');
+      var sub = null;
+      for (var i = 0; i < tabs.length; i++) {
+        var text = (tabs[i].textContent || '').replace(/close-tab-button$/i, '');
+        var slash = text.lastIndexOf('/');
+        var layout = (slash >= 0 ? text.slice(slash + 1) : text).trim();
+        var n = layout.toLowerCase();
+        if (n === q) { tabs[i].click(); return layout; }
+        if (!sub && n.indexOf(q) !== -1) sub = { el: tabs[i], name: layout };
+      }
+      if (sub) { sub.el.click(); return sub.name; }
+      return null;
+    })()
+  `));
+}
+
+/** Exact name wins over substring so "OIL_IG" does not open "OIL_IG_2". */
+export function preferExactLayoutName(names, query) {
+  const q = String(query).toLowerCase();
+  const exact = names.find((n) => String(n).toLowerCase() === q);
+  if (exact) return exact;
+  return names.find((n) => String(n).toLowerCase().includes(q)) || null;
+}
+
+/**
+ * List all open chart tabs (CDP page targets), each enriched with the live
+ * layout name showing in it (when one can be read) so a layout/tab title can
+ * be resolved back to a chart_id and passed as a read/capture `target`.
  */
 export async function list() {
   const targets = await listTargets();
 
   // Chart tabs plus new-tab landing pages (layout picker), so every tab in the
   // top bar is listable and switchable.
-  const tabs = targets
-    .filter(t => t.type === 'page' && (/tradingview\.com\/chart/i.test(t.url) || t.title === 'New tab'))
-    .map((t, i) => ({
+  const base = targets
+    .filter(t => t.type === 'page' && (/tradingview\.com\/chart/i.test(t.url) || t.title === 'New tab'));
+
+  const tabs = await Promise.all(base.map(async (t, i) => {
+    const isChart = /tradingview\.com\/chart/i.test(t.url);
+    return {
       index: i,
       id: t.id,
       title: t.title.replace(/^Live stock.*charts on /, ''),
       url: t.url,
       chart_id: t.url.match(/\/chart\/([^/?]+)/)?.[1] || null,
-      is_chart: /tradingview\.com\/chart/i.test(t.url),
-    }));
+      is_chart: isChart,
+      layout_name: isChart ? await getLayoutNameForTarget(t.id) : null,
+    };
+  }));
 
   return { success: true, tab_count: tabs.length, tabs };
 }
@@ -70,18 +154,16 @@ async function withShell(fn) {
   throw new Error('TradingView shell window (tab bar) not found. Is this TradingView Desktop with tabs?');
 }
 
-/** Check whether a CDP page target is the visible one. */
+/** Check whether a CDP page target is the composited (shell-active) tab. */
 async function isTargetVisible(targetId) {
-  let c = null;
   try {
-    c = await makeScopedClient(targetId);
-    const { result } = await c.Runtime.evaluate({ expression: 'document.visibilityState', returnByValue: true });
-    return result?.value === 'visible';
+    const [name, tabs] = await Promise.all([
+      getLayoutNameForTarget(targetId),
+      listShellTabs(),
+    ]);
+    return isLayoutComposited(name, tabs);
   } catch {
     return false;
-  } finally {
-    evictScopedClient(targetId);
-    try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
 
@@ -199,13 +281,16 @@ export async function newTab({ layout, name } = {}) {
       (function() {
         var q = ${JSON.stringify(String(layout).toLowerCase())};
         var items = document.querySelectorAll('.layout-list-item');
+        var sub = null;
         for (var i = 0; i < items.length; i++) {
           var t = items[i].querySelector('.layout-list-item-title');
-          if (t && t.textContent.trim().toLowerCase().indexOf(q) !== -1) {
-            items[i].click();
-            return t.textContent.trim();
-          }
+          if (!t) continue;
+          var name = t.textContent.trim();
+          var n = name.toLowerCase();
+          if (n === q) { items[i].click(); return name; }
+          if (!sub && n.indexOf(q) !== -1) sub = { el: items[i], name: name };
         }
+        if (sub) { sub.el.click(); return sub.name; }
         return null;
       })()
     `;
@@ -219,7 +304,12 @@ export async function newTab({ layout, name } = {}) {
     return foundTitle;
   });
 
-  if (!picked) throw new Error(`Layout matching "${layout}" not found in the layout list.`);
+  if (!picked) {
+    throw tvError('TV_LAYOUT_NOT_FOUND', `Layout matching "${layout}" not found in the layout list.`, {
+      resolution: { by: 'layout', name: String(layout) },
+      hint: 'Call layout_list to enumerate saved layouts, then retry with an exact name (or layout: "new" for a blank one).',
+    });
+  }
 
   // The chart loads under a NEW CDP target: the file:// landing -> https://
   // chart navigation swaps renderer processes, so the target id changes.

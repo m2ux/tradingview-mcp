@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-87 tools by default (94 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+88 tools by default (95 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
 
@@ -28,6 +28,9 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 - `quote_get` → single latest price snapshot
 
 ### "Analyze my chart" (full report workflow)
+Fast path: `capture_snapshot` → one headless call returning visible time & price range, OHLCV over the visible bars, active studies + per-bar series, user drawings, Pine graphics (lines/labels/tables/boxes), and a screenshot `file_path`. Set `include_series: false` for a compact snapshot.
+
+Manual sequence (when you need to cherry-pick):
 1. `quote_get` → current price
 2. `data_get_study_values` → all indicator readings
 3. `data_get_pine_lines` → key price levels from custom indicators
