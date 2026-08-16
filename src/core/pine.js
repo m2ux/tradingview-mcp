@@ -1396,7 +1396,22 @@ export async function readScript({ name, script_id, scope = 'saved', version, _d
   const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
   const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
   const filter = scope === 'published' ? 'published' : 'saved';
-  const entry = await lookupFn({ name, id: script_id, filter });
+  let entry;
+  try {
+    entry = await lookupFn({ name, id: script_id, filter });
+  } catch (err) {
+    // Published list uses PUB;id; pine_list_scripts gives USER;id. Resolve
+    // saved identity then match the published row by name (issue #26.6).
+    if (filter === 'published' && script_id) {
+      const saved = await lookupFn({ name, id: script_id, filter: 'saved' });
+      entry = await lookupFn({
+        name: saved.scriptName || saved.scriptTitle || name,
+        filter: 'published',
+      });
+    } else {
+      throw err;
+    }
+  }
   const id = entry.scriptIdPart || entry.id;
   const ver = version ?? entry.version ?? null;
   const fetched = await fetchSourceFn(id, ver);

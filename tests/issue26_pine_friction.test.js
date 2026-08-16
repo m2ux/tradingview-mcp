@@ -260,4 +260,27 @@ describe('readScript / listLibraryExports published scope (issue #26.6)', () => 
     assert.equal(exp.export_count, 2);
     assert.ok(exp.exports.some((e) => e.name === 'step'));
   });
+
+  it('resolves USER;id via saved name when published list only has PUB;id', async () => {
+    const _deps = {
+      lookupFacadeScript: async ({ filter, id, name } = {}) => {
+        if (filter === 'published' && id === 'USER;eng') throw new Error('not in published list');
+        if (filter === 'saved' && id === 'USER;eng') {
+          return { scriptIdPart: 'USER;eng', scriptName: 'RSIZoneDivEng', version: '7.0' };
+        }
+        if (filter === 'published' && name === 'RSIZoneDivEng') {
+          return { scriptIdPart: 'PUB;72abc', scriptName: 'RSIZoneDivEng', version: '4.0', extra: { kind: 'library' } };
+        }
+        throw new Error(`unexpected lookup ${filter} ${id || name}`);
+      },
+      fetchScriptSource: async (id, version) => {
+        assert.equal(id, 'PUB;72abc');
+        assert.equal(String(version), '4');
+        return { ok: true, source: LIB_SRC, via: 'GET /get/id/version' };
+      },
+    };
+    const exp = await listLibraryExports({ script_id: 'USER;eng', scope: 'published', version: 4, _deps });
+    assert.equal(exp.script_id, 'PUB;72abc');
+    assert.ok(exp.exports.some((e) => e.name === 'step'));
+  });
 });
