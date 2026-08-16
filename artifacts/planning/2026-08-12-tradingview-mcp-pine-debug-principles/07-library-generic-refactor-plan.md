@@ -164,10 +164,12 @@ Each step is independently diffed against the 30m gate. **No step merges red.**
 
 ## 8. Deliverables
 
-- `scripts/engine/rszonediv_engine.pine` — the generic engine library (new).
-- `scripts/rszonediv_generic.pine` — the thin indicator shell (RSIZones adapter + engine import).
-- Updated `scripts/reference/` — re-frozen gate if any step legitimately shifts behavior (none expected).
-- This plan + step diffs recorded in the PR.
+Application sources live in this work package (`sources/`), not in the tradingview-mcp server tree:
+
+- `sources/engine/rszonediv_engine.pine` — the generic engine library.
+- `sources/rszonediv_generic.pine` — the thin indicator shell (RSIZones adapter + engine import).
+- `data/` — frozen gate (no re-freeze needed; behavior did not shift).
+- This plan + step diffs recorded in [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (sources later moved here so they do not merge to `main`).
 
 ## 9. Decisions (2026-08-12)
 
