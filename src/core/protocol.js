@@ -7,9 +7,15 @@
  * client factory) plus the call-specific params, so callers control the
  * connection lifecycle.
  */
+import { withTimeout } from '../connection.js';
 
 export async function captureScreenshot(client, params = {}) {
-  return client.Page.captureScreenshot(params);
+  // Hidden TradingView chart guests (non-active Desktop tabs) never return
+  // from Page.captureScreenshot. Bound the call so MCP sees TV_CDP_TIMEOUT
+  // instead of hanging until the client -32001.
+  const { timeoutMs, ...rest } = params;
+  const ms = typeof timeoutMs === 'number' ? timeoutMs : undefined;
+  return withTimeout(client.Page.captureScreenshot(rest), ms, 'Page.captureScreenshot');
 }
 
 export async function dispatchMouse(client, ...events) {

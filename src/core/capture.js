@@ -1,9 +1,11 @@
 /**
  * Core screenshot/capture logic.
  */
-import { getClient, evaluate, getChartCollection, findTargetByRef, withTargetEvaluate, makeScopedClient, evictScopedClient } from '../connection.js';
+import { getClient, evaluate, getChartCollection, findTargetByRef, withTargetEvaluate, makeScopedClient, evictScopedClient, getLayoutNameForTarget } from '../connection.js';
 import { captureScreenshot as _capture } from './protocol.js';
-import { waitForChartRender } from '../wait.js';
+import { waitForChartRender, sleep } from '../wait.js';
+import { activateShellTab, listShellTabs, isLayoutComposited, activeShellLayout } from './tab.js';
+import { tvError } from './err.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,14 +22,47 @@ export async function captureScreenshot({
   // (clip bounds evaluate + Page.captureScreenshot) instead of the shared client.
   // _deps.makeScopedClient lets tests substitute a stub CDP connection.
   const scopedFactory = _deps?.makeScopedClient || makeScopedClient;
-  const targetInfo = target ? await findTargetByRef(target) : null;
+  const listShell = _deps?.listShellTabs || listShellTabs;
+  const activate = _deps?.activateShellTab || activateShellTab;
+  const nameOf = _deps?.getLayoutNameForTarget || getLayoutNameForTarget;
+
+  let captureTarget = target;
+  let targetInfo = captureTarget ? await findTargetByRef(captureTarget) : null;
+  // Page.captureScreenshot never returns for a background Desktop guest.
+  // `.tab.active` is the compositor. Named target → focus it if needed.
+  // Omitted target → shoot the shell-active tab, not the attached-but-hidden guest.
+  if (!_deps?.skipCompositorActivate) {
+    const tabs = await listShell().catch(() => null);
+    if (tabs) {
+      if (captureTarget && targetInfo) {
+        const wanted = await nameOf(targetInfo.id);
+        if (wanted && !isLayoutComposited(wanted, tabs)) {
+          const clicked = await activate({ layout_name: wanted });
+          if (!clicked) {
+            throw tvError(
+              'TV_TAB_NOT_COMPOSITED',
+              `Cannot focus "${wanted}" in the Desktop tab bar; Page.captureScreenshot has no bitmap for a background guest.`,
+              { hint: `tab_switch to "${wanted}" (or click that tab), then retry capture_screenshot.` },
+            );
+          }
+          await sleep(300);
+        }
+      } else if (!captureTarget) {
+        const activeName = activeShellLayout(tabs);
+        if (activeName) {
+          targetInfo = await findTargetByRef(activeName);
+          captureTarget = activeName;
+        }
+      }
+    }
+  }
   let scopedClient = null;
   // Lazily connected on first use so the no-target path never opens a socket.
   const ensureScoped = async () => {
     if (!scopedClient) scopedClient = await scopedFactory(targetInfo.id);
     return scopedClient;
   };
-  const evalFn = target
+  const evalFn = targetInfo
     ? async (expr) => {
       const c = await ensureScoped();
       const { result } = await c.Runtime.evaluate({ expression: expr, returnByValue: true });
@@ -63,7 +98,7 @@ export async function captureScreenshot({
 
   let client;
   try {
-    client = target ? await ensureScoped() : await getClient();
+    client = targetInfo ? await ensureScoped() : await getClient();
     let clip = undefined;
 
     if (region === 'chart') {
@@ -99,7 +134,7 @@ export async function captureScreenshot({
 
     return {
       success: true, method: 'cdp', file_path: filePath, region,
-      ...(targetInfo && { target: target, chart_id: targetInfo.url.match(/\/chart\/([^/?]+)/)?.[1] || null }),
+      ...(targetInfo && { target: captureTarget, chart_id: targetInfo.url.match(/\/chart\/([^/?]+)/)?.[1] || null }),
       waited_for_render: !!waitForRender,
       render_stabilized: renderStabilized,
       size_bytes: Buffer.from(data, 'base64').length,
@@ -306,8 +341,10 @@ const PINE_GRAPHICS_JS = `
  *   include_screenshot  capture a screenshot (default true)
  *   wait_for_render  stabilize the canvas before the screenshot (default false)
  *   stabilize_ms   canvas-stability budget when wait_for_render (default 3000)
- *   target         chart_id / URL substring / CDP target id — read this tab
- *                  without switching the active tab
+ *   target         chart_id / URL substring / CDP target id / layout name.
+ *                  Reads are headless. A screenshot focuses the tab when it
+ *                  is not the shell-active (composited) one — background
+ *                  guests have no bitmap.
  */
 export async function captureSnapshot({
   region = 'chart', filename, include_series = true, include_screenshot = true,

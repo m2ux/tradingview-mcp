@@ -16,6 +16,7 @@ export const TV_ERROR_CODES = Object.freeze({
   // Chart/tab targeting
   TV_TARGET_NOT_FOUND: 'target did not match any open chart tab.',
   TV_TAB_NOT_OPEN: 'Named layout is saved but not open in any tab.',
+  TV_TAB_NOT_COMPOSITED: 'Screenshot needs the Desktop shell-active tab; background chart guests have no bitmap.',
   TV_LAYOUT_NOT_FOUND: 'Saved layout name did not match any saved layout.',
   // Reads
   TV_STUDY_NOT_FOUND: 'Study/entity id is not on the chart (often a stale per-session id).',

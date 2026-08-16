@@ -13,6 +13,74 @@ import { getClient, reconnectTo, getLayoutNameForTarget, listTargets, makeScoped
 import { tvError } from './err.js';
 import { sleep } from '../wait.js';
 
+/** Parse the layout name from a Desktop shell tab's textContent. */
+export function layoutNameFromShellTabText(text) {
+  const name = String(text || '').replace(/close-tab-button$/i, '');
+  const slash = name.lastIndexOf('/');
+  return (slash >= 0 ? name.slice(slash + 1) : name).trim();
+}
+
+/** Layout name of the shell tab with class `active`, or null. */
+export function activeShellLayout(shellTabs) {
+  return (shellTabs || []).find((t) => t.active)?.layout || null;
+}
+
+/** True when `layoutName` is the composited (`.tab.active`) shell tab. */
+export function isLayoutComposited(layoutName, shellTabs) {
+  const active = activeShellLayout(shellTabs);
+  if (!layoutName || !active) return false;
+  return String(layoutName).toLowerCase() === String(active).toLowerCase();
+}
+
+/**
+ * Read Desktop shell tabs: `{ layout, active }[]`.
+ * `.tab.active` is the only reliable compositor signal — chart-page
+ * `document.visibilityState` can be "visible" on a guest that is not painted.
+ */
+export async function listShellTabs() {
+  return withShell(async (evalIn) => evalIn(`
+    (function() {
+      var tabs = document.querySelectorAll('.tabs-container .tab');
+      var out = [];
+      for (var i = 0; i < tabs.length; i++) {
+        var text = (tabs[i].textContent || '').replace(/close-tab-button$/i, '');
+        var slash = text.lastIndexOf('/');
+        out.push({
+          layout: (slash >= 0 ? text.slice(slash + 1) : text).trim(),
+          active: tabs[i].classList.contains('active'),
+        });
+      }
+      return out;
+    })()
+  `));
+}
+
+/**
+ * Click the Desktop shell tab whose label matches `layout_name`.
+ * Chart-page Page.captureScreenshot only returns for the composited
+ * (active) tab; background guests hang. Exact name wins over substring.
+ */
+export async function activateShellTab({ layout_name }) {
+  if (!layout_name) return null;
+  return withShell(async (evalIn) => evalIn(`
+    (function() {
+      var q = ${JSON.stringify(String(layout_name).toLowerCase())};
+      var tabs = document.querySelectorAll('.tabs-container .tab');
+      var sub = null;
+      for (var i = 0; i < tabs.length; i++) {
+        var text = (tabs[i].textContent || '').replace(/close-tab-button$/i, '');
+        var slash = text.lastIndexOf('/');
+        var layout = (slash >= 0 ? text.slice(slash + 1) : text).trim();
+        var n = layout.toLowerCase();
+        if (n === q) { tabs[i].click(); return layout; }
+        if (!sub && n.indexOf(q) !== -1) sub = { el: tabs[i], name: layout };
+      }
+      if (sub) { sub.el.click(); return sub.name; }
+      return null;
+    })()
+  `));
+}
+
 /** Exact name wins over substring so "OIL_IG" does not open "OIL_IG_2". */
 export function preferExactLayoutName(names, query) {
   const q = String(query).toLowerCase();
@@ -86,18 +154,16 @@ async function withShell(fn) {
   throw new Error('TradingView shell window (tab bar) not found. Is this TradingView Desktop with tabs?');
 }
 
-/** Check whether a CDP page target is the visible one. */
+/** Check whether a CDP page target is the composited (shell-active) tab. */
 async function isTargetVisible(targetId) {
-  let c = null;
   try {
-    c = await makeScopedClient(targetId);
-    const { result } = await c.Runtime.evaluate({ expression: 'document.visibilityState', returnByValue: true });
-    return result?.value === 'visible';
+    const [name, tabs] = await Promise.all([
+      getLayoutNameForTarget(targetId),
+      listShellTabs(),
+    ]);
+    return isLayoutComposited(name, tabs);
   } catch {
     return false;
-  } finally {
-    evictScopedClient(targetId);
-    try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
 

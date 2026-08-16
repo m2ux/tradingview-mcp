@@ -10,7 +10,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { findTargetByRef, getLayoutNameForTarget, layoutNameFromChartList } from '../src/connection.js';
 import { layoutList } from '../src/core/ui.js';
-import { list as tabList, preferExactLayoutName } from '../src/core/tab.js';
+import { list as tabList, preferExactLayoutName, layoutNameFromShellTabText, activeShellLayout, isLayoutComposited } from '../src/core/tab.js';
 
 const TARGETS = [
   { id: 'T1', type: 'page', title: 'OIL_IG — TradingView', url: 'https://www.tradingview.com/chart/od9I4OCz/?symbol=TVC%3AUKOIL' },
@@ -80,6 +80,27 @@ describe('layoutNameFromChartList() — Desktop 3.3 load-service map', () => {
     assert.equal(layoutNameFromChartList(list, 'gfFTnKHh'), 'OIL_IG');
     assert.equal(layoutNameFromChartList(list, 'missing'), null);
     assert.equal(layoutNameFromChartList(null, 'gfFTnKHh'), null);
+  });
+});
+
+describe('layoutNameFromShellTabText()', () => {
+  it('takes the name after the last slash and strips the close-button suffix', () => {
+    assert.equal(layoutNameFromShellTabText('UKOIL▲ 88.81+2.09%/ OIL_IG'), 'OIL_IG');
+    assert.equal(layoutNameFromShellTabText('UKOIL▲ 88.81+2.09%/ OIL_IGclose-tab-button'), 'OIL_IG');
+  });
+});
+
+describe('isLayoutComposited() — shell .tab.active', () => {
+  const tabs = [
+    { layout: 'GOLD', active: false },
+    { layout: 'OIL_IG', active: true },
+  ];
+  it('reads the active layout and matches case-insensitively', () => {
+    assert.equal(activeShellLayout(tabs), 'OIL_IG');
+    assert.equal(isLayoutComposited('OIL_IG', tabs), true);
+    assert.equal(isLayoutComposited('oil_ig', tabs), true);
+    assert.equal(isLayoutComposited('GOLD', tabs), false);
+    assert.equal(isLayoutComposited('OIL_IG', []), false);
   });
 });
 
