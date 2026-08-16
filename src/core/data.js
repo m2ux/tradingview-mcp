@@ -3,6 +3,9 @@
  */
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString, withTargetEvaluate } from '../connection.js';
 import { waitForChartReady as _defaultWaitForChartReady } from '../wait.js';
+import { tvError } from './err.js';
+
+const NO_STRATEGY_ERROR = 'No strategy found on chart. Add a strategy first (e.g. indicator_add with a "... Strategy" script).';
 
 // Resolve the evaluate function for a read: an injected _deps.evaluate (tests)
 // wins, then an optional `target` (chart_id / URL substring) scoped evaluate,
@@ -277,7 +280,7 @@ export async function getStrategyResults() {
       ${FIND_STRATEGY_JS}
       try {
         var found = findStrategy();
-        if (!found) return {metrics: {}, source: 'internal_api', error: 'No strategy found on chart. Add a strategy first (e.g. indicator_add with a "... Strategy" script).'};
+        if (!found) return {metrics: {}, source: 'internal_api', error: ${JSON.stringify(NO_STRATEGY_ERROR)}, code: 'TV_NO_STRATEGY', hint: 'Add a strategy study (chart_manage_indicator / study_add with a "... Strategy" script), then retry. Strategy reads need one on the chart.'};
         var rd = found.report;
         if (!rd || !rd.performance) return {metrics: {}, source: 'internal_api', error: 'Strategy report not computed yet. Retry in a few seconds; if it persists, check the Strategy Tester panel is open (ui_open_panel strategy-tester) and the strategy is not hidden on the chart.'};
         var perf = rd.performance;
@@ -329,7 +332,7 @@ export async function getTrades({ max_trades } = {}) {
       ${FIND_STRATEGY_JS}
       try {
         var found = findStrategy();
-        if (!found) return {trades: [], source: 'internal_api', error: 'No strategy found on chart.'};
+        if (!found) return {trades: [], source: 'internal_api', error: ${JSON.stringify(NO_STRATEGY_ERROR)}, code: 'TV_NO_STRATEGY', hint: 'Add a strategy study (chart_manage_indicator / study_add with a "... Strategy" script), then retry. Strategy reads (data_get_strategy_results / data_get_trades / data_get_equity) need one on the chart.'};
         var strat = found.strat;
         var orders = strat.ordersData(); if (orders && typeof orders.value === 'function') orders = orders.value();
         if (!orders || !Array.isArray(orders)) return {trades: [], source: 'internal_api', total_orders: 0, error: 'Strategy orders not computed yet. Open the Strategy Tester panel (ui_open_panel strategy-tester) and retry.'};
@@ -372,7 +375,7 @@ export async function getEquity() {
       ${FIND_STRATEGY_JS}
       try {
         var found = findStrategy();
-        if (!found) return {data: [], source: 'internal_api', error: 'No strategy found on chart.'};
+        if (!found) return {data: [], source: 'internal_api', error: ${JSON.stringify(NO_STRATEGY_ERROR)}, code: 'TV_NO_STRATEGY', hint: 'Add a strategy study (chart_manage_indicator / study_add with a "... Strategy" script), then retry. Strategy reads need one on the chart.'};
         var rd = found.report;
         if (!rd) return {data: [], source: 'internal_api', error: 'Strategy report not computed yet. Open the Strategy Tester panel and retry.'};
         // buyHold is the per-bar account curve; the equity curve is built from
@@ -483,8 +486,9 @@ async function _getQuoteInternal({ symbol, target, _deps } = {}) {
   }
 }
 
-export async function getDepth() {
-  const data = await evaluate(`
+export async function getDepth({ _deps } = {}) {
+  const evalFn = await _resolveEval({ _deps });
+  const data = await evalFn(`
     (function() {
       var domPanel = document.querySelector('[class*="depth"]')
         || document.querySelector('[class*="orderBook"]')
@@ -523,7 +527,9 @@ export async function getDepth() {
     })()
   `);
 
-  if (!data || !data.found) throw new Error(data?.error || 'DOM panel not found.');
+  if (!data || !data.found) throw tvError('TV_DOM_NOT_OPEN', data?.error || 'DOM panel not found.', {
+    hint: 'Open the Depth-of-Market (DOM) panel first (ui_open_panel or the chart\'s DOM button), then retry.',
+  });
   return { success: true, bid_levels: data.bids?.length || 0, ask_levels: data.asks?.length || 0, spread: data.spread, bids: data.bids || [], asks: data.asks || [], raw_values: data.raw_values, note: data.note };
 }
 
@@ -673,7 +679,9 @@ export async function getStudySeries({ study, entity_id, count, plots, include_p
     })()
   `);
 
-  if (!data || !data.found) throw new Error(data?.error || 'Study not found.');
+  if (!data || !data.found) throw tvError('TV_STUDY_NOT_FOUND', data?.error || 'Study not found.', {
+    hint: 'Entity ids are per-session and go stale after re-renders. Call chart_get_state to fetch fresh ids, then retry with the new entity_id or a study name.',
+  });
 
   const result = {
     success: true,

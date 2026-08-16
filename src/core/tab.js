@@ -10,10 +10,13 @@
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
 import CDP from 'chrome-remote-interface';
-import { getClient, reconnectTo, CDP_HOST, CDP_PORT } from '../connection.js';
+import { getClient, reconnectTo, getLayoutNameForTarget, CDP_HOST, CDP_PORT } from '../connection.js';
+import { tvError } from './err.js';
 
 /**
- * List all open chart tabs (CDP page targets).
+ * List all open chart tabs (CDP page targets), each enriched with the live
+ * layout name showing in it (when one can be read) so a layout/tab title can
+ * be resolved back to a chart_id and passed as a read/capture `target`.
  */
 export async function list() {
   const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
@@ -21,16 +24,21 @@ export async function list() {
 
   // Chart tabs plus new-tab landing pages (layout picker), so every tab in the
   // top bar is listable and switchable.
-  const tabs = targets
-    .filter(t => t.type === 'page' && (/tradingview\.com\/chart/i.test(t.url) || t.title === 'New tab'))
-    .map((t, i) => ({
+  const base = targets
+    .filter(t => t.type === 'page' && (/tradingview\.com\/chart/i.test(t.url) || t.title === 'New tab'));
+
+  const tabs = await Promise.all(base.map(async (t, i) => {
+    const isChart = /tradingview\.com\/chart/i.test(t.url);
+    return {
       index: i,
       id: t.id,
       title: t.title.replace(/^Live stock.*charts on /, ''),
       url: t.url,
       chart_id: t.url.match(/\/chart\/([^/?]+)/)?.[1] || null,
-      is_chart: /tradingview\.com\/chart/i.test(t.url),
-    }));
+      is_chart: isChart,
+      layout_name: isChart ? await getLayoutNameForTarget(t.id) : null,
+    };
+  }));
 
   return { success: true, tab_count: tabs.length, tabs };
 }
@@ -218,7 +226,12 @@ export async function newTab({ layout, name } = {}) {
     return foundTitle;
   });
 
-  if (!picked) throw new Error(`Layout matching "${layout}" not found in the layout list.`);
+  if (!picked) {
+    throw tvError('TV_LAYOUT_NOT_FOUND', `Layout matching "${layout}" not found in the layout list.`, {
+      resolution: { by: 'layout', name: String(layout) },
+      hint: 'Call layout_list to enumerate saved layouts, then retry with an exact name (or layout: "new" for a blank one).',
+    });
+  }
 
   // The chart loads under a NEW CDP target: the file:// landing -> https://
   // chart navigation swaps renderer processes, so the target id changes.

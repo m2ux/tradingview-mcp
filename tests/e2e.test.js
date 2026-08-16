@@ -22,7 +22,11 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import CDP from 'chrome-remote-interface';
+// Reuse the app's hardened CDP layer instead of re-wiring a raw
+// chrome-remote-interface client: it pins 127.0.0.1 (never ::1), bounds the
+// connect/liveness/evaluate calls, and reconnects on a dead socket. That is
+// what keeps this suite from hanging on the exact issues unit tests cover.
+import { connect, disconnect, evaluate as connEvaluate } from '../src/connection.js';
 import {
   listTemplates,
   getTemplate,
@@ -30,20 +34,15 @@ import {
 } from '../src/core/drawing_templates.js';
 
 let client;
-let Runtime;
 let Input;
 let Page;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-async function evaluate(expr) {
-  const { result } = await Runtime.evaluate({
-    expression: expr,
-    returnByValue: true,
-    awaitPromise: true,
-  });
-  if (result.subtype === 'error') throw new Error(result.description);
-  return result.value;
+function evaluate(expr) {
+  // Shared evaluate already: awaits promises, returns the value, throws on JS
+  // exceptions, and is timeout-bounded via withTimeout.
+  return connEvaluate(expr, { awaitPromise: true });
 }
 
 async function apiExists(path) {
@@ -77,25 +76,20 @@ describe('TradingView MCP — Full E2E (70 tools)', () => {
 
   before(async () => {
     try {
-      const targets = await CDP.List({ host: 'localhost', port: 9222 });
-      const chartTarget = targets.find(t => t.url && t.url.includes('tradingview.com/chart'));
-      if (!chartTarget) throw new Error('No TradingView chart target found');
-
-      client = await CDP({ host: 'localhost', port: 9222, target: chartTarget.id });
-      await client.Runtime.enable();
-      await client.Page.enable();
-      await client.DOM.enable();
-      Runtime = client.Runtime;
+      // A fresh connect to the active chart tab. getClient()/connect() handle
+      // target resolution, IPv4 host, and bounded enable handshakes.
+      client = await connect();
       Input = client.Input;
       Page = client.Page;
     } catch (err) {
       console.error('Cannot connect to TradingView. Make sure it is running with --remote-debugging-port=9222');
+      console.error(err?.message || err);
       process.exit(1);
     }
   });
 
   after(async () => {
-    if (client) try { await client.close(); } catch {}
+    await disconnect();
   });
 
   // ─── 1. HEALTH & CONNECTION (4 tools) ─────────────────────────────────
@@ -152,14 +146,33 @@ describe('TradingView MCP — Full E2E (70 tools)', () => {
     });
 
     it('tv_launch — auto-detect binary (verify path resolution only)', async () => {
-      // tv_launch is destructive (kills TradingView), so we only test path detection
+      // tv_launch is destructive (kills TradingView), so we only test path detection.
+      // Mirror the per-platform candidates from src/core/health.js pathMap so the
+      // check is portable (was macOS-only, so it always failed on Linux).
       const { existsSync } = await import('fs');
-      const paths = [
-        '/Applications/TradingView.app/Contents/MacOS/TradingView',
-        `${process.env.HOME}/Applications/TradingView.app/Contents/MacOS/TradingView`,
-      ];
+      const { platform } = await import('os');
+      const H = process.env.HOME;
+      const candidates = {
+        darwin: [
+          '/Applications/TradingView.app/Contents/MacOS/TradingView',
+          `${H}/Applications/TradingView.app/Contents/MacOS/TradingView`,
+        ],
+        win32: [
+          `${process.env.LOCALAPPDATA}\\TradingView\\TradingView.exe`,
+          `${process.env.PROGRAMFILES}\\TradingView\\TradingView.exe`,
+          `${process.env['PROGRAMFILES(X86)']}\\TradingView\\TradingView.exe`,
+        ],
+        linux: [
+          '/opt/TradingView/tradingview',
+          '/opt/TradingView/TradingView',
+          `${H}/.local/share/TradingView/TradingView`,
+          '/usr/bin/tradingview',
+          '/snap/tradingview/current/tradingview',
+        ],
+      };
+      const paths = candidates[platform()] || candidates.linux;
       const found = paths.some(p => existsSync(p));
-      assert.ok(found, 'TradingView binary found on disk');
+      assert.ok(found, `TradingView binary found on disk for ${platform()}; searched: ${paths.join(', ')}`);
     });
   });
 
@@ -1439,9 +1452,15 @@ val = array.get(a, 5)`;
       await evaluate(`${REPLAY_API}.stopReplay()`);
       await evaluate(`${REPLAY_API}.goToRealtime()`);
       await evaluate(`${REPLAY_API}.hideReplayToolbar()`);
-      await sleep(500);
 
-      const stoppedNow = await evaluate(wv(`${REPLAY_API}.isReplayStarted()`));
+      // Poll for replay mode to disengage — stopReplay is async and the
+      // widget's isReplayStarted flag can take a moment to settle.
+      let stoppedNow = true;
+      for (let i = 0; i < 10; i++) {
+        await sleep(300);
+        stoppedNow = await evaluate(wv(`${REPLAY_API}.isReplayStarted()`));
+        if (!stoppedNow) break;
+      }
       assert.ok(!stoppedNow, 'Replay stopped');
     });
   });

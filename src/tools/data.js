@@ -5,7 +5,7 @@ import * as core from '../core/data.js';
 // Optional tab selector shared by the read tools: a chart_id, URL substring, or
 // CDP target id. When given, the read runs against that tab without switching
 // the MCP's active tab; when omitted, the attached tab is read.
-const targetParam = z.string().optional().describe('Target tab: chart_id, URL substring, or CDP target id (from tab_list). Reads run against this tab without switching the active tab. Omit for the attached tab. If the response has "retryable": true, TradingView is momentarily busy — wait ~1s and retry the same call.');
+const targetParam = z.string().optional().describe('Target tab: chart_id, URL substring, CDP target id, or a saved LAYOUT/tab name (e.g. "OIL_IG"; use "layout:<name>" to force layout-name matching). Reads run against this tab without switching the active tab. Omit for the attached tab. Names come from tab_list (layout_name). If the response has "retryable": true, TradingView is momentarily busy — wait ~1s and retry the same call.');
 
 // Exact-study selector shared by the study read tools. Disambiguates when two
 // of the same study are on the chart (name-substring match is non-deterministic

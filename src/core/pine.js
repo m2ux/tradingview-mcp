@@ -5,6 +5,7 @@
  */
 import { evaluate } from '../connection.js';
 import { pressKey, setNativeValueExpression } from './dom.js';
+import { tvError } from './err.js';
 import {
   assertEditorIdentity,
   classifyCompileErrors,
@@ -360,7 +361,9 @@ export async function check({ source, _deps } = {}) {
 
 export async function getSource() {
   const editorReady = await ensurePineEditorOpen();
-  if (!editorReady) throw new Error('Could not open Pine Editor or Monaco not found in React fiber tree.');
+  if (!editorReady) throw tvError('TV_PINE_EDITOR_CLOSED', 'Could not open Pine Editor or Monaco not found in React fiber tree.', {
+    hint: 'Open the editor with ui_open_panel({ panel: "pine-editor", action: "open" }), then retry.',
+  });
 
   const source = await evaluate(`
     (function() {
@@ -620,6 +623,8 @@ export async function save({ _deps } = {}) {
     buffer_title: declaredTitle || undefined,
     header_name: headerName || undefined,
     ...(failure && { error: failure }),
+    ...(failure && !verified && { code: 'TV_PINE_UNBOUND' }),
+    ...(failure && !verified && { hint: 'Run pine_bind to load the intended script into the buffer and establish the binding, then pine_save again.' }),
     ...(bound_mismatch && { bound_mismatch: true }),
   };
 }
@@ -916,7 +921,9 @@ export async function newScript({ type }) {
     })()
   `);
 
-  if (!set) throw new Error('Monaco editor not found. Ensure Pine Editor is open.');
+  if (!set) throw tvError('TV_PINE_EDITOR_CLOSED', 'Monaco editor not found. Ensure Pine Editor is open.', {
+    hint: 'Open the editor with ui_open_panel({ panel: "pine-editor", action: "open" }), then retry.',
+  });
 
   return { success: true, type, action: 'new_script_created', template: typeMap[type] };
 }

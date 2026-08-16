@@ -1,4 +1,5 @@
 import CDP from 'chrome-remote-interface';
+import { tvError } from './core/err.js';
 
 let client = null;
 let targetInfo = null;
@@ -9,6 +10,27 @@ export const CDP_HOST = process.env.TV_CDP_HOST || process.env.CDP_HOST || '127.
 export const CDP_PORT = Number(process.env.TV_CDP_PORT || process.env.CDP_PORT) || 9222;
 const MAX_RETRIES = 5;
 const BASE_DELAY = 500;
+// CDP calls can hang forever (wedged electron page, IPv6 localhost falling back
+// to IPv4, single-WS-per-target contention). Bound every network call so the
+// server surfaces a clear, retryable error instead of stalling.
+const CDP_CALL_TIMEOUT_MS = Number(process.env.TV_CDP_TIMEOUT_MS) || 10000;
+
+/**
+ * Race `promise` against a timeout that rejects with a transient CDP error.
+ * The timer is unref'd and cleared on settle so it never keeps the event loop
+ * alive or fires after the call already resolved.
+ */
+export function withTimeout(promise, ms = CDP_CALL_TIMEOUT_MS, label = 'CDP call') {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(
+      new Error(`${label} timed out after ${ms}ms`),
+      { retryable: true, code: 'TV_CDP_TIMEOUT' }
+    )), ms);
+    if (timer.unref) timer.unref();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 /**
  * A non-loopback CDP endpoint exposes an authenticated TradingView session
@@ -69,8 +91,13 @@ export async function getClient() {
   assertLoopbackHost();
   if (client) {
     try {
-      // Quick liveness check
-      await client.Runtime.evaluate({ expression: '1', returnByValue: true });
+      // Quick liveness check — bounded so a silently dead socket triggers
+      // reconnect instead of returning a wedged client.
+      await withTimeout(
+        client.Runtime.evaluate({ expression: '1', returnByValue: true }),
+        3000,
+        'CDP liveness probe'
+      );
       return client;
     } catch {
       client = null;
@@ -86,17 +113,26 @@ export async function connect(targetId = null) {
     try {
       const target = targetId ? await findTargetById(targetId) : await findChartTarget();
       if (!target) {
-        throw new Error(targetId
-          ? `CDP target ${targetId} not found — is the tab still open?`
-          : 'No TradingView chart target found. Is TradingView open with a chart?');
+        throw targetId
+          ? tvError('TV_TARGET_NOT_FOUND', `CDP target ${targetId} not found — is the tab still open?`, {
+            resolution: { by: 'target_id', ref: targetId },
+            hint: 'The referenced tab is gone. Call tab_list to enumerate open tabs and re-target by chart_id or layout name.',
+          })
+          : tvError('TV_NO_CHART_TAB', 'No TradingView chart target found. Is TradingView open with a chart?', {
+            hint: 'TradingView is reachable but no chart tab is open. Open one with tab_new({ layout: "new" }) or tab_new({ layout: "<saved name>" }), then retry.',
+          });
       }
       targetInfo = target;
-      client = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
+      client = await withTimeout(
+        CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id }),
+        CDP_CALL_TIMEOUT_MS,
+        'CDP connect'
+      );
 
       // Enable required domains
-      await client.Runtime.enable();
-      await client.Page.enable();
-      await client.DOM.enable();
+      await withTimeout(client.Runtime.enable(), CDP_CALL_TIMEOUT_MS, 'CDP Runtime.enable');
+      await withTimeout(client.Page.enable(), CDP_CALL_TIMEOUT_MS, 'CDP Page.enable');
+      await withTimeout(client.DOM.enable(), CDP_CALL_TIMEOUT_MS, 'CDP DOM.enable');
 
       return client;
     } catch (err) {
@@ -105,7 +141,9 @@ export async function connect(targetId = null) {
       await new Promise(r => setTimeout(r, delay));
     }
   }
-  throw new Error(`CDP connection failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
+  throw tvError('TV_NOT_CONNECTED', `CDP connection failed after ${MAX_RETRIES} attempts: ${lastError?.message}`, {
+    hint: 'TradingView Desktop is not reachable on the CDP endpoint. Launch it with tv_launch, or start it with --remote-debugging-port=9222, then retry.',
+  });
 }
 
 /**
@@ -139,9 +177,79 @@ async function findTargetById(id) {
 }
 
 /**
- * Resolve a `target` reference to a CDP page target. Accepts a CDP target id,
- * a chart_id (the /chart/<id> URL segment), or a URL substring, in that order.
- * Only TradingView chart pages are considered for chart_id/URL matching.
+ * Prefix used to force target resolution by saved-layout name:
+ * `layout:OIL_IG` matches only by layout name (never by chart_id / URL).
+ */
+export const LAYOUT_TARGET_PREFIX = 'layout:';
+
+// Read a chart tab's live per-tab state (symbol, resolution, layout name).
+// Runs in that tab's own page context so the values are always live, never
+// the cached values getSavedCharts() can return for a layout.
+const TAB_PROBE_JS = `(function() {
+  var out = { symbol: null, resolution: null, layout_name: null };
+  try {
+    var root = window.TradingViewApi || {};
+    var chart = root._activeChartWidgetWV && root._activeChartWidgetWV.value
+      ? root._activeChartWidgetWV.value() : null;
+    if (chart) {
+      try { out.symbol = chart.symbol(); } catch (e) {}
+      try { out.resolution = chart.resolution(); } catch (e) {}
+    }
+    var col = root._chartWidgetCollection;
+    if (col && typeof col.currentChart === 'function') {
+      var meta = null;
+      try { meta = col.currentChart(); } catch (e) {}
+      if (meta) {
+        var ln = meta.name || (meta.metaInfo && (meta.metaInfo.name || meta.metaInfo.title)) || null;
+        if (ln) out.layout_name = ln;
+      }
+    }
+  } catch (e) {}
+  return out;
+})()`;
+
+/**
+ * Best-effort live layout name for a chart target id. Never throws — returns
+ * null when the layout name cannot be read. Used to enrich tab_list rows.
+ */
+export async function getLayoutNameForTarget(targetId, _probe) {
+  const probe = _probe || getLayoutNameForTarget._probe;
+  if (probe) {
+    try { return (await probe(targetId)) || null; } catch { return null; }
+  }
+  let c = null;
+  // Bound the whole probe: a second CDP client on a tab the shared client
+  // already holds can leave the socket half-open, and tab_list must degrade to
+  // layout_name:null rather than hang.
+  const timeoutMs = getLayoutNameForTarget._timeoutMs ?? 1500;
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('layout-name probe timed out')), timeoutMs)
+  );
+  try {
+    return await Promise.race([
+      (async () => {
+        c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+        const { result } = await c.Runtime.evaluate({ expression: TAB_PROBE_JS, returnByValue: true });
+        return result?.value?.layout_name || null;
+      })(),
+      timeout,
+    ]);
+  } catch {
+    return null;
+  } finally {
+    try { if (c) await c.close(); } catch { /* already gone */ }
+  }
+}
+
+/**
+ * Resolve a `target` reference to a CDP page target. Resolution order:
+ *   1. `layout:<name>`  — strip the prefix and match by saved-layout name only
+ *   2. CDP target id
+ *   3. chart_id (the /chart/<id> URL segment)
+ *   4. URL substring
+ *   5. layout/tab name — exact (case-insensitive) then substring, matched
+ *      against each chart tab's live layout name and cleaned page title
+ * Only TradingView chart pages are considered for chart_id/URL/name matching.
  * Throws when nothing matches — callers surface this as a clear tool error.
  */
 export async function findTargetByRef(ref) {
@@ -150,12 +258,54 @@ export async function findTargetByRef(ref) {
   const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
   const targets = await resp.json();
   const pages = targets.filter(t => t.type === 'page');
-  const byId = pages.find(t => t.id === wanted);
-  if (byId) return byId;
   const charts = pages.filter(t => /tradingview\.com\/chart/i.test(t.url || ''));
-  return charts.find(t => (t.url.match(/\/chart\/([^/?]+)/)?.[1]) === wanted)
-    || charts.find(t => (t.url || '').includes(wanted))
-    || (() => { throw new Error(`No open chart tab matches target "${wanted}". Use tab_list to see chart_ids.`); })();
+
+  // Forced layout-name resolution.
+  const forceLayout = wanted.toLowerCase().startsWith(LAYOUT_TARGET_PREFIX);
+  const nameWanted = forceLayout ? wanted.slice(LAYOUT_TARGET_PREFIX.length) : null;
+
+  if (!forceLayout) {
+    const byId = pages.find(t => t.id === wanted);
+    if (byId) return byId;
+    const byChart = charts.find(t => (t.url.match(/\/chart\/([^/?]+)/)?.[1]) === wanted)
+      || charts.find(t => (t.url || '').includes(wanted));
+    if (byChart) return byChart;
+  }
+
+  // Layout-name / tab-title resolution.
+  const q = (nameWanted ?? wanted).toLowerCase();
+  const titled = [];
+  for (const t of charts) {
+    const layout_name = await getLayoutNameForTarget(t.id);
+    let title = (t.title || '').replace(/^Live stock.*charts on /i, '');
+    // The probe returns null when a second CDP client can't attach (e.g. the
+    // shared MCP client already holds this tab) — in that case fall back to the
+    // page title, which on TradingView is the layout/tab name (e.g. "OIL_IG").
+    // Try attaching our own title probe when the page title is empty.
+    if (!title.trim() && !layout_name) {
+      title = await getLayoutNameForTarget(t.id) || title;
+    }
+    titled.push({ target: t, layout_name, title });
+  }
+  const norm = (s) => (s || '').trim().toLowerCase();
+  // When a layout name was read it is authoritative; otherwise the cleaned
+  // page title is the resolving identity.
+  const keyOf = (x) => norm(x.layout_name) || norm(x.title);
+  const exact = titled.find(x => keyOf(x) === q);
+  if (exact) return exact.target;
+  const sub = titled.find(x => keyOf(x).includes(q) && q.length > 0);
+  if (sub) return sub.target;
+
+  if (forceLayout) {
+    throw tvError('TV_TAB_NOT_OPEN', `No open chart tab showing layout "${nameWanted}".`, {
+      resolution: { by: 'layout', name: nameWanted },
+      hint: `The layout is saved but not open in any tab. Open it with tab_new({ layout: "${nameWanted}" }) — that tool drives the layout picker and is NOT headless — then retry this call with target: "${nameWanted}".`,
+    });
+  }
+  throw tvError('TV_TARGET_NOT_FOUND', `No open chart tab matches target "${wanted}". Use tab_list to see chart_ids and layout names.`, {
+    resolution: { by: 'target', ref: wanted },
+    hint: 'If you meant a saved layout that is not currently open, open it first with tab_new({ layout: "<name>" }) then target it by name.',
+  });
 }
 
 /**
@@ -164,7 +314,8 @@ export async function findTargetByRef(ref) {
  * shared client already holds) — i.e. "service busy, retry", not a real failure.
  */
 export function isTransientCdpError(e) {
-  return /WebSocket is not open|readyState|CLOSED|Target closed|Connection closed|fetch failed|ECONNRESET|EPIPE/i.test(e?.message || '');
+  if (e?.code === 'TV_CDP_TIMEOUT' || e?.code === 'TV_CDP_BUSY') return true;
+  return /WebSocket is not open|readyState|CLOSED|Target closed|Connection closed|fetch failed|ECONNRESET|EPIPE|timed out/i.test(e?.message || '');
 }
 
 /**
@@ -186,7 +337,11 @@ export async function withTargetEvaluate(ref, fn) {
   for (let attempt = 0; attempt < 4; attempt++) {
     let c = null;
     try {
-      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id });
+      c = await withTimeout(
+        CDP({ host: CDP_HOST, port: CDP_PORT, target: target.id }),
+        CDP_CALL_TIMEOUT_MS,
+        'CDP scoped connect'
+      );
       const scoped = async (expression, opts = {}) => {
         const result = await c.Runtime.evaluate({
           expression,
@@ -249,12 +404,17 @@ export async function getTargetInfo() {
 
 export async function evaluate(expression, opts = {}) {
   const c = await getClient();
-  const result = await c.Runtime.evaluate({
-    expression,
-    returnByValue: true,
-    awaitPromise: opts.awaitPromise ?? false,
-    ...opts,
-  });
+  const { timeoutMs, ...evalOpts } = opts;
+  const result = await withTimeout(
+    c.Runtime.evaluate({
+      expression,
+      returnByValue: true,
+      awaitPromise: evalOpts.awaitPromise ?? false,
+      ...evalOpts,
+    }),
+    timeoutMs ?? CDP_CALL_TIMEOUT_MS,
+    'CDP evaluate'
+  );
   if (result.exceptionDetails) {
     const msg = result.exceptionDetails.exception?.description
       || result.exceptionDetails.text

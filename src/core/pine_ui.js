@@ -8,6 +8,7 @@ import {
   setNativeValueExpression,
   readFiberPropExpression,
 } from './dom.js';
+import { tvError } from './err.js';
 
 export const PINE_FACADE = 'https://pine-facade.tradingview.com/pine-facade';
 
@@ -865,7 +866,10 @@ export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
   if (error && (!scripts || !scripts.length)) throw new Error(error);
   if (id) {
     const byId = scripts.find((s) => s.scriptIdPart === id || s.id === id);
-    if (!byId) throw new Error(`Script id "${id}" not found in saved list.`);
+    if (!byId) throw tvError('TV_SCRIPT_NOT_FOUND', `Script id "${id}" not found in saved list.`, {
+      resolution: { by: 'script_id', id },
+      hint: 'Call pine_list_scripts to enumerate saved scripts and confirm the script_id (scriptIdPart), then retry.',
+    });
     return byId;
   }  if (!name) throw new Error('name or id is required.');
   const target = String(name).toLowerCase();
@@ -882,13 +886,17 @@ export async function lookupFacadeScript({ name, id } = {}, _deps = {}) {
     });
     if (partial.length === 1) match = partial[0];
     else if (partial.length > 1) {
-      throw new Error(
-        `Ambiguous script name "${name}". Candidates: `
-        + partial.slice(0, 8).map((s) => s.scriptName || s.scriptTitle).join(', ')
-      );
+      const candidates = partial.slice(0, 8).map((s) => s.scriptName || s.scriptTitle);
+      throw tvError('TV_SCRIPT_AMBIGUOUS', `Ambiguous script name "${name}". Candidates: ${candidates.join(', ')}`, {
+        resolution: { by: 'script_name', name, candidates },
+        hint: 'Multiple scripts match. Retry with the exact scriptName, or resolve via pine_list_scripts and pass script_id.',
+      });
     }
   }
-  if (!match) throw new Error(`Script "${name}" not found. Use pine_list_scripts to see available scripts.`);
+  if (!match) throw tvError('TV_SCRIPT_NOT_FOUND', `Script "${name}" not found. Use pine_list_scripts to see available scripts.`, {
+    resolution: { by: 'script_name', name },
+    hint: 'Call pine_list_scripts to enumerate scripts (it flags ui_visible / published_version), then retry with the exact name or pass script_id.',
+  });
   return match;
 }
 
