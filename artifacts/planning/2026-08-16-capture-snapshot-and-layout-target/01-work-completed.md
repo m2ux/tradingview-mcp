@@ -99,7 +99,25 @@ These are facts from the failed verification, not product claims:
 - Compact snapshot of UKOIL 30S wrote `/home/mike1/projects/dev/tradingview-mcp/screenshots/oil_ig_ukoil.png` (30,956 bytes). Data: 339 bars, price range 88.01–86.69, Volume study only, no Pine graphics/drawings.
 - Cursor's **agent tool registry** can stay stale after a server restart; Desktop showed 96 tools while the chat could not see `capture_snapshot` until a later re-handshake. Reload Window is not always enough; a new chat or full Cursor relaunch is.
 
-## 5. Out of scope for this folder
+## 5. Live session 2026-08-16 (this continuation)
+
+TradingView Desktop **3.3.0** (Electron 38.2.2 / Chrome 140). Launched with `env -u ELECTRON_RUN_AS_NODE` — Cursor leaks that var and the wrapper then prints `bad option: --remote-debugging-port=9222`.
+
+**`currentChart()` is gone.** `524b657`'s probe returned `layout_name: null` on every tab. Names live on `_loadChartService._state.chartList[]` as `{ url: chart_id, name }`. After switching the probe to that map (working tree):
+
+| Check | Result |
+|-------|--------|
+| `tab_list` | 10 charts with names (`OIL_IG` = `gfFTnKHh`, `OIL_IG_2`, `AF4G`, …) |
+| `findTargetByRef("OIL_IG")` | `https://www.tradingview.com/chart/gfFTnKHh/` |
+| `layout_list` current | `OIL_IG_2` live `IG:OILUK` @ 5 (not stale `BATS:CLSK`) |
+| compact snapshot `target: "OIL_IG"` | `TVC:UKOIL` @ 15, last close **88.81**, range 102–78.11, 1661 bars, 9 studies, 33 drawings, 0 Pine graphics |
+| `tab_new("OIL_IG")` before exact-match fix | opened **OIL_IG_2** (substring) |
+| CDP screenshot | timed out (`-32001` / 20–40s) with and without `target` |
+| MCP `tab_list` (old server process) | still `layout_name: null` until restart |
+
+Smoke `tests/smoke_issue23.test.js`: 3 pass, current-layout skipped on the old probe; TAP then hung on open sockets.
+
+## 6. Out of scope for this folder
 
 - Pine fail-loud / `pine_script_history` (#21) — already on the same branch as `461c506`; not part of the snapshot/targeting continuation unless the mixed PR is split.
 - CDP architecture refactor ([#24](https://github.com/m2ux/tradingview-mcp/issues/24) / [planning](../2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/README.md)) — separate work package.
