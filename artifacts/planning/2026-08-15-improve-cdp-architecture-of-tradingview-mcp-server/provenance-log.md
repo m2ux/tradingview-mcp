@@ -14,3 +14,9 @@ One row per task. Append in order.
 | 2026-08-15 | 4 (R3) | claude | moonshotai/kimi-k3 | refactoring | repo-only | Protocol consolidation — create `core/protocol.js` for `Page.*`/`Input.*`/`Emulation.*` CDP calls, update `dom.js`/`capture.js`/`batch.js` consumers (commit 015440a) |
 | 2026-08-15 | 5 (R4) | claude | moonshotai/kimi-k3 | refactoring | repo-only | Wait adoption — shared `sleep` helper in `wait.js`, replace 46 non-wait `setTimeout` sites across 13 core modules (commit bfe7cf1) |
 | 2026-08-15 | 6 (R5) | claude | moonshotai/kimi-k3 | refactoring | repo-only | Health-module split — `health.js` probes-only, `launch.js` + `update_check.js` extracted, re-export shims preserve CLI paths (commit d23d351) |
+
+## Attestation
+
+- Timestamp: 2026-08-16T05:36:40+01:00
+- Certifier: Mike Clay <mike.clay@shielded.io>
+- Option: certify

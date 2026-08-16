@@ -751,6 +751,42 @@
             },
             "optionId": "selective-fixes",
             "respondedAt": "2026-08-16T04:33:33.000Z"
+          },
+          "submit-for-review-build-artifact-check": {
+            "effects": {
+              "variablesSet": {
+                "build_dependent_artifacts_pending": false
+              }
+            },
+            "optionId": "none-needed",
+            "respondedAt": "2026-08-16T04:44:25.000Z"
+          },
+          "submit-for-review-dco-sign-off-confirmation": {
+            "effects": {
+              "variablesSet": {
+                "attestation_option": "certify"
+              }
+            },
+            "optionId": "certify",
+            "respondedAt": "2026-08-16T04:36:04.000Z"
+          },
+          "submit-for-review-review-outcome": {
+            "effects": {
+              "variablesSet": {
+                "review_requires_changes": false
+              }
+            },
+            "optionId": "approved",
+            "respondedAt": "2026-08-16T04:50:30.000Z"
+          },
+          "submit-for-review-review-received#1": {
+            "effects": {
+              "variablesSet": {
+                "awaiting_review": false
+              }
+            },
+            "optionId": "yes-review",
+            "respondedAt": "2026-08-16T04:47:58.000Z"
           }
         },
         "completedActivities": [
@@ -765,11 +801,13 @@
           "implement",
           "lean-coding-audit",
           "post-impl-review",
-          "validate"
+          "validate",
+          "strategic-review",
+          "submit-for-review"
         ],
-        "condition": "isDefault:true → strategic-review",
-        "currentActivity": "strategic-review",
-        "currentTechnique": "strategic-review::apply-cleanup",
+        "condition": "review_requires_changes==false",
+        "currentActivity": "complete",
+        "currentTechnique": "review-outcome-analysis",
         "deliveredContent": {
           "orchestrator": {
             "resource:pr-description#template-initial": "dd48a34467051e68",
@@ -1141,6 +1179,39 @@
             "technique:update-pr::render": "e9e4dfe739f07d85",
             "technique:verify-artifact-conforms": "233f3cb6a226ced8",
             "technique:workflow-engine::verify-readme-conforms": "47f84bd470c4320c"
+          },
+          "w-submit-for-review-we6p3q": {
+            "activity_rules:148ebfb566580534": "148ebfb566580534",
+            "bundle:rules:10a1d5254cc0b16f": "10a1d5254cc0b16f",
+            "bundle:variable-binding": "69962c9fd66c4d9a",
+            "bundle:workflow-engine::activity-worker": "c81c6e7803027e7a",
+            "bundle:workflow-engine::finalize-activity": "31fa43cca3fda282",
+            "bundle:workflow-engine::resume-from-checkpoint": "c5d39964aebc52ea",
+            "bundle:workflow-engine::yield-checkpoint": "9c288d31d7ef9773",
+            "resource:pr-description": "6e92c7c6595a9bcc",
+            "resource:provenance-log": "af00af0e1d186172",
+            "technique:dco-provenance::record-attestation": "dcfabdcfff146082",
+            "technique:inherited_inputs.items:7f5ac714d93fc371": "7f5ac714d93fc371",
+            "technique:inherited_inputs.items:836e1db2eba90d84": "836e1db2eba90d84",
+            "technique:inherited_inputs.items:ccccc71edcfa853d": "ccccc71edcfa853d",
+            "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
+            "technique:inherited_inputs:2b25ae49d6376348": "2b25ae49d6376348",
+            "technique:inherited_inputs:36686facf3dee7ad": "36686facf3dee7ad",
+            "technique:inherited_inputs:89271f2c4b8ea7e1": "89271f2c4b8ea7e1",
+            "technique:inherited_outputs.items:a83540794ec50ae1": "a83540794ec50ae1",
+            "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:2b847433bfdf20b8": "2b847433bfdf20b8",
+            "technique:manage-git::instruct-merge-strategy": "dd25e455d6eb4124",
+            "technique:manage-git::push-commits": "78560fbc1f9c1a97",
+            "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
+            "technique:respond-to-pr-review": "5fd4f956e8ef7afd",
+            "technique:review-outcome-analysis": "3b91263766f759df",
+            "technique:rules:397043ffc2fcb814": "397043ffc2fcb814",
+            "technique:rules:76926887bfa6d8bc": "76926887bfa6d8bc",
+            "technique:rules:87e59199dc0a9945": "87e59199dc0a9945",
+            "technique:rules:cb806ebc732dbbf9": "cb806ebc732dbbf9",
+            "technique:update-pr::mark-ready": "92ddd44b97316065",
+            "technique:update-pr::render": "78a7364604d07326"
           },
           "w-validate-we6p3q": {
             "activity_rules:148ebfb566580534": "148ebfb566580534",
@@ -9206,18 +9277,781 @@
             },
             "timestamp": "2026-08-16T04:34:36.774Z",
             "type": "activity_usage"
+          },
+          {
+            "activity": "strategic-review",
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "architecture_summary",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-architecture-summary-1.md"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "body_conforms",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "body_findings",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "recommended_strategic_option",
+              "source": "variables_changed",
+              "value": "acceptable"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "review_passed",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_findings_actionable",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_findings_summary",
+              "source": "variables_changed",
+              "value": "Low: empty src/.gitkeep from the scaffold commit\nLow: unused acquireScopedClient borrow helper"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_fixes_selective",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_review_doc",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-strategic-review-1.md"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "strategic_review_method",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-strategic-review-1-method.md"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "unsigned_commit_list_summary",
+              "source": "variables_changed",
+              "value": ""
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "name": "unsigned_commits_in_pr",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "review-strategy"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "refresh-pr-body"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "verify-artifact-conformance"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "verify-readme"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "ensure-changes-folder-entry"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "verify-change-fragment"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "document-findings"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "apply-cleanup"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "create-architecture-summary"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "analyze-strategic-findings"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "strategic-review",
+            "data": {
+              "agentId": "w-strategic-review-we6p3q",
+              "stepId": "review-findings"
+            },
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-16T04:34:41.429Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 52215,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-08-16T04:34:55.104Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "dco-sign-off-confirmation",
+            "timestamp": "2026-08-16T04:35:46.639Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "dco-sign-off-confirmation",
+            "data": {
+              "optionId": "certify"
+            },
+            "timestamp": "2026-08-16T04:36:04.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "attestation_option",
+              "source": "setVariable",
+              "value": "certify"
+            },
+            "timestamp": "2026-08-16T04:36:04.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 16801,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-16T04:36:18.277Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 3921,
+              "delivery": "full",
+              "stepId": "dco-sign-off",
+              "techniqueId": "dco-provenance::record-attestation"
+            },
+            "timestamp": "2026-08-16T04:36:23.587Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "dco-sign-off"
+            },
+            "timestamp": "2026-08-16T04:36:23.587Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 1197,
+              "delivery": "full",
+              "resourceId": "provenance-log"
+            },
+            "timestamp": "2026-08-16T04:36:35.913Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 4493,
+              "delivery": "full",
+              "stepId": "push-commits",
+              "techniqueId": "manage-git::push-commits"
+            },
+            "timestamp": "2026-08-16T04:36:46.366Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "push-commits"
+            },
+            "timestamp": "2026-08-16T04:36:46.366Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 7618,
+              "delivery": "full",
+              "stepId": "update-description",
+              "techniqueId": "update-pr::render"
+            },
+            "timestamp": "2026-08-16T04:37:00.841Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "update-description"
+            },
+            "timestamp": "2026-08-16T04:37:00.841Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 6475,
+              "delivery": "full",
+              "resourceId": "pr-description"
+            },
+            "timestamp": "2026-08-16T04:37:10.462Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 5092,
+              "delivery": "full",
+              "stepId": "instruct-merge-strategy",
+              "techniqueId": "manage-git::instruct-merge-strategy"
+            },
+            "timestamp": "2026-08-16T04:37:43.170Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "instruct-merge-strategy"
+            },
+            "timestamp": "2026-08-16T04:37:43.170Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "build-artifact-check",
+            "timestamp": "2026-08-16T04:38:10.378Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "build-artifact-check",
+            "data": {
+              "optionId": "none-needed"
+            },
+            "timestamp": "2026-08-16T04:44:25.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "build_dependent_artifacts_pending",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:44:25.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 16801,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-16T04:44:38.093Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 5197,
+              "delivery": "full",
+              "stepId": "mark-ready",
+              "techniqueId": "update-pr::mark-ready"
+            },
+            "timestamp": "2026-08-16T04:44:40.433Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "mark-ready"
+            },
+            "timestamp": "2026-08-16T04:44:40.433Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-received#1",
+            "timestamp": "2026-08-16T04:46:31.798Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-received#1",
+            "data": {
+              "optionId": "yes-review"
+            },
+            "timestamp": "2026-08-16T04:47:58.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "awaiting_review",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:47:58.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 16801,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-16T04:48:10.495Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 7966,
+              "delivery": "full",
+              "stepId": "process-review-comments",
+              "techniqueId": "respond-to-pr-review"
+            },
+            "timestamp": "2026-08-16T04:48:13.109Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "process-review-comments"
+            },
+            "timestamp": "2026-08-16T04:48:13.109Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 3975,
+              "delivery": "full",
+              "stepId": "analyze-review-outcome",
+              "techniqueId": "review-outcome-analysis"
+            },
+            "timestamp": "2026-08-16T04:48:21.540Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "analyze-review-outcome"
+            },
+            "timestamp": "2026-08-16T04:48:21.540Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-outcome",
+            "timestamp": "2026-08-16T04:48:38.523Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "submit-for-review",
+            "checkpoint": "review-outcome",
+            "data": {
+              "optionId": "approved"
+            },
+            "timestamp": "2026-08-16T04:50:30.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_requires_changes",
+              "source": "setVariable",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:50:30.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "chars": 16801,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-08-16T04:50:43.631Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "usage": {}
+            },
+            "timestamp": "2026-08-16T04:51:09.649Z",
+            "type": "activity_usage"
+          },
+          {
+            "activity": "submit-for-review",
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "attestation_option",
+              "source": "variables_changed",
+              "value": "certify"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "awaiting_review",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "body_conforms",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "body_findings",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "build_dependent_artifacts_pending",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "provenance_log",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/provenance-log.md"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "pushed_branch",
+              "source": "variables_changed",
+              "value": "chore/24-improve-cdp-architecture"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "recommended_outcome",
+              "source": "variables_changed",
+              "value": "approved"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_comments",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_comments_summary",
+              "source": "variables_changed",
+              "value": "none — user attested review passed with an empty comment set"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "name": "review_requires_changes",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "announce-start"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "dco-sign-off"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "push-commits"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "update-description"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "instruct-merge-strategy"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "mark-ready"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "process-review-comments"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "analyze-review-outcome"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "submit-for-review",
+            "data": {
+              "agentId": "w-submit-for-review-we6p3q",
+              "stepId": "announce-completion"
+            },
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "complete",
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "activity_entered"
+          },
+          {
+            "timestamp": "2026-08-16T04:51:11.970Z",
+            "type": "workflow_completed"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 166,
+        "seq": 195,
         "sessionIndex": "WE6P3Q",
         "skippedActivities": [],
         "startedAt": "2026-08-15T07:12:21.243Z",
-        "status": "running",
+        "status": "completed",
         "triggeredWorkflows": [],
-        "ts": 1786854876,
+        "ts": 1786855871,
         "variables": {
+          "architecture_summary": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-architecture-summary-1.md",
           "artifact_name": "",
           "artifact_publish_ref": "",
           "assumption_batch_accepted": true,
@@ -9229,7 +10063,7 @@
           "awaiting_review": false,
           "block_line_range": "",
           "block_path": "",
-          "body_conforms": false,
+          "body_conforms": true,
           "body_findings": [],
           "body_override_recorded": false,
           "broken_artifact_links": [],
@@ -9287,13 +10121,18 @@
           "pr_skipped": false,
           "pr_url": "",
           "problem_complexity": "complex",
+          "provenance_log": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/provenance-log.md",
           "provenance_log_path": "",
           "push_remote": "origin",
           "push_remote_url": "",
+          "pushed_branch": "chore/24-improve-cdp-architecture",
+          "recommended_outcome": "approved",
+          "recommended_strategic_option": "acceptable",
           "resign_unsigned_commits_requested": false,
-          "review_comments_summary": "",
+          "review_comments": [],
+          "review_comments_summary": "none — user attested review passed with an empty comment set",
           "review_mode_ambiguous": false,
-          "review_passed": false,
+          "review_passed": true,
           "review_posted": false,
           "review_pr_captured": false,
           "review_pr_missing": false,
@@ -9310,8 +10149,10 @@
           "stealth_mode": false,
           "strategic_findings_actionable": true,
           "strategic_findings_deferred": false,
-          "strategic_findings_summary": "",
+          "strategic_findings_summary": "Low: empty src/.gitkeep from the scaffold commit\nLow: unused acquireScopedClient borrow helper",
           "strategic_fixes_selective": true,
+          "strategic_review_doc": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-strategic-review-1.md",
+          "strategic_review_method": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/12-strategic-review-1-method.md",
           "submission_aborted": false,
           "summary_budget_overruns": [],
           "test_findings_actionable": false,
