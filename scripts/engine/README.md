@@ -17,8 +17,8 @@ indicator shell (thin)  →  zone-source adapter  →  generic divergence engine
 ```
 
 - **`ZoneState`** — a per-bar (non-`var`) snapshot of the 14 measured inputs the engine needs:
-  per-side zone-state bools (`z0/zw/zx`), zone intensity (`rz`), edge detectors
-  (`noRise/noFall/isWFall`), and the momentum value (`mom`). Never read with `[1]`, so it is a
+  nested-band bools (`inCore/inWide/inZone`), intensity, edge detectors
+  (`noRise/noFall/wideExit`), and the oscillator (`mom`). Never read with `[1]`, so it is a
   value, not a history carrier — the property that makes this safe where the UDT collapse was not.
 - **Engine library** (`RSIZoneDivEng`) — the pure, already-side-parameterized helpers lifted
   from SymLo, plus a per-side `step()` taking `dir` + `ZoneState` + explicit `prev*` args.
@@ -28,10 +28,10 @@ indicator shell (thin)  →  zone-source adapter  →  generic divergence engine
 
 | Category | Inputs |
 |----------|--------|
-| Zone-state bools (per side) | `z0`, `zw`, `zx` |
-| Zone intensity | `rz` (0..4) |
-| Edge detectors | `noRise`, `noFall`, `isWFall` |
-| Momentum value | `mom` (e.g. RSI) |
+| Nested-band bools (per side) | `inCore`, `inWide`, `inZone` |
+| Intensity | `intensity` (any monotone depth) |
+| Edge detectors | `noRise`, `noFall`, `wideExit` |
+| Oscillator | `mom` (e.g. RSI; not required to be RSI) |
 
 ## Regression gate
 
@@ -47,3 +47,6 @@ diff 58/58 signals, drift 0, both polarities present. This refactor is **regress
    sources (fixed-threshold RSI bands; Bollinger-%B) onto `ZoneState` and generalize any field that
    leaks RSIZones semantics before the published API is locked at step 5.
 5. Privately publish + pin the engine library; switch the shell to the published import.
+
+Steps 1–5 are gated. Published pin: `import theansweris42/RSIZoneDivEng/2 as eng`. Shell:
+`scripts/rszonediv_generic.pine`.

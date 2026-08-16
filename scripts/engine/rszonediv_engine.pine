@@ -2,12 +2,12 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © theansweris42
 //
-// Library-generic momentum-divergence engine (Step 1: pure move of RSIZoneSymLo helpers).
+// Library-generic momentum-divergence engine (Step 3: per-side step() + explicit prev*).
 // Pure, side-parameterized next-value logic. dir = +1 -> low (bullish) side; dir = -1 -> high (bearish) side.
-// All functions are pure: every series-history value (x[1], ta.*) is computed by the caller in global
-// scope and passed in as an explicit prev* / edge argument. No function here reads history or a concrete
-// zone source — that is what makes the engine reusable over any zone/band adapter.
+// No function here reads history (x[1], ta.*) or a concrete zone source. The caller builds ZoneState
+// and SidePrev from flat globals each bar and assigns SideOut back onto those globals.
 library("RSIZoneDivEng")
+// publish stamp 2026-08-16 step5-rename
 
 // "Is `a` a more extreme peak than `b` for this side?" low: lower is better; high: higher is better.
 export better(float dir, float a, float b) =>
@@ -96,3 +96,108 @@ export f_topk(float dir, bool capEn, bool zcapEdge, bool zcapChange) =>
 // Flat flag: in the wider band, on W-fall, with no zone-capture change and no range-capture change.
 export f_flat(bool capEn, bool isWFall, bool zcapChange, bool rcapChange) =>
     capEn and isWFall and not zcapChange and not rcapChange
+
+// RSIZones to_bool: na != 0 → true. Do not replace with bool() (na → false).
+f_to_bool(float x) =>
+    x == 0.0 ? false : true
+
+// Per-bar zone snapshot (non-var). Never read a field with [1] — copy to a flat series first.
+export type ZoneState
+    bool  inCore
+    bool  inWide
+    bool  inZone
+    float intensity
+    bool  noRise
+    bool  noFall
+    bool  wideExit
+    float mom
+
+// Previous-bar scalars for one side. Built in the shell from flat [1] reads (not var UDT history).
+export type SidePrev
+    float sp
+    float rp
+    float zp
+    float st
+    float capState
+    float prevZx
+    float conB
+    float conW
+    float scap
+    float rcap
+    float zcap
+    float momCon
+    float momCap
+    float momRcap
+    float momZcap
+    float divCnt
+
+export type SideOut
+    float sp
+    float rp
+    float zp
+    float st
+    float capState
+    bool  capEn
+    float conB
+    float conW
+    float scap
+    float rcap
+    float zcap
+    float momCon
+    float momCap
+    float momRcap
+    float momZcap
+    float divCnt
+    bool  trig
+
+// One side, one bar. Edges that were ta.falling/rising/change in the shell are
+// histOk-gated comparisons against SidePrev (same timing as bar_index >= 1).
+// High-side mom-hit uses current mom/coeff (not prevCon); high-side mom nopk uses bool()
+// on the rcap delta — both preserved from 350-symLo.
+export step(float dir, ZoneState zs, float body, float wick, float mid, float mpTol, bool hiSens, SidePrev p) =>
+    bool histOk = bar_index >= 1
+    float coeff = 1.01
+    float sp = f_summit_peak(zs.inCore, zs.noRise, zs.intensity, p.sp)
+    float rp = f_band_peak(zs.inWide, sp, p.rp)
+    float zp = f_band_peak(zs.inZone, sp, p.zp)
+    float st = f_summit_trough(zs.inWide, zs.intensity, rp)
+    bool stFall = histOk and st < p.st
+    bool stRise = histOk and st > p.st
+    bool tReset = histOk and stFall
+    bool tComplete = histOk and not stFall
+    bool tPending = histOk and stRise
+    float capState = f_capture_state(zs.inZone, p.prevZx, tReset, tPending, p.capState)
+    bool capRise = histOk and capState > p.capState
+    bool capFall = histOk and capState < p.capState
+    bool capTrig = capRise and capState != 3.0 or capFall
+    bool capEn = capState > 0
+    bool hitB = f_hit_b(dir, zs.noFall, body, p.conB, coeff)
+    bool hitW = f_hit_w(dir, zs.noFall, wick, p.conW)
+    float conB = f_con(capEn, tComplete, hitB, body, p.conB, body)
+    float conW = f_con(capEn, tComplete, hitW, wick, p.conW, body)
+    float scap = f_price_scap(dir, capEn, zs.wideExit, capTrig, conW, conB, p.rcap, p.scap, body)
+    float rcap = f_price_rcap(capEn, zs.wideExit, p.rp, p.scap, p.rcap, body)
+    float rcapCh = rcap - p.rcap
+    bool isRcapCh = f_to_bool(rcapCh)
+    float zcap = f_price_zcap(dir, capEn, rcap, p.zcap, body)
+    float zcapCh = zcap - p.zcap
+    bool zcapEdge = dir > 0 ? histOk and zcap < p.zcap : histOk and zcap > p.zcap
+    bool isZcapCh = f_to_bool(zcapCh)
+    bool topk = f_topk(dir, capEn, zcapEdge, isZcapCh)
+    bool flat = f_flat(capEn, zs.wideExit, isZcapCh, isRcapCh)
+    float mom = zs.mom
+    bool momHit = zs.noFall and (dir > 0 ? mom <= p.momCon / coeff : mom >= mom / coeff)
+    float momCon = f_con(capEn, tComplete, momHit, mom, p.momCon, mom)
+    float momCap = f_mom_cap(dir, capEn, zs.wideExit, capTrig, momCon, p.momCap, mid)
+    float momRcap = f_range_cap(capEn, zs.wideExit, p.rp, p.momCap, p.momRcap, mid)
+    float momZcap = f_mom_zcap(dir, capEn, momRcap, p.momZcap, mpTol, mid)
+    bool momCapEdge = dir > 0 ? histOk and momCap < p.momCap : histOk and momCap > p.momCap
+    bool capTrg = momCapEdge and p.momCap == mid and dir * (momCap - momZcap) > 0
+    float momZcapCh = momZcap - p.momZcap
+    float momRcapCh = momRcap - p.momRcap
+    bool momRcapChB = dir > 0 ? f_to_bool(momRcapCh) : bool(momRcapCh)
+    bool nopk = momZcap - momRcap != 0 and momZcapCh == 0 and momRcapChB
+    float divCnt = f_div_cnt(zs.inZone, nopk, topk, flat, p.divCnt)
+    bool divRise = histOk and divCnt > p.divCnt
+    bool trig = hiSens ? capTrg : divRise
+    SideOut.new(sp, rp, zp, st, capState, capEn, conB, conW, scap, rcap, zcap, momCon, momCap, momRcap, momZcap, divCnt, trig)
