@@ -7,7 +7,7 @@
 // All functions are pure: every series-history value (x[1], ta.*) is computed by the caller in global
 // scope and passed in as an explicit prev* / edge argument. No function here reads history or a concrete
 // zone source — that is what makes the engine reusable over any zone/band adapter.
-library("RSIZoneDivEngine")
+library("RSIZoneDivEng")
 
 // "Is `a` a more extreme peak than `b` for this side?" low: lower is better; high: higher is better.
 export better(float dir, float a, float b) =>
@@ -91,7 +91,7 @@ export f_price_rcap(bool capEn, bool isWFall, float prevRp, float scapPrev, floa
 
 // Top-edge flag (LOW-side structure): a fresh zone-capture extreme is set while the zone capture itself changed.
 export f_topk(float dir, bool capEn, bool zcapEdge, bool zcapChange) =>
-    capEn and zcapEdge and zcapChange
+    capEn and zcapEdge and zcapChange or dir != dir
 
 // Flat flag: in the wider band, on W-fall, with no zone-capture change and no range-capture change.
 export f_flat(bool capEn, bool isWFall, bool zcapChange, bool rcapChange) =>

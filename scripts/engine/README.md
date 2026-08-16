@@ -20,7 +20,7 @@ indicator shell (thin)  →  zone-source adapter  →  generic divergence engine
   per-side zone-state bools (`z0/zw/zx`), zone intensity (`rz`), edge detectors
   (`noRise/noFall/isWFall`), and the momentum value (`mom`). Never read with `[1]`, so it is a
   value, not a history carrier — the property that makes this safe where the UDT collapse was not.
-- **Engine library** (`RSIZoneDivEngine`) — the pure, already-side-parameterized helpers lifted
+- **Engine library** (`RSIZoneDivEng`) — the pure, already-side-parameterized helpers lifted
   from SymLo, plus a per-side `step()` taking `dir` + `ZoneState` + explicit `prev*` args.
 - **Shell** — one concrete import + one adapter call per side; flat per-side `[1]` history globals.
 
