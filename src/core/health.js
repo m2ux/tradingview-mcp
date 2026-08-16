@@ -7,6 +7,7 @@
  * continue to work.
  */
 import { getClient, getTargetInfo, evaluate, KNOWN_PATHS } from '../connection.js';
+import { checkForUpdate } from './update_check.js';
 
 export { launch } from './launch.js';
 export { checkForUpdate } from './update_check.js';
