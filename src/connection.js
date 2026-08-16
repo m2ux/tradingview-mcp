@@ -193,6 +193,10 @@ export const LAYOUT_TARGET_PREFIX = 'layout:';
 // Read a chart tab's live per-tab state (symbol, resolution, layout name).
 // Runs in that tab's own page context so the values are always live, never
 // the cached values getSavedCharts() can return for a layout.
+//
+// Desktop 3.3+ dropped `_chartWidgetCollection.currentChart()`. The layout
+// name now lives on `_loadChartService._state.chartList[]` keyed by chart_id
+// (`url`). Keep the currentChart() path as a fallback for older builds.
 const TAB_PROBE_JS = `(function() {
   var out = { symbol: null, resolution: null, layout_name: null };
   try {
@@ -212,9 +216,76 @@ const TAB_PROBE_JS = `(function() {
         if (ln) out.layout_name = ln;
       }
     }
+    if (!out.layout_name) {
+      var id = (location.pathname.split('/chart/')[1] || '').split('/')[0];
+      var load = root._loadChartService;
+      var state = load && load._state && typeof load._state.value === 'function' ? load._state.value() : null;
+      var list = state && state.chartList;
+      if (id && Array.isArray(list)) {
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].url === id && list[i].name) { out.layout_name = list[i].name; break; }
+        }
+      }
+    }
   } catch (e) {}
   return out;
 })()`;
+
+// One evaluate, all open/recent chart_id → layout name. Shared by tab_list
+// and findTargetByRef so we do not open a scoped socket per tab.
+const LAYOUT_MAP_JS = `(function() {
+  try {
+    var load = window.TradingViewApi && window.TradingViewApi._loadChartService;
+    var state = load && load._state && typeof load._state.value === 'function' ? load._state.value() : null;
+    var list = state && state.chartList;
+    if (!Array.isArray(list)) return null;
+    var out = {};
+    for (var i = 0; i < list.length; i++) {
+      var row = list[i];
+      if (row && row.url && row.name) out[String(row.url)] = String(row.name);
+    }
+    return out;
+  } catch (e) { return null; }
+})()`;
+
+let _layoutNameCache = { at: 0, map: null, targets: null };
+const LAYOUT_NAME_TTL_MS = 2000;
+
+/** Pure lookup used by tests and getLayoutNameForTarget. */
+export function layoutNameFromChartList(chartList, chartId) {
+  if (!Array.isArray(chartList) || !chartId) return null;
+  const row = chartList.find((c) => c && String(c.url) === String(chartId));
+  return row?.name || null;
+}
+
+function _clearLayoutNameCache() {
+  _layoutNameCache = { at: 0, map: null, targets: null };
+}
+
+async function _ensureLayoutNameCache() {
+  const now = Date.now();
+  if (_layoutNameCache.map && (now - _layoutNameCache.at) < LAYOUT_NAME_TTL_MS) {
+    return _layoutNameCache;
+  }
+  const targets = await listTargets();
+  const charts = targets.filter((t) => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url || ''));
+  let map = {};
+  for (const chart of charts.slice(0, 3)) {
+    let c = null;
+    try {
+      c = await makeScopedClient(chart);
+      const { result } = await c.Runtime.evaluate({ expression: LAYOUT_MAP_JS, returnByValue: true });
+      if (result?.value && typeof result.value === 'object') {
+        map = result.value;
+        if (Object.keys(map).length) break;
+      }
+    } catch {
+      /* try the next chart tab */
+    }
+  }
+  _layoutNameCache = { at: now, map, targets };
+  return _layoutNameCache;
+}
 
 /**
  * Best-effort live layout name for a chart target id. Never throws — returns
@@ -225,10 +296,16 @@ export async function getLayoutNameForTarget(targetId, _probe) {
   if (probe) {
     try { return (await probe(targetId)) || null; } catch { return null; }
   }
-  let c = null;
-  // Bound the whole probe: a second CDP client on a tab the shared client
-  // already holds can leave the socket half-open, and tab_list must degrade to
-  // layout_name:null rather than hang.
+  try {
+    const { map, targets } = await _ensureLayoutNameCache();
+    const t = (targets || []).find((x) => x.id === targetId);
+    const chartId = t?.url?.match(/\/chart\/([^/?]+)/)?.[1];
+    if (chartId && map && map[chartId]) return map[chartId];
+  } catch {
+    /* degrade to per-tab probe */
+  }
+
+  // Per-tab fallback (currentChart() on older Desktop, or in-page chartList).
   const timeoutMs = getLayoutNameForTarget._timeoutMs ?? 1500;
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('layout-name probe timed out')), timeoutMs)
@@ -236,7 +313,7 @@ export async function getLayoutNameForTarget(targetId, _probe) {
   try {
     return await Promise.race([
       (async () => {
-        c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+        const c = await makeScopedClient(targetId);
         const { result } = await c.Runtime.evaluate({ expression: TAB_PROBE_JS, returnByValue: true });
         return result?.value?.layout_name || null;
       })(),
@@ -244,8 +321,6 @@ export async function getLayoutNameForTarget(targetId, _probe) {
     ]);
   } catch {
     return null;
-  } finally {
-    try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
 
@@ -523,6 +598,7 @@ export async function disconnect() {
     client = null;
     targetInfo = null;
   }
+  _clearLayoutNameCache();
   await drainScopedPool();
 }
 

@@ -13,6 +13,14 @@ import { getClient, reconnectTo, getLayoutNameForTarget, listTargets, makeScoped
 import { tvError } from './err.js';
 import { sleep } from '../wait.js';
 
+/** Exact name wins over substring so "OIL_IG" does not open "OIL_IG_2". */
+export function preferExactLayoutName(names, query) {
+  const q = String(query).toLowerCase();
+  const exact = names.find((n) => String(n).toLowerCase() === q);
+  if (exact) return exact;
+  return names.find((n) => String(n).toLowerCase().includes(q)) || null;
+}
+
 /**
  * List all open chart tabs (CDP page targets), each enriched with the live
  * layout name showing in it (when one can be read) so a layout/tab title can
@@ -207,13 +215,16 @@ export async function newTab({ layout, name } = {}) {
       (function() {
         var q = ${JSON.stringify(String(layout).toLowerCase())};
         var items = document.querySelectorAll('.layout-list-item');
+        var sub = null;
         for (var i = 0; i < items.length; i++) {
           var t = items[i].querySelector('.layout-list-item-title');
-          if (t && t.textContent.trim().toLowerCase().indexOf(q) !== -1) {
-            items[i].click();
-            return t.textContent.trim();
-          }
+          if (!t) continue;
+          var name = t.textContent.trim();
+          var n = name.toLowerCase();
+          if (n === q) { items[i].click(); return name; }
+          if (!sub && n.indexOf(q) !== -1) sub = { el: items[i], name: name };
         }
+        if (sub) { sub.el.click(); return sub.name; }
         return null;
       })()
     `;

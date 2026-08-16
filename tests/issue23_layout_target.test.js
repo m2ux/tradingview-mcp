@@ -8,9 +8,9 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { findTargetByRef, getLayoutNameForTarget } from '../src/connection.js';
+import { findTargetByRef, getLayoutNameForTarget, layoutNameFromChartList } from '../src/connection.js';
 import { layoutList } from '../src/core/ui.js';
-import { list as tabList } from '../src/core/tab.js';
+import { list as tabList, preferExactLayoutName } from '../src/core/tab.js';
 
 const TARGETS = [
   { id: 'T1', type: 'page', title: 'OIL_IG — TradingView', url: 'https://www.tradingview.com/chart/od9I4OCz/?symbol=TVC%3AUKOIL' },
@@ -68,6 +68,26 @@ describe('findTargetByRef() — layout/tab name resolution', () => {
 
   it('throws a clear error mentioning layout names when nothing matches', async () => {
     await assert.rejects(() => findTargetByRef('nope'), /layout names/);
+  });
+});
+
+describe('layoutNameFromChartList() — Desktop 3.3 load-service map', () => {
+  it('resolves a chart_id to its layout name', () => {
+    const list = [
+      { url: 'CzpBLt7Z', name: 'OIL_IG_2' },
+      { url: 'gfFTnKHh', name: 'OIL_IG' },
+    ];
+    assert.equal(layoutNameFromChartList(list, 'gfFTnKHh'), 'OIL_IG');
+    assert.equal(layoutNameFromChartList(list, 'missing'), null);
+    assert.equal(layoutNameFromChartList(null, 'gfFTnKHh'), null);
+  });
+});
+
+describe('preferExactLayoutName() — tab_new picker', () => {
+  it('picks the exact name ahead of a longer substring match', () => {
+    assert.equal(preferExactLayoutName(['OIL_IG_2', 'OIL_IG'], 'OIL_IG'), 'OIL_IG');
+    assert.equal(preferExactLayoutName(['OIL_IG_2', 'OIL_IG'], 'oil_ig'), 'OIL_IG');
+    assert.equal(preferExactLayoutName(['OIL_IG_2'], 'OIL'), 'OIL_IG_2');
   });
 });
 

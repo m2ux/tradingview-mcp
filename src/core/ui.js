@@ -296,6 +296,21 @@ export async function layoutList(_deps = {}) {
               if (ln) out.name = ln;
             }
           }
+          // Desktop 3.3+ dropped currentChart(); layout name is on the
+          // load-service chartList, keyed by this page's chart_id.
+          if (!out.name) {
+            try {
+              var id = (location.pathname.split('/chart/')[1] || '').split('/')[0];
+              var load = root._loadChartService;
+              var state = load && load._state && typeof load._state.value === 'function' ? load._state.value() : null;
+              var list = state && state.chartList;
+              if (id && Array.isArray(list)) {
+                for (var i = 0; i < list.length; i++) {
+                  if (list[i] && list[i].url === id && list[i].name) { out.name = list[i].name; break; }
+                }
+              }
+            } catch (e) {}
+          }
         } catch (e) {}
         return out;
       };

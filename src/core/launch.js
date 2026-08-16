@@ -39,7 +39,11 @@ async function _probeCdp(cdpPort) {
 }
 
 function _spawnDetached(spawnFn, exe, args) {
-  const child = spawnFn(exe, args, { detached: true, stdio: 'ignore' });
+  // Cursor / VS Code / Claude Desktop set ELECTRON_RUN_AS_NODE=1 on helper
+  // processes. If that leaks into this spawn, TradingView boots as Node and
+  // rejects --remote-debugging-port ("bad option") so CDP never binds.
+  const { ELECTRON_RUN_AS_NODE: _stripped, ...env } = process.env;
+  const child = spawnFn(exe, args, { detached: true, stdio: 'ignore', env });
   child.unref();
   return child;
 }
