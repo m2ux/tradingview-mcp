@@ -1,6 +1,6 @@
 # RSIZoneDiv — Library-Generic Refactor Plan
 
-> Work package · tradingview-mcp · 2026-08-12 · **Status:** Step 1 sources complete & pushed — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) (branch `feat/rszonediv-generic-refactor`, commit `2798dba`). **Cloud publish BLOCKED** by a corrupt TradingView facade identity (title stuck at "E2E Test"; fresh-layout path ruled out — see §10). Decisions locked (§9). **Needs a manual UI reset of the corrupt scripts before the engine can be published.**
+> Work package · tradingview-mcp · 2026-08-16 · **Status:** Steps 1–2 **gated green** (58/58, 27 LOW / 31 HIGH, 8968/8968 overlap). Resume at **Step 3** (`step()` + explicit `prev*`). Engine privately published as `import theansweris42/RSIZoneDivEng/1`. Verify layout `RSIZoneDiv-verify` (`mOJFbuuv`). [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20) branch `feat/rszonediv-generic-refactor`. Decisions locked (§9). **Do not overwrite RSIZones.**
 >
 > **Companion reading:** `01-pine-language-semantics.md` (esp. §1 UDT history, §3 lazy eval),
 > `04-refactoring-playbook.md` (esp. §2 collapse limits, §3 side-parameterization, §7 asymmetry
@@ -237,3 +237,46 @@ are unaffected.
 
 **Resume here:** fix the workspace (A or C), publish the engine, add the shell to chart, diff 58/58
 against `rszonediv_sym_lo_ukoil_30m_baseline.json`, then continue to Step 2.
+
+---
+
+## 11. Step-1 + Step-2 execution log (2026-08-16)
+
+The §10 publish blocker was bypassed by **creating a new library identity** (`RSIZoneDivEng`) instead of repairing the E2E-corrupt `RSIZoneDivEngine` / `RSIZoneDivEngineLib` facades. Those corrupt scripts are still in the cloud — do not copy from them, do not `pine_open("RSIZoneDivEng")` by name (ambiguous). Bind by `script_id`.
+
+### Cloud identities (do not overwrite RSIZones)
+
+| Script | ID | State |
+|--------|----|--------|
+| **RSIZones** | `USER;5b48c567b4984921b0262ea4db325dca` | Healthy library, v8.0, published 1.0. **Leave alone.** |
+| **RSIZoneDivEng** | `USER;5b5dedfb24ae434b93faa73bc3e6ac19` | Healthy library, saved v3.0, privately published **1.0**. pubId `PUB;72abc288ee55459991046fecfbc23326`. Import: `import theansweris42/RSIZoneDivEng/1 as eng` |
+| **RSIZoneDivGeneric** | `USER;55dab092b81d4ea8a41c4527b6bc7432` | Study, saved **v3.0**, title `RSI Zone Divergence Generic`. Step-2 source (ZoneState adapter in the shell). |
+| RSIZoneDivEngine / EngineLib | `USER;7de16a87…` / `USER;611abf85…` | Still E2E-corrupt. Ignore. |
+
+### Verify layout
+
+- Name `RSIZoneDiv-verify`, chart_id **`mOJFbuuv`**. Symbol `TVC:UKOIL`, timeframe **30**.
+- Generic study entity **`NDQ14t`**. Engine library also sits on this layout (`ZOhz9F`) from the publish interstitial — fine here.
+- **Do not add studies to production `OIL_IGSave`.**
+- Do **not** click the date-range **All** tab — it switches the interval to `1M`. Restore with `chart_set_timeframe("30")` if that happens. ~9300+ 30m bars must be loaded (`firstTime` ≤ `1761760800`).
+
+### Gate method (harness window-slide)
+
+`diff_study_series.mjs` fetches the last `ref.bar_count` (8968) live bars. New post-freeze bars slide the first baseline signal out and add extras after `2026-08-12T05:00Z`. That is **not** a regression.
+
+Valid gate: fetch `count ≥ total_available` (9300+), then compare only bars with `1761760800 ≤ t ≤ 1786510800`. Expect 27 LOW / 31 HIGH, 8968 overlap, 0 missing / 0 changed / 0 extra-in-window. One extra HIGH after freeze (`2026-08-12T08:30Z`) is new data.
+
+`pine_save` may report `TV_PINE_UNBOUND` / `persisted_matches_buffer:false` on CRLF vs LF even when the cloud source is correct — confirm with `pine_read_script` by `script_id`. Persist via the Pine **Save script** button when needed. `pine_open("RSIZoneDivEng")` is ambiguous; use `pine_bind(script_id=…)`.
+
+### Results
+
+| Step | What changed | Gate |
+|------|----------------|------|
+| **1** | Pure helpers in published `RSIZoneDivEng`; shell calls `eng.*`. `[1]`/`ta.*` stay global. | **PASS** — 58/58, 27/31, 8968 overlap, plot drift 0 |
+| **2** | Shell-local non-`var` `ZoneState` snapshot per side (`zsL`/`zsH`). State machine reads the snapshot. `field_0`/`field_1` remain flat copies of `zx` for `[1]`. Hoisted `mint1.*()` edges still run every bar (L2). Engine **not** republished. | **PASS** — same 58/58 |
+
+### Resume here — Step 3
+
+Move the per-side state machine into the engine as `step()`, with `prev*` passed explicitly. Keep every `[1]` / `ta.*` on flat globals in the shell (the constraint that killed the UDT collapse). Expected: 58/58. Then Step 4 paper exercise, Step 5 pin if the published API changes.
+
+Worktree: `/home/mike1/projects/dev/tradingview-mcp/.worktrees/2026-08-12-tradingview-mcp-pine-debug-principles` on `feat/rszonediv-generic-refactor`. Main checkout is a different branch — do not switch it.

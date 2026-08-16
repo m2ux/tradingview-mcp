@@ -1,6 +1,6 @@
 # RSIZoneDiv Optimization — Plan & Progress (Resumption Doc)
 
-> Session work package · tradingview-mcp · 2026-08-12 · **Status:** Active — resume here in a new chat
+> Session work package · tradingview-mcp · 2026-08-16 · **Status:** Active — SymLo adopted; library-generic Steps 1–2 gated green. Resume at `07` Step 3.
 >
 > **Companion reading:** `../2026-08-12-tradingview-mcp-pine-debug-principles/` — the principles &
 > anti-patterns this session produced (read `01` + `04` before editing Pine; `02` before trusting
@@ -123,13 +123,11 @@ slice had 0 LOW and made all three variants look vacuously identical (see `02` �
 2. ~~**Freeze the loop on SymLo.**~~ **Done (2026-08-12):** re-captured the 30m series from the
    merged source (entity `va74LI`, `TV_MAX_BARS=9000`) and diffed vs the frozen baseline —
    58/58 signals identical, 8968/8968 shared bars, max plot drift 0. Paper trail verified.
-3. **The deeper refactor** SymLo was an intermediate toward — now that both sides share one
-   side-parameterized chain, the structure is ready for a true library-generic rewrite (the
-   original "library-generic rewrite" goal deferred when the verbatim UDT collapse failed).
-   **Planned & deferred (2026-08-12):** see [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20)
-   (branch `feat/rszonediv-generic-refactor`) + `07-library-generic-refactor-plan.md`. Decisions
-   locked (published library; single generic shell; paper-exercise genericity proof at Step 4).
-   Resume at Step 1 (extract pure helpers into the engine library — pure move, expect 58/58).
+3. **The deeper refactor** — [PR #20](https://github.com/m2ux/tradingview-mcp/pull/20), worktree
+   `.worktrees/2026-08-12-tradingview-mcp-pine-debug-principles`, plan in `07`. **Steps 1–2 gated
+   green (2026-08-16):** published `theansweris42/RSIZoneDivEng/1`; generic shell
+   `RSIZoneDivGeneric` v3.0 on verify layout `mOJFbuuv` entity `NDQ14t`; 58/58 on the overlapping
+   30m window. **Resume at Step 3** (`step()` + explicit `prev*`). See `07` §11.
 4. **Optional tooling:** implement #12 (published-scope read) so future dependency pins don't
    need the `ui_evaluate` workaround; #17/#19 to close the headless lifecycle.
 
@@ -147,5 +145,5 @@ git -C /home/mike1/projects/dev/tradingview-mcp show main:scripts/rszonediv_sym_
 # Reference chart: TVC:UKOIL 30m (entity va74LI in the 2026-08-12 session — re-derive after restart, never cache entity IDs)
 ```
 
-**First decision to ask the user:** begin the deeper library-generic refactor (step 3), or close
-out the optional tooling gaps (#12 / #17 / #19) first?
+**Resume:** Step 3 of `07` (engine `step()`). Do not switch the main checkout (`feat/capture-snapshot`).
+Work in the pine-debug-principles worktree. Do not overwrite RSIZones.
