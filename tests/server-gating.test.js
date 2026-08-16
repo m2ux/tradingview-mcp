@@ -50,7 +50,7 @@ describe('registrar gating (composed server)', () => {
 
   it('keeps the read surface registered by default', () => {
     const names = toolNames(buildServer());
-    for (const name of ['tv_health_check', 'ui_click', 'ui_evaluate', 'alert_create', 'draw_shape']) {
+    for (const name of ['tv_health_check', 'ui_click', 'ui_evaluate', 'alert_create', 'draw_shape', 'draw_fib_channel']) {
       assert.ok(names.includes(name), `${name} present by default`);
     }
   });

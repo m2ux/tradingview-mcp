@@ -3,7 +3,7 @@ import * as core from '../../core/drawing.js';
 import * as templates from '../../core/drawing_templates.js';
 
 register('draw', {
-  description: 'Drawing tools (shape, list, get, remove, clear, templates)',
+  description: 'Drawing tools (shape, fib-channel, list, get, remove, clear, templates)',
   subcommands: new Map([
     ['shape', {
       description: 'Draw a shape on the chart',
@@ -20,6 +20,33 @@ register('draw', {
         const point = { time: Number(opts.time), price: Number(opts.price) };
         const point2 = opts.price2 ? { time: Number(opts.time2), price: Number(opts.price2) } : undefined;
         return core.drawShape({ shape: opts.type || 'horizontal_line', point, point2, overrides: opts.overrides, text: opts.text });
+      },
+    }],
+    ['fib-channel', {
+      description: 'Draw a Fibonacci channel from a saved template, direction, and three bar times',
+      options: {
+        template: { type: 'string', short: 'n', description: 'Required. Any exact LineToolFibChannel template name (no default)' },
+        direction: { type: 'string', short: 'd', description: 'Required. bullish (L→H→L) or bearish (H→L→H)' },
+        time: { type: 'string', description: 'First locus unix timestamp' },
+        price: { type: 'string', short: 'p', description: 'Optional first-locus price override' },
+        time2: { type: 'string', description: 'Second locus unix timestamp' },
+        price2: { type: 'string', description: 'Optional second-locus price override' },
+        time3: { type: 'string', description: 'Third locus unix timestamp' },
+        price3: { type: 'string', description: 'Optional third-locus price override' },
+      },
+      handler: (opts) => {
+        const locus = (time, price) => {
+          const point = { time: Number(time) };
+          if (price != null && price !== '') point.price = Number(price);
+          return point;
+        };
+        return core.drawFibChannel({
+          template: opts.template,
+          direction: opts.direction,
+          point: locus(opts.time, opts.price),
+          point2: locus(opts.time2, opts.price2),
+          point3: locus(opts.time3, opts.price3),
+        });
       },
     }],
     ['list', {
