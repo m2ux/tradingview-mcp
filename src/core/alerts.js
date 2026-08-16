@@ -6,7 +6,7 @@
  * Requests are sent as text/plain so the browser does not issue a CORS preflight that
  * the endpoint rejects. The create/delete bodies must be wrapped in a `payload` object.
  */
-import { evaluate, evaluateAsync, safeString, requireFinite } from '../connection.js';
+import { evaluate, evaluateAsync, safeString, requireFinite, KNOWN_PATHS } from '../connection.js';
 
 // Map the tool's friendly condition names to TradingView's alert condition types.
 const CONDITION_TYPE_MAP = {
@@ -22,7 +22,7 @@ export async function create({ condition, price, message }) {
   return evaluate(`
     (function() {
       try {
-        var ms = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget.model().mainSeries();
+        var ms = ${KNOWN_PATHS.chartApi}._chartWidget.model().mainSeries();
         var sym = (ms.proSymbol && ms.proSymbol()) || (ms.symbol && ms.symbol());
         if (!sym) return { success: false, error: 'Could not read current chart symbol from TradingView' };
         var price = ${JSON.stringify(p)};

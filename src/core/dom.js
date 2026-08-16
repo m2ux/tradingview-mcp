@@ -13,8 +13,8 @@
  * pine_ui.js, indicators.js, ui.js and watchlist.js.
  */
 import { getClient, safeString } from '../connection.js';
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+import { dispatchMouse, dispatchKey } from './protocol.js';
+import { sleep } from '../wait.js';
 
 /**
  * Dispatch a trusted mouse click (move → press → release) at page
@@ -27,13 +27,17 @@ export async function clickAt(x, y, { button = 'left', double = false } = {}, _d
   const c = await clientFn();
   const btn = button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left';
   const btnNum = btn === 'right' ? 2 : btn === 'middle' ? 1 : 0;
-  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x, y });
-  await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 });
-  await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+  await dispatchMouse(c,
+    { type: 'mouseMoved', x, y },
+    { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 },
+    { type: 'mouseReleased', x, y, button: btn },
+  );
   if (double) {
     await sleep(50);
-    await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 });
-    await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+    await dispatchMouse(c,
+      { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 },
+      { type: 'mouseReleased', x, y, button: btn },
+    );
   }
   return { success: true, x, y, button: btn, double_click: !!double };
 }
@@ -98,7 +102,7 @@ export async function pressKey(key, modifiers = 0, _deps = {}) {
   const clientFn = _deps.getClient || getClient;
   const c = await clientFn();
   const p = keyEventPayload(key, modifiers);
-  await c.Input.dispatchKeyEvent({
+  await dispatchKey(c, {
     type: 'keyDown',
     modifiers: p.modifiers,
     key: p.key,
@@ -106,7 +110,7 @@ export async function pressKey(key, modifiers = 0, _deps = {}) {
     windowsVirtualKeyCode: p.vk,
     nativeVirtualKeyCode: p.vk,
   });
-  await c.Input.dispatchKeyEvent({
+  await dispatchKey(c, {
     type: 'keyUp',
     key: p.key,
     code: p.code,

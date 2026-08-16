@@ -2,7 +2,7 @@
  * Core data access logic.
  */
 import { evaluate, evaluateAsync, KNOWN_PATHS, safeString, withTargetEvaluate } from '../connection.js';
-import { waitForChartReady as _defaultWaitForChartReady } from '../wait.js';
+import { waitForChartReady as _defaultWaitForChartReady, sleep } from '../wait.js';
 import { tvError } from './err.js';
 
 const NO_STRATEGY_ERROR = 'No strategy found on chart. Add a strategy first (e.g. indicator_add with a "... Strategy" script).';
@@ -109,7 +109,7 @@ const FIND_STRATEGY_JS = `
 function buildGraphicsJS(collectionName, mapKey, filter, entityId) {
   return `
     (function() {
-      var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
+      var chart = ${CHART_API}._chartWidget;
       var model = chart.model();
       var sources = model.model().dataSources();
       var results = [];
@@ -268,7 +268,7 @@ async function ensureStrategyTesterReady(maxWaitMs = 6000) {
       })()
     `);
     if (ready === 'ready' || ready === 'no-strategy') { status = ready; break; }
-    await new Promise(r => setTimeout(r, 500));
+    await sleep(500);
   }
   return { status, unhidden: unhidden || [] };
 }
@@ -537,7 +537,7 @@ export async function getStudyValues({ entity_id, target, _deps } = {}) {
   const evalFn = await _resolveEval({ target, _deps });
   const data = await evalFn(`
     (function() {
-      var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
+      var chart = ${CHART_API}._chartWidget;
       var model = chart.model();
       var sources = model.model().dataSources();
       var results = [];
@@ -594,7 +594,7 @@ export async function getStudySeries({ study, entity_id, count, plots, include_p
   const limit = Math.min(count || 100, resolveMaxBars(max_bars));
   const data = await evalFn(`
     (function() {
-      var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
+      var chart = ${CHART_API}._chartWidget;
       var sources = chart.model().model().dataSources();
       var filter = ${safeString(study || '')};
       var entityId = ${safeString(entity_id || '')};

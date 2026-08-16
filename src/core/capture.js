@@ -1,8 +1,8 @@
 /**
  * Core screenshot/capture logic.
  */
-import { getClient, evaluate, getChartCollection, findTargetByRef, withTargetEvaluate, CDP_HOST, CDP_PORT } from '../connection.js';
-import CDP from 'chrome-remote-interface';
+import { getClient, evaluate, getChartCollection, findTargetByRef, withTargetEvaluate, makeScopedClient, evictScopedClient } from '../connection.js';
+import { captureScreenshot as _capture } from './protocol.js';
 import { waitForChartRender } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -11,14 +11,6 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(dirname(dirname(__dirname)), 'screenshots');
 
-// Default scoped-client factory for targeted captures. Injectable via
-// _deps.makeScopedClient so tests can substitute a stub CDP connection.
-async function _makeScopedClient(targetId) {
-  const c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
-  await c.Page.enable();
-  return c;
-}
-
 export async function captureScreenshot({
   region, filename, method, waitForRender = false, stabilize_ms, target, _deps,
 } = {}) {
@@ -26,12 +18,13 @@ export async function captureScreenshot({
 
   // When a target tab is given, run against a dedicated connection to that tab
   // (clip bounds evaluate + Page.captureScreenshot) instead of the shared client.
-  const makeScopedClient = _deps?.makeScopedClient || _makeScopedClient;
+  // _deps.makeScopedClient lets tests substitute a stub CDP connection.
+  const scopedFactory = _deps?.makeScopedClient || makeScopedClient;
   const targetInfo = target ? await findTargetByRef(target) : null;
   let scopedClient = null;
   // Lazily connected on first use so the no-target path never opens a socket.
   const ensureScoped = async () => {
-    if (!scopedClient) scopedClient = await makeScopedClient(targetInfo.id);
+    if (!scopedClient) scopedClient = await scopedFactory(targetInfo.id);
     return scopedClient;
   };
   const evalFn = target
@@ -101,7 +94,7 @@ export async function captureScreenshot({
     const params = { format: 'png' };
     if (clip) params.clip = clip;
 
-    const { data } = await client.Page.captureScreenshot(params);
+    const { data } = await _capture(client, params);
     writeFileSync(filePath, Buffer.from(data, 'base64'));
 
     return {
@@ -112,7 +105,7 @@ export async function captureScreenshot({
       size_bytes: Buffer.from(data, 'base64').length,
     };
   } finally {
-    if (scopedClient) { try { await scopedClient.close(); } catch { /* already gone */ } }
+    if (scopedClient) { evictScopedClient(targetInfo.id); try { await scopedClient.close(); } catch { /* already gone */ } }
   }
 }
 

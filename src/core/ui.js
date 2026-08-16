@@ -4,6 +4,8 @@
 import { evaluate, evaluateAsync as _evaluateAsync, getClient } from '../connection.js';
 import { pressKey, clickAt, findElementExpression } from './dom.js';
 import { tvError } from './err.js';
+import { dispatchMouse, insertText } from './protocol.js';
+import { sleep } from '../wait.js';
 
 const elementNotFound = (by, value) => tvError(
   'TV_ELEMENT_NOT_FOUND',
@@ -13,8 +15,6 @@ const elementNotFound = (by, value) => tvError(
     hint: 'If the control is inside a collapsed panel, open it first with ui_open_panel({ panel, action: "open" }). For clicks a React handler may swallow synthetic events — retry ui_click with trusted: true. Otherwise refine the selector (broader text / data-name / aria-label).',
   },
 );
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function click({ by, value, trusted = false } = {}) {
   const find = findElementExpression({ by, value, targetVar: 'el' });
@@ -43,7 +43,7 @@ export async function click({ by, value, trusted = false } = {}) {
   // React/native handlers that ignore untrusted events honour it.
   let via = 'synthetic';
   if (trusted && result.pressed === false && Number.isFinite(result.x) && Number.isFinite(result.y)) {
-    await delay(50);
+    await sleep(50);
     await clickAt(result.x, result.y, { button: 'left' });
     via = 'trusted';
   }
@@ -113,7 +113,7 @@ export async function waitFor({ expression, timeout_ms = 5000, interval_ms = 150
     last = await evalFn(`(function(){ return (${expression}); })()`);
     if (last) return { success: true, met: true, value: last };
     if (Date.now() >= deadline) break;
-    await delay(poll);
+    await sleep(poll);
   }
   return { success: false, met: false, timeout_ms: budget, last: last ?? null };
 }
@@ -360,7 +360,7 @@ export async function layoutSwitch({ name, _deps } = {}) {
   }
 
   // Handle "unsaved changes" confirmation dialog
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
   const dismissed = await evaluate(`
     (function() {
       var btns = document.querySelectorAll('button');
@@ -375,7 +375,7 @@ export async function layoutSwitch({ name, _deps } = {}) {
     })()
   `);
 
-  if (dismissed) await new Promise(r => setTimeout(r, 1000));
+  if (dismissed) await sleep(1000);
   return { success: true, layout: result.name || name, layout_id: result.id, source: result.source, action: 'switched', unsaved_dialog_dismissed: dismissed };
 }
 
@@ -386,7 +386,7 @@ export async function keyboard({ key, modifiers }) {
 
 export async function typeText({ text }) {
   const c = await getClient();
-  await c.Input.insertText({ text });
+  await insertText(c, text);
   return { success: true, typed: text.substring(0, 100), length: text.length };
 }
 
@@ -412,7 +412,7 @@ export async function hover({ by, value }) {
   `);
   if (!coords) throw elementNotFound(by, value);
   const c = await getClient();
-  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x: coords.x, y: coords.y });
+  await dispatchMouse(c, { type: 'mouseMoved', x: coords.x, y: coords.y });
   return { success: true, hovered: { by, value, tag: coords.tag, x: coords.x, y: coords.y } };
 }
 
@@ -430,7 +430,7 @@ export async function scroll({ direction, amount }) {
   let deltaX = 0, deltaY = 0;
   if (direction === 'up') deltaY = -px; else if (direction === 'down') deltaY = px;
   else if (direction === 'left') deltaX = -px; else if (direction === 'right') deltaX = px;
-  await c.Input.dispatchMouseEvent({ type: 'mouseWheel', x: center.x, y: center.y, deltaX, deltaY });
+  await dispatchMouse(c, { type: 'mouseWheel', x: center.x, y: center.y, deltaX, deltaY });
   return { success: true, direction, amount: px };
 }
 
@@ -438,13 +438,17 @@ export async function mouseClick({ x, y, button, double_click }) {
   const c = await getClient();
   const btn = button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left';
   const btnNum = btn === 'right' ? 2 : btn === 'middle' ? 1 : 0;
-  await c.Input.dispatchMouseEvent({ type: 'mouseMoved', x, y });
-  await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 });
-  await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+  await dispatchMouse(c,
+    { type: 'mouseMoved', x, y },
+    { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 1 },
+    { type: 'mouseReleased', x, y, button: btn },
+  );
   if (double_click) {
-    await new Promise(r => setTimeout(r, 50));
-    await c.Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 });
-    await c.Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: btn });
+    await sleep(50);
+    await dispatchMouse(c,
+      { type: 'mousePressed', x, y, button: btn, buttons: btnNum, clickCount: 2 },
+      { type: 'mouseReleased', x, y, button: btn },
+    );
   }
   return { success: true, x, y, button: btn, double_click: !!double_click };
 }

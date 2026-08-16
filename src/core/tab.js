@@ -9,9 +9,9 @@
  * `.tabs-container .tab`, its close button, and `create-new-tab-button`.
  * (Approach from issue #155 and PR #163, verified on Desktop 3.1.0.)
  */
-import CDP from 'chrome-remote-interface';
-import { getClient, reconnectTo, getLayoutNameForTarget, CDP_HOST, CDP_PORT } from '../connection.js';
+import { getClient, reconnectTo, getLayoutNameForTarget, listTargets, makeScopedClient, evictScopedClient } from '../connection.js';
 import { tvError } from './err.js';
+import { sleep } from '../wait.js';
 
 /**
  * List all open chart tabs (CDP page targets), each enriched with the live
@@ -19,8 +19,7 @@ import { tvError } from './err.js';
  * be resolved back to a chart_id and passed as a read/capture `target`.
  */
 export async function list() {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
 
   // Chart tabs plus new-tab landing pages (layout picker), so every tab in the
   // top bar is listable and switchable.
@@ -49,14 +48,13 @@ export async function list() {
  * is the one whose DOM actually contains `.tabs-container .tab`.
  */
 async function withShell(fn) {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   const candidates = targets.filter(t => t.type === 'page' && /\/window\/index\.html/i.test(t.url || ''));
 
   for (const cand of candidates) {
     let c = null;
     try {
-      c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: cand.id });
+      c = await makeScopedClient(cand);
       const probe = await c.Runtime.evaluate({
         expression: `!!document.querySelector('.tabs-container .tab')`,
         returnByValue: true,
@@ -66,11 +64,14 @@ async function withShell(fn) {
           const { result } = await c.Runtime.evaluate({ expression, returnByValue: true });
           return result?.value;
         });
+        evictScopedClient(cand);
         await c.close();
         return out;
       }
+      evictScopedClient(cand);
       await c.close();
     } catch {
+      evictScopedClient(cand);
       try { if (c) await c.close(); } catch { /* already gone */ }
     }
   }
@@ -81,20 +82,20 @@ async function withShell(fn) {
 async function isTargetVisible(targetId) {
   let c = null;
   try {
-    c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+    c = await makeScopedClient(targetId);
     const { result } = await c.Runtime.evaluate({ expression: 'document.visibilityState', returnByValue: true });
     return result?.value === 'visible';
   } catch {
     return false;
   } finally {
+    evictScopedClient(targetId);
     try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
 
 /** Find an open new-tab landing page target (shows the layout picker). */
 async function findLandingTarget() {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
+  const targets = await listTargets();
   return targets.find(t => t.type === 'page' && t.title === 'New tab') || null;
 }
 
@@ -102,12 +103,13 @@ async function findLandingTarget() {
 async function withTarget(targetId, fn) {
   let c = null;
   try {
-    c = await CDP({ host: CDP_HOST, port: CDP_PORT, target: targetId });
+    c = await makeScopedClient(targetId);
     return await fn(async (expression) => {
       const { result } = await c.Runtime.evaluate({ expression, returnByValue: true });
       return result?.value;
     });
   } finally {
+    evictScopedClient(targetId);
     try { if (c) await c.close(); } catch { /* already gone */ }
   }
 }
@@ -135,7 +137,7 @@ export async function newTab({ layout, name } = {}) {
         })()
       `);
       if (!clicked) throw new Error('New-tab button not found in shell window.');
-      await new Promise(r => setTimeout(r, 1500));
+      await sleep(1500);
       const after = await evalIn(`document.querySelectorAll('.tabs-container .tab').length`);
       return { before, after };
     });
@@ -155,9 +157,8 @@ export async function newTab({ layout, name } = {}) {
   if (!landing) throw new Error('New tab opened but its landing page target was not found.');
 
   // Snapshot existing chart targets so we can spot the one the pick creates.
-  const beforeResp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
   const chartIdsBefore = new Set(
-    (await beforeResp.json())
+    (await listTargets())
       .filter(t => t.type === 'page' && /tradingview\.com\/chart/i.test(t.url))
       .map(t => t.id)
   );
@@ -170,7 +171,7 @@ export async function newTab({ layout, name } = {}) {
       // disabled until the name input is filled (React controlled input, so
       // the native value setter + input event are required).
       await evalIn(`(function(){ var b = document.querySelector('.create-new-layout-button'); if (b) b.click(); })()`);
-      await new Promise(r => setTimeout(r, 700));
+      await sleep(700);
       const filled = await evalIn(`
         (function() {
           // The dialog's name field (not the landing page's Search box).
@@ -187,7 +188,7 @@ export async function newTab({ layout, name } = {}) {
         })()
       `);
       if (filled !== 'filled') throw new Error(`Create-layout dialog did not open as expected (${filled}).`);
-      await new Promise(r => setTimeout(r, 400));
+      await sleep(400);
       const created = await evalIn(`
         (function() {
           var scope = document.querySelector('[class*="dialog"], [role="dialog"]') || document;
@@ -220,7 +221,7 @@ export async function newTab({ layout, name } = {}) {
     if (!foundTitle) {
       // Not in the recents — expand the full layout list and retry.
       await evalIn(`(function(){ var b = document.querySelector('.layout-list-expand-button'); if (b) b.click(); })()`);
-      await new Promise(r => setTimeout(r, 800));
+      await sleep(800);
       foundTitle = await evalIn(clickByTitle);
     }
     return foundTitle;
@@ -238,9 +239,8 @@ export async function newTab({ layout, name } = {}) {
   // Wait for a chart target that wasn't there before the pick.
   let chartTarget = null;
   for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-    const targets = await resp.json();
+    await sleep(500);
+    const targets = await listTargets();
     chartTarget = targets.find(x =>
       x.type === 'page' && /tradingview\.com\/chart/i.test(x.url) && !chartIdsBefore.has(x.id)
     ) || targets.find(x => x.id === landing.id && /tradingview\.com\/chart/i.test(x.url)) || null;
@@ -249,7 +249,7 @@ export async function newTab({ layout, name } = {}) {
   if (!chartTarget) throw new Error(`Picked "${picked}" but no new chart target appeared.`);
 
   // Give the chart a moment to boot, then follow it.
-  await new Promise(r => setTimeout(r, 2000));
+  await sleep(2000);
   await reconnectTo(chartTarget.id);
   return {
     success: true,
@@ -281,7 +281,7 @@ export async function closeTab() {
       })()
     `);
     if (!clicked) throw new Error('Close button not found on the active tab.');
-    await new Promise(r => setTimeout(r, 1000));
+    await sleep(1000);
     return evalIn(`document.querySelectorAll('.tabs-container .tab').length`);
   });
 
@@ -314,7 +314,7 @@ export async function switchTab({ index }) {
       const order = [...new Set([Math.min(idx, count - 1), ...Array.from({ length: count }, (_, k) => k)])];
       for (const k of order) {
         await evalIn(`document.querySelectorAll('.tabs-container .tab')[${k}].click()`);
-        await new Promise(r => setTimeout(r, 400));
+        await sleep(400);
         if (await isTargetVisible(target.id)) return k;
       }
       return null;

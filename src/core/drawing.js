@@ -2,6 +2,7 @@
  * Core drawing logic.
  */
 import { evaluate as _evaluate, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
+import { sleep } from '../wait.js';
 
 function _resolve(deps) {
   return { evaluate: deps?.evaluate || _evaluate, getChartApi: deps?.getChartApi || _getChartApi };
@@ -37,7 +38,7 @@ export async function drawShape({ shape, point, point2, overrides: overridesRaw,
     `);
   }
 
-  await new Promise(r => setTimeout(r, 200));
+  await sleep(200);
   const after = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
   const newId = (after || []).find(id => !(before || []).includes(id)) || null;
   const result = { entity_id: newId };

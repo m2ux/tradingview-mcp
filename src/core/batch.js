@@ -2,7 +2,8 @@
  * Core batch execution logic.
  */
 import { evaluate, evaluateAsync, getClient, getChartApi, getChartCollection, safeString } from '../connection.js';
-import { waitForChartReady } from '../wait.js';
+import { captureScreenshot as _capture } from './protocol.js';
+import { waitForChartReady, sleep } from '../wait.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -32,13 +33,13 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
         }
 
         await waitForChartReady(symbol);
-        await new Promise(r => setTimeout(r, delay));
+        await sleep(delay);
 
         let actionResult;
         if (action === 'screenshot') {
           mkdirSync(SCREENSHOT_DIR, { recursive: true });
           const client = await getClient();
-          const { data } = await client.Page.captureScreenshot({ format: 'png' });
+          const { data } = await _capture(client, { format: 'png' });
           const ts = new Date().toISOString().replace(/[:.]/g, '-');
           const fname = `batch_${symbol}_${tf || 'default'}_${ts}`.replace(/[\/\\]/g, '_') + '.png';
           const filePath = join(SCREENSHOT_DIR, fname);
@@ -56,7 +57,7 @@ export async function batchRun({ symbols, timeframes, action, delay_ms, ohlcv_co
             })
           `);
         } else if (action === 'get_strategy_results') {
-          await new Promise(r => setTimeout(r, 1000));
+          await sleep(1000);
           actionResult = await evaluate(`
             (function() {
               var metrics = {};

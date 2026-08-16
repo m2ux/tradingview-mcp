@@ -1,10 +1,10 @@
 /**
  * Core chart control logic.
  */
-import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, safeString, requireFinite, withTargetEvaluate } from '../connection.js';
-import { waitForChartReady as _waitForChartReady } from '../wait.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, safeString, requireFinite, withTargetEvaluate, KNOWN_PATHS } from '../connection.js';
+import { waitForChartReady as _waitForChartReady, sleep } from '../wait.js';
 
-const CHART_API = 'window.TradingViewApi._activeChartWidgetWV.value()';
+const CHART_API = KNOWN_PATHS.chartApi;
 
 function _resolve(deps) {
   return {
@@ -107,7 +107,7 @@ export async function manageIndicator({ action, indicator, entity_id, inputs: in
         chart.createStudy(${safeString(indicator)}, false, false, []);
       })()
     `);
-    await new Promise(r => setTimeout(r, 1500));
+    await sleep(1500);
     const after = await evaluate(`${CHART_API}.getAllStudies().map(function(s) { return s.id; })`);
     const newIds = (after || []).filter(id => !(before || []).includes(id));
     const entityId = newIds[0] || null;
@@ -194,7 +194,7 @@ export async function setVisibleRange({ from, to, _deps }) {
     })()`);
     if (!state || state.firstTime == null || state.firstTime <= f || !state.more) break;
     await evaluate(`(function() { try { ${CHART_API}._chartWidget.model().mainSeries().requestMoreData(1000); } catch (e) {} })()`);
-    await new Promise(r => setTimeout(r, 1800));
+    await sleep(1800);
   }
 
   await evaluate(`
@@ -214,7 +214,7 @@ export async function setVisibleRange({ from, to, _deps }) {
       ts.zoomToBarsRange(fromIdx, toIdx);
     })()
   `);
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
   const actual = await evaluate(`
     (function() {
       var chart = ${CHART_API};
@@ -261,7 +261,7 @@ export async function scrollToDate({ date, _deps } = {}) {
       ts.zoomToBarsRange(fromIdx, toIdx);
     })()
   `);
-  await new Promise(r => setTimeout(r, 500));
+  await sleep(500);
   return { success: true, date, centered_on: timestamp, resolution, window: { from, to } };
 }
 
