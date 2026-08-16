@@ -23,14 +23,16 @@ register('pine', {
         : core.getSource()),
     }],
     ['read', {
-      description: 'Read a saved script source by name/id WITHOUT opening it (no editor/dialog side effects)',
+      description: 'Read a saved or published script source by name/id WITHOUT opening it',
       options: {
         id: { type: 'string', description: 'scriptIdPart (takes precedence over name)' },
+        scope: { type: 'string', description: 'saved (default) or published' },
+        version: { type: 'string', description: 'Version to fetch (e.g. 2.0)' },
       },
       handler: (opts, positionals) => {
         const name = positionals.join(' ') || undefined;
-        if (!name && !opts.id) throw new Error('Usage: tv pine read "Script Name"  |  tv pine read --id USER;xxxx');
-        return core.readScript({ name, script_id: opts.id });
+        if (!name && !opts.id) throw new Error('Usage: tv pine read "Script Name"  |  tv pine read --id USER;xxxx [--scope published --version 2]');
+        return core.readScript({ name, script_id: opts.id, scope: opts.scope, version: opts.version });
       },
     }],
     ['set', {
@@ -108,9 +110,13 @@ register('pine', {
     }],
     ['open', {
       description: 'Open a saved Pine Script by registered identity (Open dialog)',
+      options: {
+        id: { type: 'string', description: 'scriptIdPart (disambiguates near-duplicate names)' },
+      },
       handler: (opts, positionals) => {
-        if (!positionals[0]) throw new Error('Script name required. Usage: tv pine open "My Script"');
-        return core.openScript({ name: positionals.join(' ') });
+        const name = positionals.join(' ') || undefined;
+        if (!name && !opts.id) throw new Error('Usage: tv pine open "My Script"  |  tv pine open --id USER;xxxx');
+        return core.openScript({ name, script_id: opts.id });
       },
     }],
     ['copy', {
@@ -169,6 +175,19 @@ register('pine', {
         privacy: opts.privacy || 'private',
         description: opts.description,
       }),
+    }],
+    ['exports', {
+      description: 'List export names for a published or saved Pine library (no consumer compile)',
+      options: {
+        id: { type: 'string', description: 'scriptIdPart or PUB;id' },
+        scope: { type: 'string', description: 'published (default) or saved' },
+        version: { type: 'string', description: 'Published version N' },
+      },
+      handler: (opts, positionals) => {
+        const name = positionals.join(' ') || undefined;
+        if (!name && !opts.id) throw new Error('Usage: tv pine exports "LibName" [--scope published --version 2]');
+        return core.listLibraryExports({ name, script_id: opts.id, scope: opts.scope, version: opts.version });
+      },
     }],
     ['list', {
       description: 'List saved Pine Scripts (with orphan / publish flags)',

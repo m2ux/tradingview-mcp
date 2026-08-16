@@ -10,8 +10,11 @@ import { sleep } from '../wait.js';
 import {
   assertEditorIdentity,
   classifyCompileErrors,
+  classifyUiDialog,
   clickVisibleButton,
   confirmReplaceIfNeeded,
+  dismissBlockingDialogs,
+  extractExportedNames,
   fetchFacadeList,
   fetchScriptHistory,
   fetchScriptSource,
@@ -23,6 +26,7 @@ import {
   lookupFacadeScript,
   mergeScriptLists,
   openViaOpenDialog,
+  pineSourcesEqual,
   restorePinePanel,
   scrapeOpenDialogNames,
   studyCount,
@@ -534,7 +538,7 @@ export async function save({ _deps } = {}) {
   if (bufferSource !== null && target) {
     const preId = target.scriptIdPart || target.id;
     const pre = await fetchSourceFn(preId, target.version).catch(() => null);
-    if (pre?.ok && typeof pre.source === 'string' && pre.source === bufferSource) {
+    if (pre?.ok && typeof pre.source === 'string' && pineSourcesEqual(pre.source, bufferSource)) {
       alreadyPersisted = true;
     }
   }
@@ -594,7 +598,7 @@ export async function save({ _deps } = {}) {
     if (script_id && bufferSource !== null) {
       const fetched = await fetchSourceFn(script_id, entry?.version ?? null).catch(() => null);
       if (fetched?.ok && typeof fetched.source === 'string') {
-        persisted_matches_buffer = fetched.source === bufferSource;
+        persisted_matches_buffer = pineSourcesEqual(fetched.source, bufferSource);
         verified = persisted_matches_buffer;
       }
     } else if (dialogHandled && !before && entry && bufferSource === null) {
@@ -641,6 +645,9 @@ export async function bindScript({ name, script_id, _deps } = {}) {
   const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
   const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
   const bufferFn = _deps?.getEditorBufferInfo || getEditorBufferInfo;
+  const openFn = _deps?.openScript || openScript;
+  const setFn = _deps?.setSource || setSource;
+  const identityFn = _deps?.getEditorIdentity || getEditorIdentity;
 
   if (!name && !script_id) throw new Error('name or script_id is required.');
   const entry = await lookupFn({ name, id: script_id });
@@ -652,26 +659,52 @@ export async function bindScript({ name, script_id, _deps } = {}) {
   const source = fetched.source;
   const scriptName = entry.scriptName || entry.scriptTitle || name;
 
-  // Align the editor header/identity to this script (best-effort; the buffer
-  // load below is the binding that pine_save actually verifies).
-  try { await openScript({ name: scriptName }); } catch { /* header alignment is best-effort */ }
+  // Must switch the Open/Save/Publish target. Never inject into another header
+  // (issue #26 — bind of Generic into an Eng buffer would overwrite the library).
+  let opened;
+  try {
+    opened = await openFn({ name: scriptName, script_id: id });
+  } catch (err) {
+    return {
+      success: false,
+      bound: false,
+      name: scriptName,
+      script_id: id,
+      error: `Could not switch editor identity to "${scriptName}": ${err.message}`,
+      code: err.code || 'TV_PINE_IDENTITY_MISMATCH',
+      hint: 'Close leftover dialogs (Open my script / Close menu), then retry pine_open with script_id.',
+      ...(err.blocked_dialog && { blocked_dialog: err.blocked_dialog }),
+    };
+  }
 
-  const set = await setSource({ source, script_name: scriptName }).catch(async () => {
-    // Identity guard can refuse if the header didn't take; retry without it.
-    return setSource({ source });
-  });
+  const identity = await identityFn().catch(() => null);
+  const header = identity?.name || opened?.name || null;
+  if (!header || header.toLowerCase() !== String(scriptName).toLowerCase()) {
+    return {
+      success: false,
+      bound: false,
+      name: scriptName,
+      script_id: id,
+      header_name: header,
+      error: `pine_bind refused: editor header is "${header || 'unknown'}", not "${scriptName}". Will not inject into the wrong identity.`,
+      code: 'TV_PINE_IDENTITY_MISMATCH',
+      hint: 'Run pine_open with script_id to switch the Save/Publish target, then pine_bind again.',
+    };
+  }
 
-  // Confirm the buffer now holds this script's source.
+  const set = await setFn({ source, script_name: scriptName });
+
   const buf = await bufferFn().catch(() => null);
-  const bound = !!(buf && typeof buf.source === 'string' && buf.source === source);
+  const bound = !!(buf && typeof buf.source === 'string' && pineSourcesEqual(buf.source, source));
 
   return {
-    success: true,
+    success: bound,
     name: scriptName,
     script_id: id,
     version: entry.version ?? null,
     kind: entry.extra?.kind || entry.scriptType || entry.kind || null,
     bound,
+    header_name: header,
     lines_set: set?.lines_set ?? source.split('\n').length,
     ...(!bound && { note: 'Buffer content could not be confirmed to match the fetched source.' }),
   };
@@ -781,9 +814,12 @@ export async function smartCompile({ require_published_imports = false } = {}) {
   const hasImportErrors = import_errors.length > 0;
   const success = !(require_published_imports && hasImportErrors);
 
+  const clicked = buttonClicked || 'keyboard_shortcut';
   return {
     success,
-    button_clicked: buttonClicked || 'keyboard_shortcut',
+    button_clicked: clicked,
+    clicked,
+    persisted: clicked === 'Pine Save',
     has_errors: (errors?.length || 0) > 0,
     has_import_errors: hasImportErrors,
     import_errors,
@@ -931,29 +967,47 @@ export async function newScript({ type }) {
 /**
  * Open a saved script by registered UI identity (Open script dialog).
  * Does NOT inject Monaco into the current buffer — Save/Publish target the opened script.
+ * Accepts script_id to disambiguate near-duplicate names (issue #26).
  */
-export async function openScript({ name }) {
-  if (!name || !String(name).trim()) throw new Error('Script name is required.');
-  const editorReady = await ensurePineEditorOpen();
+export async function openScript({ name, script_id, _deps } = {}) {
+  const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+  const openFn = _deps?.openViaOpenDialog || openViaOpenDialog;
+  const dismissFn = _deps?.dismissBlockingDialogs || dismissBlockingDialogs;
+  const dialogsFn = _deps?.getVisibleDialogs || getVisibleDialogs;
+  const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
+
+  if ((!name || !String(name).trim()) && !script_id) {
+    throw new Error('name or script_id is required.');
+  }
+  const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const wanted = String(name).trim();
   let facadeMeta = null;
   try {
-    facadeMeta = await lookupFacadeScript({ name: wanted });
+    facadeMeta = await lookupFn({ name, id: script_id });
   } catch {
     // Open dialog may still find UI-registered scripts; continue.
   }
 
-  const openedRes = await openViaOpenDialog(wanted);
+  const wanted = String(facadeMeta?.scriptName || facadeMeta?.scriptTitle || name || '').trim();
+  if (!wanted) throw new Error('Could not resolve a script name from script_id. Pass name or a known script_id.');
+
+  const openedRes = await openFn(wanted, { script_id: facadeMeta?.scriptIdPart || script_id, ...(_deps || {}) });
   const selected = openedRes?.name || openedRes?.selected || wanted;
-  const scriptIdPart = facadeMeta?.scriptIdPart || openedRes?.scriptIdPart || null;
+  const scriptIdPart = facadeMeta?.scriptIdPart || openedRes?.scriptIdPart || script_id || null;
   const version = facadeMeta?.version ?? null;
 
   if (!openedRes?.opened) {
-    throw new Error(
+    await dismissFn(_deps).catch(() => {});
+    const leftover = (await dialogsFn(_deps).catch(() => [])).find((d) => d.kind === 'pine_open_dialog');
+    const err = new Error(
       `Could not open "${wanted}" in the Pine editor (current: "${openedRes?.name || 'unknown'}").`
     );
+    if (leftover) {
+      err.blocked_dialog = leftover;
+      err.code = 'TV_PINE_BLOCKED_DIALOG';
+    }
+    throw err;
   }
 
   const facadeName = facadeMeta
@@ -964,10 +1018,20 @@ export async function openScript({ name }) {
     .filter(Boolean)
     .some((n) => String(n).toLowerCase() === String(header).toLowerCase());
   if (!ok) {
-    throw new Error(
+    throw tvError('TV_PINE_IDENTITY_MISMATCH',
       `Pine editor identity is "${header}", not "${wanted}". `
-      + 'Refuse Save/Publish until the correct script is open (use pine_open).'
+      + 'Refuse Save/Publish until the correct script is open (use pine_open).',
+      { hint: 'Retry pine_open with script_id from pine_list_scripts.' },
     );
+  }
+
+  await dismissFn(_deps).catch(() => {});
+  const leftover = (await dialogsFn(_deps).catch(() => [])).find((d) => d.kind === 'pine_open_dialog');
+  if (leftover) {
+    const err = new Error('Open my script dialog is still open (blocked_dialog). Click "Close menu" and retry.');
+    err.blocked_dialog = leftover;
+    err.code = 'TV_PINE_BLOCKED_DIALOG';
+    throw err;
   }
 
   return {
@@ -978,6 +1042,7 @@ export async function openScript({ name }) {
     version,
     source: openedRes.via || 'open_dialog',
     opened: true,
+    blocked_dialog: null,
   };
 }
 
@@ -1095,15 +1160,51 @@ export async function saveAsScript(opts) {
   return copyScript(opts);
 }
 
+async function publishedEntryFor({ name, id }, fetchListFn) {
+  const published = await fetchListFn('published');
+  const scripts = published.scripts || [];
+  if (id) {
+    const byId = scripts.find((s) => {
+      const sid = s.scriptIdPart || s.id || '';
+      return sid === id || sid === `PUB;${String(id).replace(/^PUB;/i, '')}`
+        || String(sid).replace(/^(USER|PUB);/i, '') === String(id).replace(/^(USER|PUB);/i, '');
+    });
+    if (byId) return { list: published, entry: byId, version: byId.version ?? byId.published_version ?? null };
+  }
+  if (name) {
+    const want = String(name).toLowerCase();
+    const byName = scripts.find((s) => {
+      const sn = (s.scriptName || '').toLowerCase();
+      const st = (s.scriptTitle || '').toLowerCase();
+      return sn === want || st === want;
+    });
+    if (byName) return { list: published, entry: byName, version: byName.version ?? byName.published_version ?? null };
+  }
+  return { list: published, entry: null, version: null };
+}
+
 /**
  * Publish the open (or named) script via the Publish wizard.
  * privacy: 'private' | 'public' (default private).
  *
- * Best-effort mechanical path. For dialog-heavy / update-existing flows use the
- * pine-publish skill with tv_ui_state + ui_evaluate (observe → act → re-observe).
+ * Already-published scripts MUST take Update-existing (issue #26). Success
+ * requires a published_version change when a prior version was visible.
  */
-export async function publishScript({ name, id, privacy = 'private', description } = {}) {
-  const editorReady = await ensurePineEditorOpen();
+export async function publishScript({ name, id, privacy = 'private', description, _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
+  const clickFn = _deps?.clickVisibleButton || clickVisibleButton;
+  const openFn = _deps?.openScript || openScript;
+  const identityFn = _deps?.getEditorIdentity || getEditorIdentity;
+  const assertFn = _deps?.assertEditorIdentity || assertEditorIdentity;
+  const listFn = _deps?.fetchFacadeList || fetchFacadeList;
+  const dialogsFn = _deps?.getVisibleDialogs || getVisibleDialogs;
+  const addFn = _deps?.addToChart || addToChart;
+  const fillFn = _deps?.fillDialogInput || fillDialogInput;
+  const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
+  const sleepFn = _deps?.sleep || sleep;
+  const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+
+  const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
   if (privacy !== 'private' && privacy !== 'public') {
@@ -1112,23 +1213,25 @@ export async function publishScript({ name, id, privacy = 'private', description
 
   let scriptName = name;
   if (name || id) {
-    const meta = await lookupFacadeScript({ name, id });
+    const meta = await lookupFn({ name, id });
     scriptName = meta.scriptName || meta.scriptTitle;
-    await openScript({ name: scriptName });
+    await openFn({ name: scriptName, script_id: meta.scriptIdPart || id });
   } else {
-    const identity = await getEditorIdentity();
+    const identity = await identityFn();
     if (!identity?.name) throw new Error('No script identity in editor. Pass name/id or open a script first.');
     scriptName = identity.name;
   }
 
-  await assertEditorIdentity(scriptName);
+  await assertFn(scriptName);
 
-  let publishClicked = await clickVisibleButton(/publish script/i);
+  const before = await publishedEntryFor({ name: scriptName, id }, listFn);
+  let mode = before.version != null ? 'update' : 'create';
+
+  let publishClicked = await clickFn(/publish script/i);
   if (!publishClicked) throw new Error('Publish script button not found.');
-  await sleep(800);
+  await sleepFn(800);
 
-  // Gate: script not on chart
-  const notOnChart = await evaluate(`
+  const notOnChart = await evalFn(`
     (function() {
       var body = document.body ? document.body.innerText : '';
       return /not on the chart|add to chart/i.test(body)
@@ -1136,25 +1239,54 @@ export async function publishScript({ name, id, privacy = 'private', description
     })()
   `);
   if (notOnChart) {
-    const interstitialAdd = await clickVisibleButton(/add to chart/i, { withinDialog: true });
+    const interstitialAdd = await clickFn(/add to chart/i, { withinDialog: true });
     if (!interstitialAdd) {
-      try { await addToChart(); } catch { /* continue */ }
+      try { await addFn(); } catch { /* continue */ }
     }
-    await sleep(1000);
-    publishClicked = await clickVisibleButton(/publish script/i);
+    await sleepFn(1000);
+    publishClicked = await clickFn(/publish script/i);
     if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
-    await sleep(800);
+    await sleepFn(800);
   }
 
-  // Wizard continue
-  await clickVisibleButton(/^(continue|next)$/i, { withinDialog: true });
-  await sleep(500);
+  const wizardDialogs = (await dialogsFn()).map(classifyUiDialog);
+  const wizard = wizardDialogs.find((d) => d.kind === 'pine_publish_wizard');
+  if (wizard?.mode === 'update' || /update existing/i.test(`${wizard?.text || ''} ${(wizard?.buttons || []).join(' ')}`)) {
+    mode = 'update';
+  }
 
-  // Privacy
+  const updateClicked = await clickFn(/update existing (script|library)?/i, { withinDialog: true })
+    || await clickFn(/update existing/i);
+  if (updateClicked) {
+    mode = 'update';
+  } else if (mode === 'update') {
+    return {
+      success: false,
+      mode: 'update',
+      name: scriptName,
+      published_version: before.version,
+      published_version_before: before.version,
+      pubId: before.entry?.scriptIdPart || null,
+      error: 'Already published but Update existing was not available or not clicked. Refusing to report success on an unchanged import snapshot.',
+      code: 'TV_PINE_PUBLISH_STALE',
+      hint: 'Use the pine-publish skill: observe tv_ui_state, click Update existing script, then Publish new version.',
+    };
+  } else {
+    await clickFn(/publish new script/i, { withinDialog: true });
+  }
+
+  if (description) {
+    await fillFn(description, { placeholderRegex: /description|about|summary|release notes/i });
+    await sleepFn(300);
+  }
+
+  await clickFn(/^(continue|next)$/i, { withinDialog: true });
+  await sleepFn(500);
+
   if (privacy === 'private') {
-    const priv = await clickVisibleButton(/^private$/i, { withinDialog: true });
+    const priv = await clickFn(/^private$/i, { withinDialog: true });
     if (!priv) {
-      await evaluate(`
+      await evalFn(`
         (function() {
           var labels = document.querySelectorAll('label, [role="radio"], button, span');
           for (var i = 0; i < labels.length; i++) {
@@ -1166,46 +1298,61 @@ export async function publishScript({ name, id, privacy = 'private', description
       `);
     }
   } else {
-    await clickVisibleButton(/^public$/i, { withinDialog: true });
+    await clickFn(/^public$/i, { withinDialog: true });
   }
-  await sleep(400);
+  await sleepFn(400);
 
-  if (description) {
-    await fillDialogInput(description, { placeholderRegex: /description|about|summary/i });
-    await sleep(300);
-  }
-
-  const finalBtn = privacy === 'private'
-    ? await clickVisibleButton(/publish private/i, { withinDialog: true })
-    : await clickVisibleButton(/publish public|publish$/i, { withinDialog: true });
+  const finalBtn = mode === 'update'
+    ? (await clickFn(/publish new version/i, { withinDialog: true })
+      || await clickFn(/publish private/i, { withinDialog: true })
+      || await clickFn(/publish public|publish$/i, { withinDialog: true }))
+    : (privacy === 'private'
+      ? await clickFn(/publish private/i, { withinDialog: true })
+      : await clickFn(/publish public|publish$/i, { withinDialog: true }));
 
   if (!finalBtn) {
-    const any = await clickVisibleButton(/publish/i, { withinDialog: true });
+    const any = await clickFn(/publish/i, { withinDialog: true });
     if (!any) throw new Error('Final Publish button not found in wizard.');
   }
 
-  await sleep(2500);
+  await sleepFn(2500);
 
-  const published = await fetchFacadeList('published');
-  const want = String(scriptName).toLowerCase();
-  const entry = (published.scripts || []).find((s) => {
-    const sn = (s.scriptName || '').toLowerCase();
-    const st = (s.scriptTitle || '').toLowerCase();
-    return sn === want || st === want;
-  });
+  const after = await publishedEntryFor({ name: scriptName, id }, listFn);
+  const published_version = after.version ?? null;
+  const pubId = after.entry?.scriptIdPart || before.entry?.scriptIdPart || null;
 
-  if (!entry) {
+  if (mode === 'update' && before.version != null && published_version != null
+    && String(published_version) === String(before.version)) {
+    return {
+      success: false,
+      mode,
+      name: scriptName,
+      pubId,
+      version: published_version,
+      published_version,
+      published_version_before: before.version,
+      privacy,
+      error: 'Update-existing completed but published_version did not change. The import snapshot is unchanged — do not report success.',
+      code: 'TV_PINE_PUBLISH_STALE',
+      hint: 'Confirm the wizard finished (Publish new version) and that source actually changed, then retry.',
+    };
+  }
+
+  if (!after.entry && !before.entry) {
     throw new Error(
       `Publish wizard completed but "${scriptName}" not found in pine-facade published list. `
-      + (published.error || 'Check the UI for errors. Private pubs may need the pine-publish skill.')
+      + (after.list?.error || 'Check the UI for errors. Private pubs may need the pine-publish skill.')
     );
   }
 
   return {
     success: true,
-    name: entry.scriptName || entry.scriptTitle || scriptName,
-    pubId: entry.scriptIdPart || null,
-    version: entry.version ?? null,
+    mode,
+    name: after.entry?.scriptName || after.entry?.scriptTitle || scriptName,
+    pubId,
+    version: published_version ?? after.entry?.version ?? null,
+    published_version,
+    published_version_before: before.version,
     privacy,
   };
 }
@@ -1244,15 +1391,19 @@ export async function listScripts({ check_ui_visible = true, _deps } = {}) {
  * empty). Throws a clear error when the name/id is unknown or no facade
  * endpoint yields a source.
  */
-export async function readScript({ name, script_id } = {}) {
+export async function readScript({ name, script_id, scope = 'saved', version, _deps } = {}) {
   if (!name && !script_id) throw new Error('name or script_id is required.');
-  const entry = await lookupFacadeScript({ name, id: script_id });
+  const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
+  const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
+  const filter = scope === 'published' ? 'published' : 'saved';
+  const entry = await lookupFn({ name, id: script_id, filter });
   const id = entry.scriptIdPart || entry.id;
-  const fetched = await fetchScriptSource(id, entry.version);
+  const ver = version ?? entry.version ?? null;
+  const fetched = await fetchSourceFn(id, ver);
   if (!fetched.ok || !fetched.source) {
     throw new Error(
       `Could not fetch source for "${entry.scriptName || name || script_id}" `
-      + `(id ${id}). Tried: ${(fetched.attempted || []).join(', ') || 'none'}.`
+      + `(id ${id}, scope ${filter}, version ${ver ?? 'latest'}). Tried: ${(fetched.attempted || []).join(', ') || 'none'}.`
     );
   }
   const source = fetched.source;
@@ -1261,13 +1412,33 @@ export async function readScript({ name, script_id } = {}) {
     name: entry.scriptName || entry.scriptTitle || name || null,
     title: entry.scriptTitle || null,
     script_id: id,
-    version: entry.version ?? null,
+    version: ver,
+    scope: filter,
     kind: entry.extra?.kind || entry.scriptType || entry.kind || entry.extra?.scriptType || null,
     modified: entry.modified ?? null,
     source,
     line_count: source.split('\n').length,
     char_count: source.length,
     via: fetched.via,
+    exports: extractExportedNames(source),
+  };
+}
+
+/**
+ * List `export` names for a saved or published library (user/Lib/N probe).
+ * Does not compile a consumer and does not open the editor.
+ */
+export async function listLibraryExports({ name, script_id, scope = 'published', version, _deps } = {}) {
+  const read = await readScript({ name, script_id, scope, version, _deps });
+  return {
+    success: true,
+    name: read.name,
+    script_id: read.script_id,
+    scope: read.scope,
+    version: read.version,
+    exports: read.exports,
+    export_count: read.exports.length,
+    via: read.via,
   };
 }
 
@@ -1302,9 +1473,13 @@ export async function readScriptHistory({ name, script_id, max_versions = 10, in
 // Re-export pure helpers for tests
 export {
   classifyCompileErrors,
+  classifyUiDialog,
   mergeScriptLists,
   isImportResolveError,
   extractDeclaredTitle,
+  extractExportedNames,
+  normalizePineNewlines,
+  pineSourcesEqual,
   fetchScriptSource,
   fetchScriptHistory,
 } from './pine_ui.js';
