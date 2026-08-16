@@ -247,6 +247,10 @@ The server and the TradingView process itself.
 - **Offers:** Draw horizontal lines, trend lines, rectangles, text.
 - **Limitations:** Coordinates are chart price/time points; off-screen shapes still exist even if not visible.
 
+### `draw_fib_channel`
+- **Offers:** Draw a Fibonacci channel. Required: **`template`** (any exact saved `LineToolFibChannel` name), **`direction`** (`bullish` or `bearish`), and three loci by **time**. Direction selects the OHLC extreme: bullish = low → high → low; bearish = high → low → high. Optional `price` on a locus overrides that lookup. Point order is TradingView click order: baseline `point`→`point2`, offset `point3`. Returns `{ success, entity_id, template, direction, sources, points }`.
+- **Limitations:** Refuses if that template name is missing from `/drawing-templates/LineToolFibChannel/` — no factory-default fallback (unknown `shape` keys map to `flag`). Refuses if a time has no loaded bar. Fibonacci only (not parallel/disjoint channel).
+
 ### `draw_list` / `draw_get_properties` / `draw_remove_one`
 - **Offers:** List drawings with entity IDs, inspect one, remove one by ID.
 - **Limitations:** Removal needs the entity ID from `draw_list`.
