@@ -251,24 +251,6 @@ export async function makeScopedClient(targetInfo, opts = {}) {
 }
 
 /**
- * Borrow a scoped client for a target. Returns a handle with the client
- * and a `release()` method that evicts it from the pool (closing the socket).
- * Use this when the caller needs a brief, exclusive connection — e.g.
- * `withTargetEvaluate`.
- */
-export async function acquireScopedClient(targetInfo, opts = {}) {
-  const id = targetInfo.id ?? targetInfo;
-  const client = await makeScopedClient(targetInfo, opts);
-  // Remove from pool so the pool doesn't hold a reference the borrower will close.
-  scopedPool.delete(id);
-  return {
-    client,
-    release: async () => { try { await client.close(); } catch { /* already gone */ } },
-    targetId: id,
-  };
-}
-
-/**
  * Close all pooled scoped clients and clear the pool. Used on disconnect.
  */
 export async function drainScopedPool() {
