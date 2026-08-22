@@ -1402,8 +1402,9 @@ async function tryLookup(lookupFn, args) {
 }
 
 /**
- * When a name hits both lists, prefer the published library (import identity).
- * Same-kind hits on different ids are ambiguous.
+ * When a name hits both lists, the published library is the import identity
+ * (saved USER;id and published PUB;id are different ids of the same name).
+ * Two non-library hits on different ids are ambiguous.
  */
 function pickAllScope(savedHit, publishedHit, { name, script_id }) {
   const saved = savedHit?.entry;
@@ -1421,8 +1422,8 @@ function pickAllScope(savedHit, publishedHit, { name, script_id }) {
   if (saved && published) {
     const sk = scriptKind(saved);
     const pk = scriptKind(published);
-    if (pk === 'library' && sk !== 'library') return { entry: published, filter: 'published' };
-    if (sk === 'library' && pk !== 'library') return { entry: saved, filter: 'saved' };
+    if (pk === 'library') return { entry: published, filter: 'published' };
+    if (sk === 'library') return { entry: saved, filter: 'saved' };
     const sid = saved.scriptIdPart || saved.id;
     const pid = published.scriptIdPart || published.id;
     if (sid && pid && sid === pid) return { entry: published, filter: 'published' };

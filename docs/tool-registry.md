@@ -135,7 +135,7 @@ Develop, compile, and debug Pine in the editor.
 
 ### `pine_library_exports` / `pine_read_script` lookup scope
 - **Offers:** `pine_read_script` accepts `scope: saved|published|all` (default `all`) and `version` to read a saved script or the `import user/Lib/N` snapshot without opening the editor. `name` also accepts the import spec itself. When a name hits both lists, the published `library` wins. `pine_library_exports` lists parsed `export` names (`type` / `enum` / `method` / `fn`) from that source so a stale `/1` can be detected without compiling a consumer.
-- **Limitations:** Published private libraries may be omitted from `filter=published`; then pass `script_id` (`PUB;…`) and `version`. Same-kind hits on both lists are refused as ambiguous — pass `scope` or `script_id`.
+- **Limitations:** Published private libraries may be omitted from `filter=published`; then pass `script_id` (`PUB;…`) and `version`. Two non-library hits with the same name on both lists are refused as ambiguous — pass `scope` or `script_id`.
 
 ### `pine_analyze`
 - **Offers:** Offline static analysis — array out-of-bounds, unguarded `first()/last()`, bad loop bounds, implicit bool casts. No TradingView connection needed.

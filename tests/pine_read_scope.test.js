@@ -120,7 +120,35 @@ describe('readScript scope', () => {
     assert.equal(String(read.version), '1');
   });
 
-  it('same-kind hits on both lists are ambiguous', async () => {
+  it('default all prefers the published library when the saved twin is also a library', async () => {
+    const rows = {
+      saved: [{
+        scriptIdPart: 'USER;5b48c567',
+        scriptName: 'RSIZones',
+        version: '9.0',
+        extra: { kind: 'library' },
+      }],
+      published: [{
+        scriptIdPart: 'PUB;75ceaefbe37b4aebb688a4859aebf0fb',
+        scriptName: 'RSIZones',
+        version: '2.0',
+        extra: { kind: 'library' },
+      }],
+    };
+    const _deps = {
+      lookupFacadeScript: lookupByFilter(rows),
+      fetchScriptSource: async (id) => {
+        assert.equal(id, 'PUB;75ceaefbe37b4aebb688a4859aebf0fb');
+        return { ok: true, source: LIB_SRC, via: 'GET /get/id/version' };
+      },
+    };
+    const read = await readScript({ name: 'RSIZones', _deps });
+    assert.equal(read.scope, 'published');
+    assert.equal(read.kind, 'library');
+    assert.equal(read.script_id, 'PUB;75ceaefbe37b4aebb688a4859aebf0fb');
+  });
+
+  it('two non-library hits on both lists are ambiguous', async () => {
     const rows = {
       saved: [{ scriptIdPart: 'USER;a', scriptName: 'Twin', extra: { kind: 'study' } }],
       published: [{ scriptIdPart: 'PUB;b', scriptName: 'Twin', extra: { kind: 'study' } }],
