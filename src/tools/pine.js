@@ -21,11 +21,13 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_read_script', 'Read a saved Pine Script\'s full source by name or script_id WITHOUT opening it in the editor, switching the Save/Publish target, or raising any dialog. Returns {name, script_id, version, kind, source, line_count, char_count}. Works for indicators, strategies, and libraries (including published libraries referenced via import user/Lib/N). Prefer this over pine_open + pine_get_source for read-only access to another script.', {
-    name: z.string().optional().describe('Saved script name (exact match preferred; unambiguous substring allowed)'),
+  server.tool('pine_read_script', 'Read a Pine Script\'s full source by name or script_id WITHOUT opening it. scope=saved (default) reads the editor/cloud facade; scope=published + version N reads the import user/Lib/N snapshot. Also returns parsed export names. Prefer this over pine_open + pine_get_source for read-only access.', {
+    name: z.string().optional().describe('Saved/published script name (exact match preferred; unambiguous substring allowed)'),
     script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
-  }, async ({ name, script_id } = {}) => {
-    try { return jsonResult(await core.readScript({ name, script_id })); }
+    scope: z.enum(['saved', 'published']).optional().describe('saved (default) or published import snapshot'),
+    version: z.union([z.string(), z.number()]).optional().describe('Published/saved version to fetch (e.g. 2 or "2.0")'),
+  }, async ({ name, script_id, scope, version } = {}) => {
+    try { return jsonResult(await core.readScript({ name, script_id, scope, version })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
@@ -57,17 +59,17 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted AGAINST THE BUFFER\'S script (not just the header name). FAILS LOUDLY (success:false) unless the persisted cloud source exactly matches the editor buffer — a save that bumps the version while persisting a different source is reported as an error, not success (issue #21). Detects the unbound-editor trap (bound_mismatch). verified=true means the cloud source now matches the editor buffer. Returns {success, name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name, error?}.', {}, async () => {
+  server.tool('pine_save', 'Save the current Pine Script to the cloud and verify it persisted AGAINST THE BUFFER\'S script (not just the header name). FAILS LOUDLY (success:false) unless the persisted cloud source matches the editor buffer (CRLF/LF normalized). A save that bumps the version while persisting a different source is an error, not success (issue #21). Detects the unbound-editor trap (bound_mismatch). Returns {success, name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name, error?}.', {}, async () => {
     try { return jsonResult(await core.save()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_bind', 'Bind the editor to a saved script: fetch its registered source from the facade, load it into the buffer, and confirm the buffer matches. Establishes the buffer↔identity binding that pine_save verifies against — use this to escape the unbound-editor trap (verified:false / bound_mismatch) before editing and saving. No Open-dialog dependency for the source itself.', {
+  server.tool('pine_bind', 'Bind the editor to a saved script: switch the Open/Save/Publish identity (same as pine_open), fetch facade source, load it into the buffer, and confirm the match. REFUSES (success:false) when the header identity differs — never injects into the wrong script. Use to escape bound_mismatch / verified:false before editing.', {
     name: z.string().optional().describe('Saved script name to bind (exact match preferred)'),
     script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
   }, async ({ name, script_id } = {}) => {
     try { return jsonResult(await core.bindScript({ name, script_id })); }
-    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+    catch (err) { return jsonResult({ success: false, error: err.message, code: err.code, blocked_dialog: err.blocked_dialog }, true); }
   });
 
   server.tool('pine_get_console', 'Read Pine Script console/log output (compile messages, log.info(), errors)', {}, async () => {
@@ -75,7 +77,7 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes. Surfaces import-resolve / unpublished-library failures in import_errors.', {
+  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes. Surfaces import-resolve / unpublished-library failures in import_errors. When the path clicks the Pine Save toolbar button, returns clicked:"Pine Save" and persisted:true (that click is a cloud persist, not compile-only).', {
     require_published_imports: z.coerce.boolean().optional().describe('If true, success=false when import-resolve errors are present'),
   }, async ({ require_published_imports } = {}) => {
     try { return jsonResult(await core.smartCompile({ require_published_imports })); }
@@ -89,11 +91,12 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_open', 'Open a saved Pine Script by registered identity (Open script dialog). Switches Save/Publish target to that script and refuses if the editor header does not match. Does not Monaco-inject into another script.', {
-    name: z.string().describe('Name of the saved script to open (exact match preferred)'),
-  }, async ({ name }) => {
-    try { return jsonResult(await core.openScript({ name })); }
-    catch (err) { return jsonResult({ success: false, source: 'open_dialog', error: err.message }, true); }
+  server.tool('pine_open', 'Open a saved Pine Script by registered identity (Open script dialog). Accepts script_id to disambiguate near-duplicate names. Switches Save/Publish target, dismisses the Open picker on success, and returns blocked_dialog when the picker remains. Does not Monaco-inject into another script.', {
+    name: z.string().optional().describe('Name of the saved script to open (exact match preferred)'),
+    script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (disambiguates Eng vs Engine vs EngineLib)'),
+  }, async ({ name, script_id } = {}) => {
+    try { return jsonResult(await core.openScript({ name, script_id })); }
+    catch (err) { return jsonResult({ success: false, source: 'open_dialog', error: err.message, code: err.code, blocked_dialog: err.blocked_dialog }, true); }
   });
 
   server.tool('pine_copy', 'Make a registered copy of a Pine script via the UI Make a copy… flow (appears in Open script / My scripts). Never uses orphan pine-facade save/new alone.', copySchema, async (args) => {
@@ -111,13 +114,23 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_publish', 'Publish the open (or named) Pine script via the Publish wizard. Handles Add-to-chart gate. Returns pubId + version for import user/Lib/N. Cloud side effect.', {
+  server.tool('pine_publish', 'Publish the open (or named) Pine script via the Publish wizard. Already-published scripts take Update existing and FAIL if published_version does not change. Returns {mode: update|create, pubId, published_version, published_version_before}. Cloud side effect.', {
     name: z.string().optional().describe('Script name to open and publish (default: currently open identity)'),
     id: z.string().optional().describe('scriptIdPart to resolve and publish'),
     privacy: z.enum(['private', 'public']).optional().describe('Publish privacy (default private)'),
-    description: z.string().optional().describe('Plain-language library/script description for the publish form'),
+    description: z.string().optional().describe('Plain-language library/script description or update release notes'),
   }, async (args) => {
     try { return jsonResult(await core.publishScript(args)); }
+    catch (err) { return jsonResult({ success: false, error: err.message, code: err.code }, true); }
+  });
+
+  server.tool('pine_library_exports', 'List published (or saved) export names for a Pine library without compiling a consumer. scope=published + version N probes the import user/Lib/N snapshot (issue #12/#26). Returns {exports:[{name,kind}], export_count, version, script_id}.', {
+    name: z.string().optional().describe('Library name (exact match preferred)'),
+    script_id: z.string().optional().describe('scriptIdPart or PUB;id'),
+    scope: z.enum(['saved', 'published']).optional().describe('published (default) or saved facade'),
+    version: z.union([z.string(), z.number()]).optional().describe('Published version N for import user/Lib/N'),
+  }, async ({ name, script_id, scope, version } = {}) => {
+    try { return jsonResult(await core.listLibraryExports({ name, script_id, scope, version })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 

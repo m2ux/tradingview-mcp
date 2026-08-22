@@ -14,7 +14,7 @@ export function registerHealthTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('tv_ui_state', 'Get current UI state: which panels are open, what buttons are visible/enabled/disabled', {}, async () => {
+  server.tool('tv_ui_state', 'Get current UI state: which panels are open, what buttons are visible/enabled/disabled. dialogs / blocking_dialog include the Pine publish/update wizard (title, step, mode, buttons) and the Open my script picker — even when those surfaces lack role=dialog.', {}, async () => {
     try { return jsonResult(await core.uiState()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });

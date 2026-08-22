@@ -15,6 +15,35 @@ export function registerDrawingTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
+  server.tool(
+    'draw_fib_channel',
+    'Draw a Fibonacci channel from a saved LineToolFibChannel template, bullish/bearish direction, and three bar times (TV click order: baseline point→point2, offset point3). Optional timeframe selects which resolution supplies OHLC (omit = active chart).',
+    {
+      template: z.string().describe(
+        'Required. Any exact saved LineToolFibChannel template name (caller-supplied; no default). Must exist on /drawing-templates/LineToolFibChannel/ — refuses otherwise, no factory-default fallback.',
+      ),
+      direction: z.enum(['bullish', 'bearish']).describe(
+        'Required. Selects the OHLC extreme at each locus: bullish = low, high, low; bearish = high, low, high.',
+      ),
+      point: z.object({ time: z.coerce.number(), price: z.coerce.number().optional() }).describe(
+        'First locus (TV click 1). Time required; price optional override (else bar low if bullish, high if bearish).',
+      ),
+      point2: z.object({ time: z.coerce.number(), price: z.coerce.number().optional() }).describe(
+        'Second locus (TV click 2; with point forms the baseline). Time required; price optional (else high if bullish, low if bearish).',
+      ),
+      point3: z.object({ time: z.coerce.number(), price: z.coerce.number().optional() }).describe(
+        'Third locus (TV click 3; parallel / width). Time required; price optional (else low if bullish, high if bearish).',
+      ),
+      timeframe: z.string().optional().describe(
+        'Resolution whose bars supply OHLC when a locus omits price (e.g. "D", "60", "45"). Omit to use the active chart timeframe. The original resolution is restored after lookup.',
+      ),
+    },
+    async ({ template, direction, point, point2, point3, timeframe }) => {
+      try { return jsonResult(await core.drawFibChannel({ template, direction, point, point2, point3, timeframe })); }
+      catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+    },
+  );
+
   server.tool('draw_list', 'List all shapes/drawings on the chart', {}, async () => {
     try { return jsonResult(await core.listDrawings()); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }

@@ -1,11 +1,94 @@
 /**
  * Core drawing logic.
  */
-import { evaluate as _evaluate, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
-import { sleep } from '../wait.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, getChartApi as _getChartApi, safeString, requireFinite, KNOWN_PATHS } from '../connection.js';
+import { sleep, waitForChartReady as _waitForChartReady } from '../wait.js';
+import { listTemplates, getTemplate } from './drawing_templates.js';
+import { setTimeframe as _setTimeframe } from './chart.js';
+
+const BARS_PATH = KNOWN_PATHS.mainSeriesBars;
+const CHART_API = KNOWN_PATHS.chartApi;
+
+/** OHLC field per TV click: bullish L→H→L, bearish H→L→H. */
+export const FIB_DIRECTION_SOURCES = {
+  bullish: ['low', 'high', 'low'],
+  bearish: ['high', 'low', 'high'],
+};
+
+export function normalizeFibDirection(direction) {
+  const d = String(direction ?? '').trim().toLowerCase();
+  if (d === 'bullish' || d === 'bull') return 'bullish';
+  if (d === 'bearish' || d === 'bear') return 'bearish';
+  return null;
+}
+
+function optionalPrice(point, label) {
+  if (point == null || point.price == null || point.price === '') return undefined;
+  return requireFinite(point.price, `${label}.price`);
+}
+
+function toBarUnix(t) {
+  const n = Number(t);
+  if (!Number.isFinite(n)) return n;
+  return n > 1e11 ? n / 1000 : n;
+}
+
+/**
+ * Canonical TradingView resolution for OHLC lookup. Empty/omitted → null
+ * (caller should use the active chart). D/W/M aliases collapse so "1D" matches "D".
+ */
+export function normalizeFibTimeframe(timeframe) {
+  if (timeframe == null) return null;
+  const s = String(timeframe).trim();
+  if (!s) return null;
+  const u = s.toUpperCase();
+  if (u === '1D' || u === 'D' || u === 'DAY' || u === 'DAILY') return 'D';
+  if (u === '1W' || u === 'W' || u === 'WEEK' || u === 'WEEKLY') return 'W';
+  if (u === '1M' || u === 'M' || u === 'MONTH' || u === 'MONTHLY') return 'M';
+  return s;
+}
+
+export function sameResolution(a, b) {
+  const na = normalizeFibTimeframe(a);
+  const nb = normalizeFibTimeframe(b);
+  if (na && nb) return na === nb;
+  return String(a ?? '').trim() === String(b ?? '').trim();
+}
+
+/**
+ * Pick the bar whose open time equals `unixSec`, else the bar whose
+ * [open, nextOpen) interval contains it. Does not snap to the last bar
+ * when `unixSec` is past the series.
+ */
+export function pickBarForTime(bars, unixSec) {
+  const t = toBarUnix(unixSec);
+  if (!Array.isArray(bars) || !Number.isFinite(t)) return null;
+  for (let i = 0; i < bars.length; i++) {
+    const bar = bars[i];
+    const bt = toBarUnix(bar?.time);
+    if (!Number.isFinite(bt)) continue;
+    if (bt === t) return bar;
+    const nextT = i + 1 < bars.length ? toBarUnix(bars[i + 1]?.time) : null;
+    if (Number.isFinite(nextT) && bt <= t && t < nextT) return bar;
+  }
+  return null;
+}
 
 function _resolve(deps) {
-  return { evaluate: deps?.evaluate || _evaluate, getChartApi: deps?.getChartApi || _getChartApi };
+  const evaluate = deps?.evaluate || _evaluate;
+  const evaluateAsync = deps?.evaluateAsync || _evaluateAsync;
+  const getChartApi = deps?.getChartApi || _getChartApi;
+  const waitForChartReady = deps?.waitForChartReady || _waitForChartReady;
+  const setTimeframe = deps?.setTimeframe || (({ timeframe }) => _setTimeframe({
+    timeframe,
+    _deps: { evaluate, waitForChartReady },
+  }));
+  return { evaluate, evaluateAsync, getChartApi, waitForChartReady, setTimeframe };
+}
+
+async function readResolution(evaluate) {
+  const r = await evaluate(`${CHART_API}.resolution()`);
+  return r == null || r === '' ? '' : String(r);
 }
 
 export async function drawShape({ shape, point, point2, overrides: overridesRaw, text, _deps }) {
@@ -43,6 +126,194 @@ export async function drawShape({ shape, point, point2, overrides: overridesRaw,
   const newId = (after || []).find(id => !(before || []).includes(id)) || null;
   const result = { entity_id: newId };
   return { success: true, shape, entity_id: result?.entity_id };
+}
+
+const FIB_CHANNEL_TYPE = 'fibonacci channel';
+const FIB_CHANNEL_LIST = '/drawing-templates/LineToolFibChannel/';
+
+async function resolveFibLoci({ direction, point, point2, point3, evaluate }) {
+  const sources = FIB_DIRECTION_SOURCES[direction];
+  const raw = [point, point2, point3];
+  const labels = ['point', 'point2', 'point3'];
+  const times = raw.map((p, i) => requireFinite(p?.time, `${labels[i]}.time`));
+  const explicit = raw.map((p, i) => optionalPrice(p, labels[i]));
+  const needLookup = explicit.some((price) => price === undefined);
+
+  let bars = [null, null, null];
+  if (needLookup) {
+    const wantIdx = [];
+    const want = [];
+    for (let i = 0; i < explicit.length; i++) {
+      if (explicit[i] === undefined) {
+        wantIdx.push(i);
+        want.push(toBarUnix(times[i]));
+      }
+    }
+    const looked = await evaluate(`
+      (function() { // drawFibChannel_lookupBars
+        var bars = ${BARS_PATH};
+        if (!bars || typeof bars.lastIndex !== 'function') {
+          return { ok: false, error: 'Main series bars not available' };
+        }
+        var want = ${JSON.stringify(want)};
+        var found = [];
+        for (var w = 0; w < want.length; w++) found[w] = null;
+        var start = bars.firstIndex();
+        var end = bars.lastIndex();
+        var list = [];
+        for (var i = start; i <= end; i++) {
+          var v = bars.valueAt(i);
+          if (!v) continue;
+          var bt = v[0] > 1e11 ? v[0] / 1000 : v[0];
+          list.push({ time: v[0], unix: bt, open: v[1], high: v[2], low: v[3], close: v[4] });
+        }
+        for (var k = 0; k < want.length; k++) {
+          var t = want[k];
+          var hit = null;
+          for (var j = 0; j < list.length; j++) {
+            var bt = list[j].unix;
+            if (bt === t) { hit = list[j]; break; }
+            var next = list[j + 1];
+            if (next && bt <= t && t < next.unix) { hit = list[j]; break; }
+          }
+          if (hit) found[k] = { time: hit.time, open: hit.open, high: hit.high, low: hit.low, close: hit.close };
+        }
+        var missing = [];
+        for (var m = 0; m < want.length; m++) {
+          if (!found[m]) missing.push(want[m]);
+        }
+        if (missing.length) {
+          return { ok: false, error: 'No loaded bar at time(s): ' + missing.join(', '), missing: missing };
+        }
+        return { ok: true, bars: found };
+      })()
+    `);
+    if (!looked?.ok) {
+      return {
+        success: false,
+        error: looked?.error || 'Failed to resolve OHLC for fib channel loci',
+        missing: looked?.missing,
+      };
+    }
+    wantIdx.forEach((locusIdx, k) => { bars[locusIdx] = looked.bars[k]; });
+  }
+
+  const points = times.map((time, i) => {
+    const source = sources[i];
+    if (explicit[i] !== undefined) {
+      return { time, price: explicit[i], source: 'price' };
+    }
+    const bar = bars[i];
+    const price = bar?.[source];
+    if (!Number.isFinite(price)) {
+      return { error: `Bar at ${time} has no ${source}` };
+    }
+    return { time: bar.time ?? time, price, source };
+  });
+  const failed = points.find((p) => p.error);
+  if (failed) return { success: false, error: failed.error };
+  return { success: true, points, sources };
+}
+
+/**
+ * Draw a Fibonacci channel from a caller-supplied LineToolFibChannel template
+ * name, a bullish/bearish direction, and three loci (TV click order: baseline
+ * point→point2, offset point3). Times are required; prices default to that
+ * bar's OHLC extreme from `direction` (bullish L→H→L, bearish H→L→H).
+ * Optional `timeframe` selects which resolution's bars supply those OHLC
+ * values (omit = active chart). The original resolution is restored before
+ * the shape is created. `template` has no default. Refuses if that name is
+ * missing from the cloud list — no factory fallback.
+ */
+export async function drawFibChannel({ template, direction, point, point2, point3, timeframe, _deps }) {
+  const { evaluate, evaluateAsync, getChartApi, setTimeframe } = _resolve(_deps);
+  const templateDeps = { evaluateAsync };
+  const name = String(template ?? '').trim();
+  if (!name) {
+    return { success: false, error: 'template is required (any exact LineToolFibChannel template name; no default)' };
+  }
+
+  const dir = normalizeFibDirection(direction);
+  if (!dir) {
+    return { success: false, error: 'direction is required: "bullish" (L→H→L) or "bearish" (H→L→H)' };
+  }
+
+  const listed = await listTemplates({ drawing_type: FIB_CHANNEL_TYPE, _deps: templateDeps });
+  if (!listed.success) {
+    return {
+      success: false,
+      error: listed.error || `Failed to list templates at ${FIB_CHANNEL_LIST}`,
+      status: listed.status,
+    };
+  }
+  const names = listed.templates || [];
+  if (!names.includes(name)) {
+    return {
+      success: false,
+      error: `Template "${name}" not found in ${FIB_CHANNEL_LIST}. Available: ${names.join(', ') || '(none)'}`,
+      templates: names,
+    };
+  }
+
+  const loaded = await getTemplate({ drawing_type: FIB_CHANNEL_TYPE, name, _deps: templateDeps });
+  if (!loaded.success) {
+    return {
+      success: false,
+      error: loaded.error || `Failed to load template "${name}"`,
+      status: loaded.status,
+    };
+  }
+
+  const needLookup = [point, point2, point3].some((p, i) => optionalPrice(p, ['point', 'point2', 'point3'][i]) === undefined);
+  const activeTf = await readResolution(evaluate);
+  const requestedTf = normalizeFibTimeframe(timeframe);
+  const ohlcTf = requestedTf || normalizeFibTimeframe(activeTf) || activeTf;
+  let switched = false;
+
+  let resolved;
+  try {
+    if (needLookup && requestedTf && !sameResolution(requestedTf, activeTf)) {
+      await setTimeframe({ timeframe: requestedTf });
+      switched = true;
+    }
+    resolved = await resolveFibLoci({ direction: dir, point, point2, point3, evaluate });
+  } finally {
+    if (switched && activeTf) {
+      await setTimeframe({ timeframe: activeTf });
+    }
+  }
+  if (!resolved.success) return { ...resolved, timeframe: ohlcTf };
+  const { points } = resolved;
+  const [p1, p2, p3] = points;
+
+  const apiPath = await getChartApi();
+  const before = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
+  await evaluateAsync(`
+    (async function() {
+      var api = ${apiPath};
+      return await api.createMultipointShape(
+        [
+          { time: ${p1.time}, price: ${p1.price} },
+          { time: ${p2.time}, price: ${p2.price} },
+          { time: ${p3.time}, price: ${p3.price} }
+        ],
+        { shape: ${safeString('fib_channel')}, template: ${JSON.stringify(loaded.content)} }
+      );
+    })()
+  `);
+
+  await sleep(200);
+  const after = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
+  const newId = (after || []).find(id => !(before || []).includes(id)) || null;
+  return {
+    success: true,
+    entity_id: newId,
+    template: name,
+    direction: dir,
+    timeframe: ohlcTf,
+    sources: FIB_DIRECTION_SOURCES[dir],
+    points,
+  };
 }
 
 export async function listDrawings() {

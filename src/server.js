@@ -24,7 +24,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 88 tools by default (95 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 90 tools by default (97 with TV_ALLOW_DANGEROUS=1) for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -53,23 +53,24 @@ Changing the chart:
 - indicator_set_inputs → change indicator settings (length, source, etc.)
 
 Pine Script development (create → publish → render → verify):
-- pine_open → Open-dialog identity switch (Save/Publish target); refuses header mismatch
+- pine_open → Open-dialog identity switch (Save/Publish target); accepts script_id; dismisses Open picker; refuses header mismatch
 - pine_copy / pine_save_as → registered Make a copy (never orphan facade save/new)
-- pine_set_source → inject code (optional script_name guard); pine_save → save + verify AGAINST the buffer's script (returns script_id/version/verified/persisted_matches_buffer; flags bound_mismatch on the unbound-editor trap)
-- pine_bind → fetch a saved script's facade source into the buffer and confirm the match; establishes the binding pine_save verifies — use to escape bound_mismatch / verified:false before editing
+- pine_set_source → inject code (optional script_name guard); pine_save → save + verify AGAINST the buffer's script (CRLF/LF normalized; flags bound_mismatch)
+- pine_bind → switch identity then load facade source; refuses (does not inject) when the header differs
 - pine_add_to_chart → toolbar Add/Update for open script; typed action added|updated|blocked_dialog (prefer over indicator_add for fresh My scripts)
-- pine_publish → Publish wizard; returns pubId + version for import user/Lib/N
+- pine_publish → Publish wizard; Update-existing when already published; returns mode + published_version; fails if the import snapshot is unchanged
 - pine_list_scripts → kind / published_version / ui_visible orphan flags
-- pine_smart_compile → compile + import_errors; optional require_published_imports
+- pine_smart_compile → compile + import_errors; clicked/persisted when the path is Pine Save
 - pine_get_errors / pine_get_console → read errors and log output
-- pine_read_script → read a saved script's source by name/id WITHOUT opening it (no editor/dialog side effects); prefer over pine_open+pine_get_source for read-only access
+- pine_read_script → read saved or published (scope + version) source without opening; prefer over pine_open+pine_get_source
+- pine_library_exports → list export names for user/Lib/N without compiling a consumer
 - WARNING: pine_get_source can return 200KB+ for complex scripts — avoid unless editing
 
 Screenshots: capture_screenshot → regions: "full", "chart", "strategy_tester" (stabilize_ms soft wait)
 Snapshot: capture_snapshot → one-call headless capture of the displayed chart — visible time & price range, OHLCV over visible bars, active studies + per-bar series, user drawings, Pine graphics (lines/labels/tables/boxes), and a screenshot (file_path). Use instead of the multi-tool "Analyze my chart" sequence; set include_series=false for a compact snapshot
 Replay: replay_start → replay_step → replay_trade → replay_status → replay_stop
 Batch: batch_run → run action across multiple symbols/timeframes (gated)
-Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
+Drawing: draw_shape → horizontal_line, trend_line, rectangle, text; draw_fib_channel → template + direction (bullish L→H→L / bearish H→L→H) + three bar times; optional timeframe for OHLC (omit = active chart)
 Drawing templates: draw_template_list / draw_template_get / draw_template_save (drawing_type + name; save accepts content and/or from_template)
 Alerts: alert_create, alert_list; alert_delete (gated)
 Launch: tv_launch (gated) → auto-detect and start TradingView with CDP on any platform

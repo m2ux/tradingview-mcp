@@ -114,8 +114,8 @@ Develop, compile, and debug Pine in the editor.
 - **Limitations:** Reflects the current editor state — read these after a compile.
 
 ### `pine_open`
-- **Offers:** Opens a saved script via the **Open script** dialog so Save/Publish target that identity. Returns `{name, scriptIdPart, version}` and refuses if the editor header ≠ requested name.
-- **Limitations:** Exact name preferred; ambiguous substring matches are refused. Does **not** Monaco-inject into another open buffer.
+- **Offers:** Opens a saved script via the **Open script** dialog so Save/Publish target that identity. Accepts `name` and/or `script_id` (disambiguates near-duplicate names). Returns `{name, scriptIdPart, version}` and refuses if the editor header ≠ requested name. Dismisses the Open picker on success (including **Close menu** by text).
+- **Limitations:** Exact name preferred; ambiguous substring matches are refused unless `script_id` is passed. A leftover picker returns `success:false` with `blocked_dialog`. Does **not** Monaco-inject into another open buffer.
 
 ### `pine_copy` / `pine_save_as`
 - **Offers:** Registered Make-a-copy / Save-as of an existing script (`from_name`|`from_id`, `new_name`, optional `replace`). Appears in Open dialog / My scripts and can be published.
@@ -126,12 +126,16 @@ Develop, compile, and debug Pine in the editor.
 - **Limitations:** Prefer this over `indicator_add` for freshly saved My scripts (search lag). On `blocked_dialog` with reason `save_before_add`, run `pine_save` then retry.
 
 ### `pine_publish`
-- **Offers:** Drive the Publish wizard (`privacy: private|public`, optional `description`). Handles the Add-to-chart gate. Returns `{pubId, version}` for `import user/Lib/N`.
-- **Limitations:** Cloud side effect on your TradingView account; confirm the open identity first.
+- **Offers:** Drive the Publish wizard (`privacy: private|public`, optional `description`). Already-published scripts take **Update existing** (never a silent create). Returns `{mode: update|create, pubId, published_version, published_version_before}` for `import user/Lib/N`.
+- **Limitations:** Cloud side effect. Fails (`TV_PINE_PUBLISH_STALE`) if Update-existing is required but not completed, or if `published_version` does not change. Confirm the open identity first.
 
 ### `pine_save` / `pine_bind` / `pine_new` / `pine_list_scripts`
-- **Offers:** `pine_save` saves to cloud and **verifies it persisted against the buffer's script** — returns `{name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name}`. `verified=true` means the cloud source now matches the editor buffer (re-fetched from the facade and compared), with version-bump / freshly-created as fallback signals. It detects the **unbound-editor trap** (header and buffer bound to different scripts — the root cause of the old `verified:false` false-negative) and reports `bound_mismatch` with a warning instead of silently verifying the wrong script. `pine_bind` (`name`|`script_id`) fetches a saved script's registered source from the facade, loads it into the buffer, and confirms the match — establishing the buffer↔identity binding `pine_save` verifies against; use it to escape a `bound_mismatch` / unverified save before editing. `pine_new` makes blank editor templates; `pine_list_scripts` lists saved scripts with `kind`, `published_version`, and `ui_visible` / `in_open_dialog` (orphan detection when a facade-saved id is missing from Open dialog).
-- **Limitations:** `pine_new` only injects a template — it does **not** register a publishable identity (use `pine_copy` / Save as). `pine_save` reports `verified:false` with a note when the saved identity can't be re-resolved or the persisted source doesn't match the buffer — run `pine_bind` then retry. Note: TradingView Desktop's save does not traverse page `fetch`/XHR (verified in #17), so persistence is confirmed by re-reading the facade, not by observing a write request. Listing with `check_ui_visible` opens the Open dialog briefly.
+- **Offers:** `pine_save` saves to cloud and **verifies it persisted against the buffer's script** — returns `{name, script_id, version, modified, verified, persisted_matches_buffer, resolved_by, buffer_title, header_name}`. Persist-match **normalizes CRLF/LF**. `verified=true` means the cloud source now matches the editor buffer. It detects the **unbound-editor trap** and reports `bound_mismatch`. `pine_bind` (`name`|`script_id`) **switches editor identity** (same as `pine_open`) then loads facade source — it **refuses** when the header differs and never injects into the wrong script. `pine_new` makes blank editor templates; `pine_list_scripts` lists saved scripts with `kind`, `published_version`, and `ui_visible` / `in_open_dialog`.
+- **Limitations:** `pine_new` only injects a template — it does **not** register a publishable identity (use `pine_copy` / Save as). `pine_save` reports `verified:false` when the persisted source doesn't match the buffer — run `pine_bind` then retry. Desktop save does not traverse page `fetch`/XHR (#17). Listing with `check_ui_visible` opens the Open dialog briefly.
+
+### `pine_library_exports` / `pine_read_script` published scope
+- **Offers:** `pine_read_script` accepts `scope: saved|published` and `version` to read the `import user/Lib/N` snapshot without opening the editor. `pine_library_exports` lists parsed `export` names (`type` / `enum` / `method` / `fn`) from that source so a stale `/1` can be detected without compiling a consumer.
+- **Limitations:** Published private libraries may be omitted from `filter=published`; then pass `script_id` (`PUB;…`) and `version`.
 
 ### `pine_analyze`
 - **Offers:** Offline static analysis — array out-of-bounds, unguarded `first()/last()`, bad loop bounds, implicit bool casts. No TradingView connection needed.
@@ -212,7 +216,7 @@ The server and the TradingView process itself.
 - **Limitations:** A probe report — availability varies by TradingView version.
 
 ### `tv_ui_state`
-- **Offers:** Which panels are open, which buttons are visible/enabled.
+- **Offers:** Which panels are open, which buttons are visible/enabled. `dialogs` / `blocking_dialog` include the Pine publish/update wizard (`kind`, `step`, `mode`, `title`, `buttons`) and the Open my script picker, including surfaces that lack `role=dialog`.
 - **Limitations:** Reflects current UI only.
 
 ### `tv_launch` — 🔒 gated
@@ -242,6 +246,10 @@ The server and the TradingView process itself.
 ### `draw_shape`
 - **Offers:** Draw horizontal lines, trend lines, rectangles, text.
 - **Limitations:** Coordinates are chart price/time points; off-screen shapes still exist even if not visible.
+
+### `draw_fib_channel`
+- **Offers:** Draw a Fibonacci channel. Required: **`template`** (any exact saved `LineToolFibChannel` name), **`direction`** (`bullish` or `bearish`), and three loci by **time**. Direction selects the OHLC extreme: bullish = low → high → low; bearish = high → low → high. Optional `price` on a locus overrides that lookup. Optional **`timeframe`** selects which resolution's bars supply OHLC (omit = active chart; the original resolution is restored after lookup). Point order is TradingView click order: baseline `point`→`point2`, offset `point3`. Returns `{ success, entity_id, template, direction, timeframe, sources, points }`.
+- **Limitations:** Refuses if that template name is missing from `/drawing-templates/LineToolFibChannel/` — no factory-default fallback (unknown `shape` keys map to `flag`). Refuses if a time has no loaded bar on the OHLC timeframe. Fibonacci only (not parallel/disjoint channel).
 
 ### `draw_list` / `draw_get_properties` / `draw_remove_one`
 - **Offers:** List drawings with entity IDs, inspect one, remove one by ID.

@@ -311,6 +311,7 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | Tool | What it does |
 |------|-------------|
 | `draw_shape` | Draw horizontal_line, trend_line, rectangle, text |
+| `draw_fib_channel` | Fibonacci channel: `template` + `direction` (bullish L→H→L / bearish H→L→H) + three bar times; optional `timeframe` for OHLC (omit = active chart) |
 | `draw_list` / `draw_remove_one` / `draw_clear` | Manage drawings |
 | `draw_template_list` / `draw_template_get` / `draw_template_save` | List/fetch/create drawing templates by type + name |
 | `alert_create` / `alert_list` / `alert_delete` | Manage price alerts |
