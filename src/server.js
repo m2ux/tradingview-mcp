@@ -62,7 +62,7 @@ Pine Script development (create → publish → render → verify):
 - pine_list_scripts → kind / published_version / ui_visible orphan flags
 - pine_smart_compile → compile + import_errors; clicked/persisted when the path is Pine Save
 - pine_get_errors / pine_get_console → read errors and log output
-- pine_read_script → read saved or published (scope + version) source without opening; prefer over pine_open+pine_get_source
+- pine_read_script → read saved or published (scope + version) source without opening; default scope=all prefers published library on name collision; name accepts user/Lib/N
 - pine_library_exports → list export names for user/Lib/N without compiling a consumer
 - WARNING: pine_get_source can return 200KB+ for complex scripts — avoid unless editing
 

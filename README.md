@@ -288,7 +288,7 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 | `pine_get_errors` / `pine_get_console` | Compilation errors / log.info() |
 | `pine_save` | Save to TradingView cloud |
 | `pine_list_scripts` | List with orphan / publish flags |
-| `pine_read_script` | Read a saved script's source by name/id **without opening it** (no editor/dialog side effects) |
+| `pine_read_script` | Read saved or published source by name/id/`user/Lib/N` **without opening it** (`scope` default `all`; published library wins a same-name collision) |
 | `pine_get_source` | Read current script (**warning: can be 200KB+ for complex scripts**); pass `name`/`script_id` to read without opening |
 | `pine_new` | Blank template only (no cloud identity) |
 | `pine_analyze` | Offline static analysis (no chart needed) |
