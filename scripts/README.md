@@ -26,12 +26,20 @@ node scripts/capture_study_series.mjs \
   --study "RSI Zone Divergence" \  # substring of the study's description
   --rsi "Relative Strength Index" \# companion study to join by time (optional)
   --count 300 --price \
+  --from 1761760800 --to 1786510800 --drop-last \
+  --timeframes 5,15,30 \
+  --calc-time \
   --out scripts/reference/my_baseline.json
 ```
 
 - Emits `<out>` (JSON) and `<out>.csv` (flat sidecar for plotting/diffing).
-- Injects the same evaluate-expression as `core/data.js getStudySeries`, so the
-  baseline matches the live tool's behavior exactly.
+- `--from` / `--to` pin an inclusive unix-second or ISO window so new live bars
+  do not slide the capture.
+- `--drop-last` omits the still-forming last bar.
+- `--timeframes 5,15,30` captures the same study on each resolution (restores
+  the original afterwards) and writes `<out>_<tf>.json` plus an `_mtf` manifest.
+- `--calc-time` records `calculation_time_ms` / `ms_per_bar` when the study
+  model exposes a calculationTime.
 - `--target` selects the browser tab; omit to use the first chart target. Find
   targets at `http://localhost:9222/json/list`.
 
@@ -43,13 +51,14 @@ regression, exit 1 = differences found.
 node scripts/diff_study_series.mjs \
   --target od9I4OCz \
   --ref scripts/reference/rszonediv_4d_300.json \
-  [--tol 1e-6]
+  [--tol 1e-6] [--from 1761760800 --to 1786510800 --drop-last]
 ```
 
 Compares, per shared bar: fired-signal identity (which plot, which side), signal
 timing (by bar time), study plot values, companion-RSI values, and close price.
-Reports max drift per channel. Live-forming last bar will show tiny rsi/close
-drift — that's expected, not a logic change.
+Reports max drift per channel. `--from` / `--to` / `--drop-last` (or the
+reference file's `window`) keep the comparison on the pinned range so the
+still-forming last bar is out of the signal set.
 
 ### `scripts/pine_push.js` / `pine_pull.js`
 Read/write the Pine editor source over CDP. Both accept a tab selector via the
@@ -64,6 +73,7 @@ TARGET=od9I4OCz node scripts/pine_push.js   # push scripts/current.pine + compil
 ```bash
 # 1. Freeze the baseline from the chart under test
 node scripts/capture_study_series.mjs --target <tab> --study "<name>" --count 300 --price \
+  --from 1761760800 --to 1786510800 --drop-last \
   --out scripts/reference/base.json
 
 # 2. Back up the original source

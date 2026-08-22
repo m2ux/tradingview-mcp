@@ -26,12 +26,12 @@ register('pine', {
       description: 'Read a saved or published script source by name/id WITHOUT opening it',
       options: {
         id: { type: 'string', description: 'scriptIdPart (takes precedence over name)' },
-        scope: { type: 'string', description: 'saved (default) or published' },
+        scope: { type: 'string', description: 'all (default), saved, or published' },
         version: { type: 'string', description: 'Version to fetch (e.g. 2.0)' },
       },
       handler: (opts, positionals) => {
         const name = positionals.join(' ') || undefined;
-        if (!name && !opts.id) throw new Error('Usage: tv pine read "Script Name"  |  tv pine read --id USER;xxxx [--scope published --version 2]');
+        if (!name && !opts.id) throw new Error('Usage: tv pine read "Script Name"  |  tv pine read user/Lib/N  |  tv pine read --id USER;xxxx [--scope published --version 2]');
         return core.readScript({ name, script_id: opts.id, scope: opts.scope, version: opts.version });
       },
     }],

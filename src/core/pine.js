@@ -25,6 +25,7 @@ import {
   isNameInOpenDialog,
   lookupFacadeScript,
   mergeScriptLists,
+  parseImportSpec,
   openViaOpenDialog,
   pineSourcesEqual,
   restorePinePanel,
@@ -1383,33 +1384,113 @@ export async function listScripts({ check_ui_visible = true, _deps } = {}) {
   };
 }
 
+function scriptKind(entry) {
+  return String(entry?.extra?.kind || entry?.scriptType || entry?.kind || entry?.extra?.scriptType || '').toLowerCase();
+}
+
+function isScriptMissing(err) {
+  return Boolean(err && (err.code === 'TV_SCRIPT_NOT_FOUND' || /not found/i.test(err.message || '')));
+}
+
+async function tryLookup(lookupFn, args) {
+  try {
+    return { entry: await lookupFn(args), filter: args.filter };
+  } catch (err) {
+    if (isScriptMissing(err)) return { missing: true, err, filter: args.filter };
+    throw err;
+  }
+}
+
 /**
- * Read a saved script's full source by name or scriptIdPart WITHOUT opening
- * it in the editor, switching Save/Publish identity, or raising any dialog.
- * Resolves identity from the facade saved list, then fetches the source body
- * from the facade on-demand endpoint (the list payload leaves scriptSource
- * empty). Throws a clear error when the name/id is unknown or no facade
- * endpoint yields a source.
+ * When a name hits both lists, the published library is the import identity
+ * (saved USER;id and published PUB;id are different ids of the same name).
+ * Two non-library hits on different ids are ambiguous.
  */
-export async function readScript({ name, script_id, scope = 'saved', version, _deps } = {}) {
+function pickAllScope(savedHit, publishedHit, { name, script_id }) {
+  const saved = savedHit?.entry;
+  const published = publishedHit?.entry;
+  if (!saved && !published) {
+    throw savedHit?.err || publishedHit?.err || tvError(
+      'TV_SCRIPT_NOT_FOUND',
+      `Script "${name || script_id}" not found in saved or published lists.`,
+      {
+        resolution: { by: script_id ? 'script_id' : 'script_name', name, id: script_id, filter: 'all' },
+        hint: 'Call pine_list_scripts, then retry with script_id or scope=saved|published.',
+      },
+    );
+  }
+  if (saved && published) {
+    const sk = scriptKind(saved);
+    const pk = scriptKind(published);
+    if (pk === 'library') return { entry: published, filter: 'published' };
+    if (sk === 'library') return { entry: saved, filter: 'saved' };
+    const sid = saved.scriptIdPart || saved.id;
+    const pid = published.scriptIdPart || published.id;
+    if (sid && pid && sid === pid) return { entry: published, filter: 'published' };
+    throw tvError(
+      'TV_SCRIPT_AMBIGUOUS',
+      `Ambiguous script "${name || script_id}" across saved and published (same kind). `
+      + `saved=${sid || '?'} published=${pid || '?'}.`,
+      {
+        resolution: {
+          by: script_id ? 'script_id' : 'script_name',
+          name,
+          id: script_id,
+          candidates: [sid, pid].filter(Boolean),
+        },
+        hint: 'Pass scope=saved or scope=published, or an exact script_id.',
+      },
+    );
+  }
+  return saved
+    ? { entry: saved, filter: 'saved' }
+    : { entry: published, filter: 'published' };
+}
+
+/**
+ * Read a script's full source by name, scriptIdPart, or `user/Lib/N` import
+ * spec WITHOUT opening it in the editor, switching Save/Publish identity, or
+ * raising any dialog. Default scope `all` queries saved and published lists;
+ * a name that hits both prefers the published `library`. `scope=saved` and
+ * `scope=published` query one list. The facade list payload leaves
+ * scriptSource empty; the body comes from the on-demand get endpoint.
+ */
+export async function readScript({ name, script_id, scope, version, _deps } = {}) {
   if (!name && !script_id) throw new Error('name or script_id is required.');
   const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
   const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
-  const filter = scope === 'published' ? 'published' : 'saved';
+
+  const spec = !script_id ? parseImportSpec(name) : null;
+  if (spec) {
+    name = spec.name;
+    if (version == null) version = spec.version;
+    if (scope == null || scope === 'all') scope = 'published';
+  }
+
+  const requested = scope ?? 'all';
   let entry;
-  try {
-    entry = await lookupFn({ name, id: script_id, filter });
-  } catch (err) {
-    // Published list uses PUB;id; pine_list_scripts gives USER;id. Resolve
-    // saved identity then match the published row by name (issue #26.6).
-    if (filter === 'published' && script_id) {
-      const saved = await lookupFn({ name, id: script_id, filter: 'saved' });
-      entry = await lookupFn({
-        name: saved.scriptName || saved.scriptTitle || name,
-        filter: 'published',
-      });
-    } else {
-      throw err;
+  let filter;
+
+  if (requested === 'all') {
+    const savedHit = await tryLookup(lookupFn, { name, id: script_id, filter: 'saved' });
+    const publishedHit = await tryLookup(lookupFn, { name, id: script_id, filter: 'published' });
+    ({ entry, filter } = pickAllScope(savedHit, publishedHit, { name, script_id }));
+  } else {
+    filter = requested === 'published' ? 'published' : 'saved';
+    try {
+      entry = await lookupFn({ name, id: script_id, filter });
+    } catch (err) {
+      // Published list uses PUB;id; pine_list_scripts gives USER;id. Resolve
+      // saved identity then match the published row by name.
+      if (filter === 'published' && script_id) {
+        const saved = await lookupFn({ name, id: script_id, filter: 'saved' });
+        entry = await lookupFn({
+          name: saved.scriptName || saved.scriptTitle || name,
+          filter: 'published',
+        });
+      } else {
+        throw err;
+      }
     }
   }
   const id = entry.scriptIdPart || entry.id;
@@ -1493,6 +1574,7 @@ export {
   isImportResolveError,
   extractDeclaredTitle,
   extractExportedNames,
+  parseImportSpec,
   normalizePineNewlines,
   pineSourcesEqual,
   fetchScriptSource,

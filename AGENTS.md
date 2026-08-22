@@ -61,7 +61,7 @@ Manual sequence (when you need to cherry-pick):
 10. `pine_get_errors` / `pine_get_console` → compilation errors and log.info()
 11. `pine_get_source` → read current code back (WARNING: can be very large for complex scripts)
 12. `pine_new` → blank template only (does not register cloud identity)
-13. `pine_read_script` → read saved or published (`scope` + `version`) source **without opening it**; prefer over `pine_open` + `pine_get_source`
+13. `pine_read_script` → read saved or published (`scope` + `version`) source **without opening it**; default `scope: all` prefers a published `library` when the name hits both lists; `name` accepts `user/Lib/N`; prefer over `pine_open` + `pine_get_source`
 14. `pine_library_exports` → list `export` names for `user/Lib/N` without compiling a consumer
 
 ### "Practice trading with replay"

@@ -21,10 +21,10 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_read_script', 'Read a Pine Script\'s full source by name or script_id WITHOUT opening it. scope=saved (default) reads the editor/cloud facade; scope=published + version N reads the import user/Lib/N snapshot. Also returns parsed export names. Prefer this over pine_open + pine_get_source for read-only access.', {
-    name: z.string().optional().describe('Saved/published script name (exact match preferred; unambiguous substring allowed)'),
+  server.tool('pine_read_script', 'Read a Pine Script\'s full source by name, script_id, or user/Lib/N import spec WITHOUT opening it. Default scope=all queries saved and published; a name that hits both prefers the published library. scope=saved or scope=published queries one list. Also returns parsed export names. Prefer this over pine_open + pine_get_source for read-only access.', {
+    name: z.string().optional().describe('Script name, or import spec user/Lib/N (exact match preferred; unambiguous substring allowed)'),
     script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
-    scope: z.enum(['saved', 'published']).optional().describe('saved (default) or published import snapshot'),
+    scope: z.enum(['saved', 'published', 'all']).optional().describe('all (default: saved+published, prefer published library), saved, or published import snapshot'),
     version: z.union([z.string(), z.number()]).optional().describe('Published/saved version to fetch (e.g. 2 or "2.0")'),
   }, async ({ name, script_id, scope, version } = {}) => {
     try { return jsonResult(await core.readScript({ name, script_id, scope, version })); }

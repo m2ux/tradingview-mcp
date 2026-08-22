@@ -23,6 +23,18 @@ export function extractDeclaredTitle(source) {
   return m ? m[2] : null;
 }
 
+/**
+ * Parse an `import user/Lib/N` spec (optional leading `import `).
+ * Returns { user, name, version } or null when the string is not that form.
+ */
+export function parseImportSpec(value) {
+  if (typeof value !== 'string') return null;
+  const s = value.trim().replace(/^import\s+/i, '');
+  const m = s.match(/^([A-Za-z0-9_]+)\/([A-Za-z0-9_]+)\/(\d+)$/);
+  if (!m) return null;
+  return { user: m[1], name: m[2], version: m[3] };
+}
+
 /** Normalize Pine source newlines so CRLF facades compare equal to LF injects. */
 export function normalizePineNewlines(source) {
   if (typeof source !== 'string') return source;
