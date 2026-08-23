@@ -2,14 +2,14 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © theansweris42
 //
-// RSI momentum-divergence detector over RSIZones adaptive bands (Red heat overbought / Blue heat oversold).
-// Reference version: 362-generic — Step 5 of the library-generic refactor. Per-side state machine is
-// eng.step(dir, ZoneState, body, wick, …, SidePrev). Types + step() come from published
-// RSIZoneDivEng/2 (inCore/inWide/inZone/intensity/wideExit). All [1] reads stay on flat globals.
+// RSI momentum-divergence detector over RSIZones adaptive bands
+// (red heat = overbought, blue heat = oversold).
+// Thin shell: RSIZones builds the per-bar zone snapshot; RSIZoneDivEng runs
+// one step() per side. Series history ([1]) stays on flat globals here.
 
 indicator('RSI Zone Divergence Generic', shorttitle = 'RSIZGen', overlay = true)
 import theansweris42/RSIZones/1 as mt
-import theansweris42/RSIZoneDivEng/2 as eng
+import theansweris42/RSIZoneDivEng/3 as eng
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // User Inputs
@@ -33,9 +33,8 @@ mint1.calc(rsi1, ip_lx, ip_hx, ip_rh, ip_th, rz0_hys, rz1_hys)
 m_mid = 50.0
 mp_tol = 0.25
 
-// Hoisted stateful library method results (v6 lazy-eval fix): these methods wrap ta.* history calls,
-// so they MUST execute on every bar. Under v6 'and'/'or'/ternary lazy evaluation, a call on the
-// short-circuited side is skipped, corrupting the method's internal rolling history. Compute once per bar.
+// Hoist every mint1.* edge that wraps ta.* so it runs on every bar.
+// Pine v6 short-circuits `and`/`or`/ternary; a skipped call corrupts that method's history.
 m_no_rzl_rise = mint1.no_rzl_rise()
 m_no_rzl_fall = mint1.no_rzl_fall()
 m_is_rzl_w_fall = mint1.is_rzl_w_fall()

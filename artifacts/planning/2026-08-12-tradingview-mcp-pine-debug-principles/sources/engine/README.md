@@ -48,5 +48,5 @@ diff 58/58 signals, drift 0, both polarities present. This refactor is **regress
    leaks RSIZones semantics before the published API is locked at step 5.
 5. Privately publish + pin the engine library; switch the shell to the published import.
 
-Steps 1–5 are gated. Published pin: `import theansweris42/RSIZoneDivEng/2 as eng`. Shell:
+Steps 1–5 are gated. Published pin: `import theansweris42/RSIZoneDivEng/3 as eng`. Shell:
 `../rszonediv_generic.pine`.

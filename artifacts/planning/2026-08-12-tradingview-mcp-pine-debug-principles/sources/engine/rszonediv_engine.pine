@@ -2,12 +2,12 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © theansweris42
 //
-// Library-generic momentum-divergence engine (Step 3: per-side step() + explicit prev*).
-// Pure, side-parameterized next-value logic. dir = +1 -> low (bullish) side; dir = -1 -> high (bearish) side.
-// No function here reads history (x[1], ta.*) or a concrete zone source. The caller builds ZoneState
-// and SidePrev from flat globals each bar and assigns SideOut back onto those globals.
+// Side-parameterized momentum-divergence engine.
+// dir = +1 is the low (bullish) side; dir = -1 is the high (bearish) side.
+// No function here reads series history (x[1], ta.*) or a concrete zone source.
+// The caller builds ZoneState and SidePrev from flat globals each bar and assigns SideOut back.
+// @description Side-parameterized momentum-divergence engine. dir=+1 low/bullish, dir=-1 high/bearish.
 library("RSIZoneDivEng")
-// publish stamp 2026-08-16 step5-rename
 
 // "Is `a` a more extreme peak than `b` for this side?" low: lower is better; high: higher is better.
 export better(float dir, float a, float b) =>
@@ -150,10 +150,8 @@ export type SideOut
     float divCnt
     bool  trig
 
-// One side, one bar. Edges that were ta.falling/rising/change in the shell are
-// histOk-gated comparisons against SidePrev (same timing as bar_index >= 1).
-// High-side mom-hit uses current mom/coeff (not prevCon); high-side mom nopk uses bool()
-// on the rcap delta — both preserved from 350-symLo.
+// One side, one bar. Edges that need prior-bar values are histOk-gated
+// comparisons against SidePrev (same timing as bar_index >= 1).
 export step(float dir, ZoneState zs, float body, float wick, float mid, float mpTol, bool hiSens, SidePrev p) =>
     bool histOk = bar_index >= 1
     float coeff = 1.01
