@@ -361,9 +361,12 @@ describe('smartCompile — library Save vs indicator Add', () => {
         evaluate: async (expr) => {
           if (expr.includes('preferSave')) {
             const preferSave = /var preferSave = true/.test(expr);
-            if (preferSave && clicks.save) { clicked.push('Pine Save'); return 'Pine Save'; }
-            if (!preferSave && clicks.add) { clicked.push('Add to chart'); return 'Add to chart'; }
-            return clicks.save ? 'Pine Save' : clicks.add ? 'Add to chart' : null;
+            if (preferSave) {
+              if (clicks.save) { clicked.push('Pine Save'); return 'Pine Save'; }
+              return null;
+            }
+            if (clicks.add) { clicked.push('Add to chart'); return 'Add to chart'; }
+            return clicks.save ? 'Pine Save' : null;
           }
           return [];
         },
@@ -392,5 +395,18 @@ describe('smartCompile — library Save vs indicator Add', () => {
     assert.deepEqual(clicked, ['Add to chart']);
     assert.equal(r.clicked, 'Add to chart');
     assert.equal(r.persisted, false);
+  });
+
+  it('refuses a library compile when Pine Save is missing and does not click Add to chart', async () => {
+    const { _deps, clicked } = compileDeps({
+      source: LIB_SRC,
+      clicks: { save: false, add: true },
+    });
+    const r = await smartCompile({ _deps });
+    assert.deepEqual(clicked, []);
+    assert.equal(r.success, false);
+    assert.equal(r.persisted, false);
+    assert.notEqual(r.clicked, 'Add to chart');
+    assert.equal(r.study_added, false);
   });
 });

@@ -816,13 +816,33 @@ export async function smartCompile({ require_published_imports = false, _deps } 
         if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
         if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) saveBtn = btns[i];
       }
-      if (preferSave && saveBtn) { saveBtn.click(); return 'Pine Save'; }
+      if (preferSave) {
+        if (saveBtn) { saveBtn.click(); return 'Pine Save'; }
+        return null;
+      }
       if (addBtn) { addBtn.click(); return 'Add to chart'; }
       if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
       if (saveBtn) { saveBtn.click(); return 'Pine Save'; }
       return null;
     })()
   `);
+
+  if (preferSave && buttonClicked !== 'Pine Save') {
+    return {
+      success: false,
+      button_clicked: buttonClicked || null,
+      clicked: buttonClicked || null,
+      persisted: false,
+      has_errors: false,
+      has_import_errors: false,
+      import_errors: [],
+      errors: [],
+      all_errors: [],
+      study_added: false,
+      require_published_imports: !!require_published_imports,
+      error: 'Library compile needs the Pine Save control; Add to chart was not used.',
+    };
+  }
 
   if (!buttonClicked) {
     await pressKeyFn('Enter', 2);
