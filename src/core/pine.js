@@ -761,21 +761,37 @@ export async function getConsole() {
   return { success: true, entries: entries || [], entry_count: entries?.length || 0 };
 }
 
-export async function smartCompile({ require_published_imports = false } = {}) {
-  const editorReady = await ensurePineEditorOpen();
+function bufferLooksLikeLibrary(buf) {
+  if (!buf) return false;
+  if (String(buf.kind || '').toLowerCase() === 'library') return true;
+  return /(?:^|\n)\s*library\s*\(/m.test(buf.source || '');
+}
+
+export async function smartCompile({ require_published_imports = false, _deps } = {}) {
+  const evalFn = _deps?.evaluate || evaluate;
+  const ensureFn = _deps?.ensurePineEditorOpen || ensurePineEditorOpen;
+  const studyCountFn = _deps?.studyCount || studyCount;
+  const bufferFn = _deps?.getEditorBufferInfo || getEditorBufferInfo;
+  const sleepFn = _deps?.sleep || sleep;
+  const pressKeyFn = _deps?.pressKey || pressKey;
+
+  const editorReady = await ensureFn();
   if (!editorReady) throw new Error('Could not open Pine Editor.');
 
-  const studiesBefore = await studyCount();
+  const studiesBefore = await studyCountFn();
+  const buf = await bufferFn().catch(() => null);
+  const preferSave = bufferLooksLikeLibrary(buf);
 
-  const buttonClicked = await evaluate(`
+  const buttonClicked = await evalFn(`
     (function() {
+      var preferSave = ${preferSave ? 'true' : 'false'};
       var btns = document.querySelectorAll('button');
       var addBtn = null;
       var updateBtn = null;
       var saveBtn = null;
       for (var i = 0; i < btns.length; i++) {
         var text = btns[i].textContent.trim();
-        if (/save and add to chart/i.test(text)) {
+        if (/save and add to chart/i.test(text) && !preferSave) {
           btns[i].click();
           return 'Save and add to chart';
         }
@@ -783,6 +799,7 @@ export async function smartCompile({ require_published_imports = false } = {}) {
         if (!updateBtn && /^update on chart/i.test(text)) updateBtn = btns[i];
         if (!saveBtn && btns[i].className.indexOf('saveButton') !== -1 && btns[i].offsetParent !== null) saveBtn = btns[i];
       }
+      if (preferSave && saveBtn) { saveBtn.click(); return 'Pine Save'; }
       if (addBtn) { addBtn.click(); return 'Add to chart'; }
       if (updateBtn) { updateBtn.click(); return 'Update on chart'; }
       if (saveBtn) { saveBtn.click(); return 'Pine Save'; }
@@ -791,12 +808,12 @@ export async function smartCompile({ require_published_imports = false } = {}) {
   `);
 
   if (!buttonClicked) {
-    await pressKey('Enter', 2);
+    await pressKeyFn('Enter', 2);
   }
 
-  await sleep(2500);
+  await sleepFn(2500);
 
-  const errors = await evaluate(`
+  const errors = await evalFn(`
     (function() {
       var m = ${FIND_MONACO};
       if (!m) return [];
@@ -809,7 +826,7 @@ export async function smartCompile({ require_published_imports = false } = {}) {
     })()
   `);
 
-  const studiesAfter = await studyCount();
+  const studiesAfter = await studyCountFn();
   const studyAdded = (studiesBefore !== null && studiesAfter !== null) ? studiesAfter > studiesBefore : null;
   const { import_errors, errors: otherErrors } = classifyCompileErrors(errors || []);
   const hasImportErrors = import_errors.length > 0;

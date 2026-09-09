@@ -16,6 +16,7 @@ import {
   pineSourcesEqual,
   publishScript,
   readScript,
+  smartCompile,
 } from '../src/core/pine.js';
 
 const LIB_SRC = `//@version=6
@@ -293,5 +294,53 @@ describe('readScript / listLibraryExports published scope (issue #26.6)', () => 
     const exp = await listLibraryExports({ script_id: 'USER;eng', scope: 'published', version: 4, _deps });
     assert.equal(exp.script_id, 'PUB;72abc');
     assert.ok(exp.exports.some((e) => e.name === 'step'));
+  });
+});
+
+describe('smartCompile — library Save vs indicator Add', () => {
+  function compileDeps({ source, clicks }) {
+    const clicked = [];
+    return {
+      clicked,
+      _deps: {
+        ensurePineEditorOpen: async () => true,
+        studyCount: async () => 2,
+        getEditorBufferInfo: async () => ({ source }),
+        sleep: async () => {},
+        pressKey: async () => {},
+        evaluate: async (expr) => {
+          if (expr.includes('preferSave')) {
+            const preferSave = /var preferSave = true/.test(expr);
+            if (preferSave && clicks.save) { clicked.push('Pine Save'); return 'Pine Save'; }
+            if (!preferSave && clicks.add) { clicked.push('Add to chart'); return 'Add to chart'; }
+            return clicks.save ? 'Pine Save' : clicks.add ? 'Add to chart' : null;
+          }
+          return [];
+        },
+      },
+    };
+  }
+
+  it('clicks Pine Save on a library buffer and does not report study_added', async () => {
+    const { _deps, clicked } = compileDeps({
+      source: LIB_SRC,
+      clicks: { save: true, add: true },
+    });
+    const r = await smartCompile({ _deps });
+    assert.deepEqual(clicked, ['Pine Save']);
+    assert.equal(r.clicked, 'Pine Save');
+    assert.equal(r.persisted, true);
+    assert.equal(r.study_added, false);
+  });
+
+  it('still prefers Add to chart on an indicator buffer', async () => {
+    const { _deps, clicked } = compileDeps({
+      source: '//@version=6\nindicator("RSI")\nplot(close)\n',
+      clicks: { save: true, add: true },
+    });
+    const r = await smartCompile({ _deps });
+    assert.deepEqual(clicked, ['Add to chart']);
+    assert.equal(r.clicked, 'Add to chart');
+    assert.equal(r.persisted, false);
   });
 });

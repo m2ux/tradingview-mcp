@@ -77,7 +77,7 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes. Surfaces import-resolve / unpublished-library failures in import_errors. When the path clicks the Pine Save toolbar button, returns clicked:"Pine Save" and persisted:true (that click is a cloud persist, not compile-only).', {
+  server.tool('pine_smart_compile', 'Intelligent compile: detects button, compiles, checks errors, reports study changes. Surfaces import-resolve / unpublished-library failures in import_errors. On a library buffer clicks Pine Save (persisted:true, study_added:false). When the path clicks the Pine Save toolbar button, returns clicked:"Pine Save" and persisted:true.', {
     require_published_imports: z.coerce.boolean().optional().describe('If true, success=false when import-resolve errors are present'),
   }, async ({ require_published_imports } = {}) => {
     try { return jsonResult(await core.smartCompile({ require_published_imports })); }
