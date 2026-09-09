@@ -291,6 +291,7 @@ Coverage: full server surface at `4ff5104` (`chore/24-improve-cdp-architecture`)
 |-----------|-----------------|
 | [Comprehension log — 2026-08-15](../planning/2026-08-15-improve-cdp-architecture-of-tradingview-mcp-server/15-codebase-comprehension.md) | the questions, CDP-transport deep-dive, and open items behind this revision |
 | [CDP interface analysis (prior research)](../planning/2026-08-15-tradingview-mcp-cdp-architecture/README.md) | the R1–R5 breach evidence and build order this artifact cross-references |
+| [Pine live-edit loop](15-pine-live-edit.md) | Plot-series, compile, bind, publish, fill, Close, and chart-clip behaviour on the live library-update path |
 
 | Contributing work package | Dates |
 |---------------------------|-------|
