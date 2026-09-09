@@ -80,8 +80,17 @@ export function classifyUiDialog(dlg = {}) {
   const buttons = Array.isArray(dlg.buttons) ? dlg.buttons : [];
   const text = `${dlg.text || ''} ${buttons.join(' ')}`;
   const titleUpdate = text.match(/Update\s+['"]([^'"]+)['"]\s+(library|script|indicator|strategy)/i);
+  if (/delete this publication/i.test(text)) {
+    return {
+      ...dlg,
+      kind: 'delete_confirm',
+      close_surface: 'delete_confirm',
+      safe_dismiss: 'Cancel',
+      title: 'Delete this publication',
+    };
+  }
   if (/open my script/i.test(text)) {
-    return { ...dlg, kind: 'pine_open_dialog', step: 'open_picker', title: 'Open my script' };
+    return { ...dlg, kind: 'pine_open_dialog', step: 'open_picker', title: 'Open my script', close_surface: 'overlay' };
   }
   if (titleUpdate) {
     const step = /publish new version|final touches|private|public/i.test(text) && !/release notes/i.test(text)
@@ -92,20 +101,21 @@ export function classifyUiDialog(dlg = {}) {
       kind: 'pine_publish_wizard',
       step,
       mode: 'update',
+      close_surface: 'wizard',
       title: titleUpdate[0].replace(/\s+/g, ' ').trim(),
     };
   }
   if (/update existing (script|library)/i.test(text)) {
-    return { ...dlg, kind: 'pine_publish_wizard', step: 'update', mode: 'update', title: 'Update existing script' };
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'update', mode: 'update', title: 'Update existing script', close_surface: 'wizard' };
   }
   if (/publish new script/i.test(text) && !/update existing/i.test(text)) {
-    return { ...dlg, kind: 'pine_publish_wizard', step: 'create', mode: 'create', title: 'Publish new script' };
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'create', mode: 'create', title: 'Publish new script', close_surface: 'wizard' };
   }
   if (/publish new version|publish private|final touches/i.test(text)) {
-    return { ...dlg, kind: 'pine_publish_wizard', step: 'privacy_final', title: 'Final touches' };
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'privacy_final', title: 'Final touches', close_surface: 'wizard' };
   }
   if (/release notes/i.test(text) && /continue/i.test(text)) {
-    return { ...dlg, kind: 'pine_publish_wizard', step: 'release_notes', mode: 'update', title: 'Release notes' };
+    return { ...dlg, kind: 'pine_publish_wizard', step: 'release_notes', mode: 'update', title: 'Release notes', close_surface: 'wizard' };
   }
   return { ...dlg, kind: dlg.kind || 'dialog', step: dlg.step ?? null };
 }

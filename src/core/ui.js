@@ -16,8 +16,8 @@ const elementNotFound = (by, value) => tvError(
   },
 );
 
-export async function click({ by, value, trusted = false } = {}) {
-  const find = findElementExpression({ by, value, targetVar: 'el' });
+export async function click({ by, value, trusted = false, surface } = {}) {
+  const find = findElementExpression({ by, value, targetVar: 'el', surface });
   const result = await evaluate(`
     (function() {
       ${find}
@@ -120,8 +120,8 @@ export async function waitFor({ expression, timeout_ms = 5000, interval_ms = 150
  * Reads `prop` from memoizedProps (default 'onClick') and calls it with
  * `args`. Registered gated (ui_fiber_action) behind TV_ALLOW_DANGEROUS.
  */
-export async function fiberAction({ by, value, prop = 'onClick', args = [] } = {}) {
-  const find = findElementExpression({ by, value, targetVar: 'el' });
+export async function fiberAction({ by, value, prop = 'onClick', args = [], surface } = {}) {
+  const find = findElementExpression({ by, value, targetVar: 'el', surface });
   const result = await evaluate(`
     (function() {
       ${find}

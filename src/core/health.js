@@ -170,10 +170,19 @@ export async function uiState() {
   `);
 
   const dialogs = await getVisibleDialogs();
+  const close_controls = dialogs
+    .filter((d) => d.close_surface)
+    .map((d) => ({
+      surface: d.close_surface,
+      kind: d.kind,
+      title: d.title || null,
+      safe_dismiss: d.safe_dismiss || 'Close',
+    }));
   return {
     success: true,
     ...state,
     dialogs,
+    close_controls,
     blocking_dialog: dialogs.length > 0 ? dialogs[dialogs.length - 1] : null,
   };
 }

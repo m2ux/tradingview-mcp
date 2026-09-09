@@ -7,8 +7,9 @@ export function registerUiTools(server) {
     by: z.enum(['aria-label', 'data-name', 'text', 'class-contains']).describe('Selector strategy'),
     value: z.string().describe('Value to match against the chosen selector strategy'),
     trusted: z.coerce.boolean().optional().describe('Escalate to a trusted CDP click if the synthetic click does not activate the control (default false)'),
-  }, async ({ by, value, trusted }) => {
-    try { return jsonResult(await core.click({ by, value, trusted })); }
+    surface: z.enum(['wizard', 'overlay', 'delete_confirm']).optional().describe('Scope Close to the publish wizard, Pine overlay, or delete-confirm (Cancel is the safe dismiss on delete)'),
+  }, async ({ by, value, trusted, surface }) => {
+    try { return jsonResult(await core.click({ by, value, trusted, surface })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 

@@ -67,6 +67,17 @@ describe('classifyUiDialog', () => {
     });
     assert.equal(picker.kind, 'pine_open_dialog');
     assert.equal(picker.step, 'open_picker');
+    assert.equal(picker.close_surface, 'overlay');
+  });
+
+  it('classifies Delete this publication with Cancel as the safe dismiss', () => {
+    const del = classifyUiDialog({
+      text: 'Delete this publication? This cannot be undone.',
+      buttons: ['Cancel', 'Delete'],
+    });
+    assert.equal(del.kind, 'delete_confirm');
+    assert.equal(del.close_surface, 'delete_confirm');
+    assert.equal(del.safe_dismiss, 'Cancel');
   });
 });
 

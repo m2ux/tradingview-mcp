@@ -155,28 +155,88 @@ export function setNativeValueExpression(value, inputVar = 'inp') {
  * Build a page-context expression that resolves a single element by a
  * selector strategy, assigning it to `targetVar`. Returns the source string.
  * Strategies mirror ui_click/ui_find_element: aria-label, data-name, text,
- * class-contains. The element must be visible to resolve. Pure builder.
+ * class-contains. The element must be visible to resolve. `surface` scopes
+ * Close (wizard vs Pine overlay vs delete-confirm); omit it for a first
+ * visible match except Close, which prefers wizard then overlay and never
+ * the delete-confirm X. Pure builder.
  */
-export function findElementExpression({ by, value, targetVar = 'el' }) {
+export function findElementExpression({ by, value, targetVar = 'el', surface } = {}) {
   const v = safeString(value);
+  const wantSurface = surface ? safeString(surface) : 'null';
   return `
     var ${targetVar} = null;
     (function() {
       var by = ${safeString(by)};
       var value = ${v};
+      var wantSurface = ${wantSurface};
       function vis(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
+      function closeSurfaceOf(node) {
+        var n = node;
+        while (n && n !== document) {
+          var t = ((n.innerText || n.textContent || '') + ' ' + (n.getAttribute && n.getAttribute('aria-label') || '')).replace(/\\s+/g, ' ');
+          if (/delete this publication/i.test(t)) return 'delete_confirm';
+          if (/update\\s+['"][^'"]+['"]\\s+(library|script|indicator|strategy)/i.test(t)
+            || /update existing (script|library)/i.test(t)
+            || /publish new version|final touches|release notes|publish new script/i.test(t)) return 'wizard';
+          if (/open my script/i.test(t) || /close menu/i.test(t)) return 'overlay';
+          n = n.parentElement;
+        }
+        return 'other';
+      }
+      function pickClose(nodes) {
+        var wizard = null, overlay = null, other = null;
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (!vis(n)) continue;
+          var s = closeSurfaceOf(n);
+          if (wantSurface && s !== wantSurface) continue;
+          if (s === 'delete_confirm') continue;
+          if (s === 'wizard' && !wizard) wizard = n;
+          else if (s === 'overlay' && !overlay) overlay = n;
+          else if (!other) other = n;
+        }
+        if (wantSurface === 'delete_confirm') {
+          var confirms = document.querySelectorAll('[role="dialog"], [data-name="confirm-dialog"], [class~="js-dialog"]');
+          for (var c = 0; c < confirms.length; c++) {
+            if (!vis(confirms[c])) continue;
+            if (!/delete this publication/i.test(confirms[c].textContent || '')) continue;
+            var btns = confirms[c].querySelectorAll('button, [role="button"]');
+            for (var b = 0; b < btns.length; b++) {
+              var lab = ((btns[b].textContent || '') + ' ' + (btns[b].getAttribute('aria-label') || '')).replace(/\\s+/g, ' ').trim();
+              if (/^cancel$/i.test(lab) && vis(btns[b])) return btns[b];
+            }
+          }
+          return null;
+        }
+        return wizard || overlay || other || null;
+      }
+      var classifyingClose = /^close$/i.test(value) || wantSurface;
       if (by === 'aria-label') {
-        ${targetVar} = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
-        if (!${targetVar}) ${targetVar} = document.querySelector('[aria-label*="' + CSS.escape(value) + '"]');
+        if (classifyingClose) {
+          var nodes = document.querySelectorAll('[aria-label="' + CSS.escape(value) + '"], [aria-label*="' + CSS.escape(value) + '"]');
+          ${targetVar} = pickClose(nodes);
+        } else {
+          ${targetVar} = document.querySelector('[aria-label="' + CSS.escape(value) + '"]');
+          if (!${targetVar}) ${targetVar} = document.querySelector('[aria-label*="' + CSS.escape(value) + '"]');
+        }
       } else if (by === 'data-name') {
         ${targetVar} = document.querySelector('[data-name="' + CSS.escape(value) + '"]');
       } else if (by === 'class-contains') {
         ${targetVar} = document.querySelector('[class*="' + CSS.escape(value) + '"]');
       } else {
         var cands = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"], input, select, label, span, div');
-        for (var i = 0; i < cands.length; i++) {
-          var t = (cands[i].textContent || '').trim();
-          if ((t === value || t.toLowerCase() === value.toLowerCase()) && vis(cands[i])) { ${targetVar} = cands[i]; break; }
+        if (classifyingClose) {
+          var textHits = [];
+          for (var i = 0; i < cands.length; i++) {
+            var t = (cands[i].textContent || '').trim();
+            if (t === value || t.toLowerCase() === value.toLowerCase()) textHits.push(cands[i]);
+          }
+          ${targetVar} = pickClose(textHits);
+        } else {
+          for (var i = 0; i < cands.length; i++) {
+            var t = (cands[i].textContent || '').trim();
+            if ((t === value || t.toLowerCase() === value.toLowerCase()) && vis(cands[i])) { ${targetVar} = cands[i]; break; }
+          }
         }
       }
       if (${targetVar} && !vis(${targetVar})) ${targetVar} = null;

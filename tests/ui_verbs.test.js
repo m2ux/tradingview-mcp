@@ -29,6 +29,71 @@ describe('findElementExpression() — pure builder', () => {
     const src = findElementExpression({ by: 'data-name', value: 'alerts' });
     assert.match(src, /offsetParent !== null \|\| .*getClientRects\(\)\.length > 0/);
   });
+
+  it('classifies Close by ancestor surface instead of first aria-label match', () => {
+    const src = findElementExpression({ by: 'aria-label', value: 'Close' });
+    assert.match(src, /closeSurfaceOf/);
+    assert.match(src, /delete_confirm/);
+    assert.match(src, /pickClose/);
+    const wizard = findElementExpression({ by: 'aria-label', value: 'Close', surface: 'wizard' });
+    assert.match(wizard, /"wizard"/);
+  });
+});
+
+function visEl(extra = {}) {
+  return {
+    offsetParent: {},
+    getClientRects: () => [{}],
+    parentElement: extra.parentElement || null,
+    innerText: extra.innerText || '',
+    textContent: extra.textContent || extra.innerText || '',
+    tagName: extra.tagName || 'BUTTON',
+    getAttribute: (n) => extra.attrs?.[n] || '',
+    ...extra,
+  };
+}
+
+describe('findElementExpression() — Close surface pick', () => {
+  it('prefers wizard Close over overlay Close and uses Cancel on delete-confirm', () => {
+    const overlayRoot = visEl({ innerText: 'Open my script Close menu' });
+    const overlayClose = visEl({
+      parentElement: overlayRoot,
+      attrs: { 'aria-label': 'Close' },
+      id: 'overlay-close',
+    });
+    overlayRoot.querySelectorAll = () => [];
+    const wizardRoot = visEl({ innerText: "Update 'Lib' library Release notes Continue" });
+    const wizardClose = visEl({
+      parentElement: wizardRoot,
+      attrs: { 'aria-label': 'Close' },
+      id: 'wizard-close',
+    });
+    const cancel = visEl({ textContent: 'Cancel', id: 'cancel' });
+    const deleteRoot = visEl({
+      innerText: 'Delete this publication? Cancel Delete',
+      querySelectorAll: (sel) => (String(sel).includes('button') ? [cancel] : []),
+    });
+    cancel.parentElement = deleteRoot;
+
+    const src = findElementExpression({ by: 'aria-label', value: 'Close' });
+    const document = {
+      querySelector: () => overlayClose,
+      querySelectorAll: (sel) => {
+        if (String(sel).includes('aria-label')) return [overlayClose, wizardClose];
+        if (String(sel).includes('confirm-dialog') || String(sel).includes('role="dialog"')) return [deleteRoot];
+        return [];
+      },
+    };
+    const css = { escape: (s) => s };
+    const run = new Function('document', 'CSS', `${src}; return el;`);
+    const picked = run(document, css);
+    assert.equal(picked.id, 'wizard-close');
+
+    const srcDel = findElementExpression({ by: 'aria-label', value: 'Close', surface: 'delete_confirm' });
+    const runDel = new Function('document', 'CSS', `${srcDel}; return el;`);
+    const safe = runDel(document, css);
+    assert.equal(safe.id, 'cancel');
+  });
 });
 
 describe('clickAt() — trusted CDP click payload', () => {
