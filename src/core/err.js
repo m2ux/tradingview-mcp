@@ -31,6 +31,7 @@ export const TV_ERROR_CODES = Object.freeze({
   TV_PINE_IDENTITY_MISMATCH: 'Pine editor header identity does not match the requested script.',
   TV_PINE_PUBLISH_STALE: 'Publish reported success without bumping the published import snapshot.',
   TV_PINE_BLOCKED_DIALOG: 'A leftover Pine dialog is blocking Save / Open / Add to chart.',
+  TV_PINE_DIRTY_BUFFER: 'pine_bind refused to overwrite an unsaved editor buffer without reload.',
   // UI automation
   TV_ELEMENT_NOT_FOUND: 'UI element did not match any on-page control.',
   TV_PANEL_NOT_OPEN: 'A required panel is collapsed/closed.',

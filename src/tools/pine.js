@@ -64,11 +64,12 @@ export function registerPineTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('pine_bind', 'Bind the editor to a saved script: switch the Open/Save/Publish identity (same as pine_open), fetch facade source, load it into the buffer, and confirm the match. REFUSES (success:false) when the header identity differs — never injects into the wrong script. Use to escape bound_mismatch / verified:false before editing.', {
+  server.tool('pine_bind', 'Bind the editor to a saved script: switch the Open/Save/Publish identity (same as pine_open), fetch facade source, and confirm the match. REFUSES (success:false) when the header identity differs — never injects into the wrong script. REFUSES when the buffer already differs from the saved source unless reload is true. Use to escape bound_mismatch / verified:false before editing.', {
     name: z.string().optional().describe('Saved script name to bind (exact match preferred)'),
     script_id: z.string().optional().describe('scriptIdPart from pine_list_scripts (takes precedence over name)'),
-  }, async ({ name, script_id } = {}) => {
-    try { return jsonResult(await core.bindScript({ name, script_id })); }
+    reload: z.coerce.boolean().optional().describe('If true, load facade source over the current buffer even when they differ (default false)'),
+  }, async ({ name, script_id, reload } = {}) => {
+    try { return jsonResult(await core.bindScript({ name, script_id, reload })); }
     catch (err) { return jsonResult({ success: false, error: err.message, code: err.code, blocked_dialog: err.blocked_dialog }, true); }
   });
 

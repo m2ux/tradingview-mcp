@@ -642,7 +642,7 @@ export async function save({ _deps } = {}) {
  * itself (it comes from the facade); openScript() is used to align the header so
  * subsequent Save/Publish target the right cloud identity.
  */
-export async function bindScript({ name, script_id, _deps } = {}) {
+export async function bindScript({ name, script_id, reload = false, _deps } = {}) {
   const lookupFn = _deps?.lookupFacadeScript || lookupFacadeScript;
   const fetchSourceFn = _deps?.fetchScriptSource || fetchScriptSource;
   const bufferFn = _deps?.getEditorBufferInfo || getEditorBufferInfo;
@@ -693,7 +693,24 @@ export async function bindScript({ name, script_id, _deps } = {}) {
     };
   }
 
-  const set = await setFn({ source, script_name: scriptName });
+  const current = await bufferFn().catch(() => null);
+  const dirty = !!(current && typeof current.source === 'string' && !pineSourcesEqual(current.source, source));
+  if (dirty && !reload) {
+    return {
+      success: false,
+      bound: false,
+      name: scriptName,
+      script_id: id,
+      header_name: header,
+      error: 'pine_bind refused: editor buffer differs from the saved facade source. Pass reload: true to load the saved source over the buffer.',
+      code: 'TV_PINE_DIRTY_BUFFER',
+      hint: 'Keep editing, or call pine_bind with reload: true to replace the buffer with the saved script.',
+    };
+  }
+
+  const set = (reload || dirty || !current?.source)
+    ? await setFn({ source, script_name: scriptName })
+    : { lines_set: source.split('\n').length };
 
   const buf = await bufferFn().catch(() => null);
   const bound = !!(buf && typeof buf.source === 'string' && pineSourcesEqual(buf.source, source));

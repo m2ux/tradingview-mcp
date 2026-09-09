@@ -126,6 +126,48 @@ describe('bindScript — refuse wrong identity (issue #26.3)', () => {
     assert.equal(r.bound, true);
     assert.equal(r.header_name, 'RSIZoneDivEng');
   });
+
+  it('refuses a dirty same-identity buffer unless reload is true', async () => {
+    let setCalls = 0;
+    const r = await bindScript({
+      name: 'RSIZoneDivEng',
+      _deps: {
+        lookupFacadeScript: async () => ({
+          scriptIdPart: 'USER;eng', scriptName: 'RSIZoneDivEng', version: '4.0', extra: { kind: 'library' },
+        }),
+        fetchScriptSource: async () => ({ ok: true, source: LIB_SRC }),
+        openScript: async () => ({ success: true, name: 'RSIZoneDivEng', opened: true }),
+        getEditorIdentity: async () => ({ name: 'RSIZoneDivEng' }),
+        setSource: async () => { setCalls += 1; return { lines_set: 4 }; },
+        getEditorBufferInfo: async () => ({ source: LIB_SRC + '\nexport extra() => 2\n' }),
+      },
+    });
+    assert.equal(r.success, false);
+    assert.equal(r.bound, false);
+    assert.equal(r.code, 'TV_PINE_DIRTY_BUFFER');
+    assert.equal(setCalls, 0);
+  });
+
+  it('injects facade source when reload is true', async () => {
+    let setCalls = 0;
+    const r = await bindScript({
+      name: 'RSIZoneDivEng',
+      reload: true,
+      _deps: {
+        lookupFacadeScript: async () => ({
+          scriptIdPart: 'USER;eng', scriptName: 'RSIZoneDivEng', version: '4.0', extra: { kind: 'library' },
+        }),
+        fetchScriptSource: async () => ({ ok: true, source: LIB_SRC }),
+        openScript: async () => ({ success: true, name: 'RSIZoneDivEng', opened: true }),
+        getEditorIdentity: async () => ({ name: 'RSIZoneDivEng' }),
+        setSource: async () => { setCalls += 1; return { lines_set: 4 }; },
+        getEditorBufferInfo: async () => ({ source: setCalls ? LIB_SRC : LIB_SRC + '\nexport extra() => 2\n' }),
+      },
+    });
+    assert.equal(r.success, true);
+    assert.equal(r.bound, true);
+    assert.equal(setCalls, 1);
+  });
 });
 
 describe('openScript — script_id + leftover picker (issue #26.4)', () => {
