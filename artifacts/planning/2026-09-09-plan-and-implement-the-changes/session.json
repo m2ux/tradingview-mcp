@@ -8,8 +8,8 @@
   "currentActivity": "dispatch-client-workflow",
   "currentTechnique": "workflow-engine::continue-batch",
   "exit": "done",
-  "seq": 37,
-  "ts": 1788947419,
+  "seq": 41,
+  "ts": 1788948657,
   "startedAt": "2026-09-09T08:55:02.559Z",
   "completedActivities": [
     "discover-session",
@@ -23,7 +23,7 @@
     "client_workflow_completed": false,
     "component_path": ".",
     "component_selection_needed": false,
-    "current_activity": "plan-prepare",
+    "current_activity": "assumptions-review",
     "has_saved_state": false,
     "host_binding_mismatch": false,
     "host_repo_path": "/home/mike1/projects/dev/tradingview-mcp",
@@ -55,6 +55,10 @@
     "dispatch-client-workflow-pr-creation": {
       "optionId": "proceed",
       "respondedAt": "2026-09-09T09:13:06.000Z"
+    },
+    "dispatch-client-workflow-residual-assumption-batch": {
+      "optionId": "accept-agent-positions",
+      "respondedAt": "2026-09-09T10:10:41.000Z"
     },
     "dispatch-client-workflow-workflow-path-selected": {
       "optionId": "skip-optional",
@@ -1006,6 +1010,51 @@
       },
       "timestamp": "2026-09-09T09:50:19.140Z",
       "type": "activity_dispatched"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "data": {
+        "name": "current_activity",
+        "source": "yield_checkpoint",
+        "value": "assumptions-review"
+      },
+      "timestamp": "2026-09-09T09:55:54.331Z",
+      "type": "variable_set"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "data": {
+        "name": "worker_agent_id",
+        "source": "yield_checkpoint",
+        "value": "wp-w2-codebase-comprehension"
+      },
+      "timestamp": "2026-09-09T09:55:54.331Z",
+      "type": "variable_set"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "checkpoint": "residual-assumption-batch",
+      "timestamp": "2026-09-09T09:55:54.331Z",
+      "type": "checkpoint_reached"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "checkpoint": "residual-assumption-batch",
+      "data": {
+        "optionId": "accept-agent-positions"
+      },
+      "timestamp": "2026-09-09T10:10:41.000Z",
+      "type": "checkpoint_response"
+    },
+    {
+      "activity": "dispatch-client-workflow",
+      "data": {
+        "agentId": "meta-w2-dispatch",
+        "chars": 6065,
+        "dispatch": "resume"
+      },
+      "timestamp": "2026-09-09T10:10:57.951Z",
+      "type": "activity_dispatched"
     }
   ],
   "triggeredWorkflows": [
@@ -1014,6 +1063,15 @@
       "state": {
         "agentId": "orchestrator",
         "checkpointResponses": {
+          "assumptions-review-residual-assumption-batch": {
+            "effects": {
+              "variablesSet": {
+                "assumption_outcome": "confirmed"
+              }
+            },
+            "optionId": "accept-agent-positions",
+            "respondedAt": "2026-09-09T10:11:11.000Z"
+          },
           "design-philosophy-classification-confirmed": {
             "optionId": "classification-accurate",
             "respondedAt": "2026-09-09T09:26:37.000Z"
@@ -1047,10 +1105,11 @@
         "completedActivities": [
           "start-work-package",
           "design-philosophy",
-          "codebase-comprehension"
+          "codebase-comprehension",
+          "plan-prepare"
         ],
-        "currentActivity": "plan-prepare",
-        "currentTechnique": "update-pr::create-pr",
+        "currentActivity": "assumptions-review",
+        "currentTechnique": "review-assumptions::record",
         "declaredArtifacts": [
           {
             "id": "created_readme",
@@ -1064,7 +1123,7 @@
           },
           {
             "id": "assumptions_log",
-            "name": "assumptions-log.md",
+            "name": "02-assumptions-log.md",
             "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
           },
           {
@@ -1076,6 +1135,16 @@
             "id": "comprehension_log",
             "name": "15-codebase-comprehension.md",
             "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/15-codebase-comprehension.md"
+          },
+          {
+            "id": "plan_document",
+            "name": "06-work-package-plan.md",
+            "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/06-work-package-plan.md"
+          },
+          {
+            "id": "test_plan_document",
+            "name": "06-test-plan.md",
+            "path": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/06-test-plan.md"
           }
         ],
         "deliveredContent": {
@@ -1196,14 +1265,17 @@
             "bundle:workflow-engine::finalize-activity": "6c3409693275c7e0",
             "bundle:workflow-engine::resume-from-checkpoint": "b64a82e406ffbef6",
             "bundle:workflow-engine::yield-checkpoint": "19bd3b7f355aab3e",
+            "resource:assumption-reconciliation": "60790aad51bbcbc3",
             "resource:assumption-reconciliation#integration-with-assumptions-log": "10e6f08f988c1c13",
             "resource:assumption-reconciliation#resolvability-classification": "8d4737e7eeea62d3",
             "resource:assumption-reconciliation#scorecard": "e7d6e25902752638",
+            "resource:assumptions-review": "d0d770d4b3707585",
             "resource:assumptions-review#assumptions-log-template": "a63088c998d19bbe",
             "resource:assumptions-review#classification-vocabulary": "949bebbe97f24220",
             "resource:assumptions-review#probe-vocabulary": "f6b42f48c22b4475",
             "resource:canonical-home-map#map": "60eb167bc14a5858",
             "resource:codebase-comprehension#corpus-artifact-template": "1251f305082ed9b9",
+            "resource:deferred-items#template": "0efc876f373f4973",
             "resource:design-framework#design-framework-trizics-approach": "e1adadd9128b09f6",
             "resource:design-framework#design-philosophy-artifact-template": "f8325c68f72614d9",
             "resource:findings-report#report-and-methodology": "43992c8f6626dea9",
@@ -1220,8 +1292,8 @@
             "resource:test-plan#templates": "39a57cebe2c6f1e3",
             "resource:test-plan#test-plan-structure": "7f2b67ca153393fd",
             "resource:wp-plan": "fe77e32cb71baa51",
-            "technique:analyse-challenge::challenge": "1d760b9368e1a6ea",
-            "technique:analyse-challenge::combine": "cbbcf6dbec2bc09e",
+            "technique:analyse-challenge::challenge": "77613c78bb25ad2d",
+            "technique:analyse-challenge::combine": "0713bfb1a728ed56",
             "technique:codebase-comprehension::deep-dive": "8b5ee6874d115a58",
             "technique:codebase-comprehension::revise-questions": "4bc80e31655d3ec9",
             "technique:codebase-comprehension::survey": "054e6a50a4ec05cc",
@@ -1229,9 +1301,11 @@
             "technique:inherited_inputs.items:1c6314a7c6a86aef": "1c6314a7c6a86aef",
             "technique:inherited_inputs.items:253f337f6aab9dea": "253f337f6aab9dea",
             "technique:inherited_inputs.items:2aad4e4a37ba344a": "2aad4e4a37ba344a",
+            "technique:inherited_inputs.items:3ab768938f431bb4": "3ab768938f431bb4",
             "technique:inherited_inputs.items:41564dc856819ba4": "41564dc856819ba4",
             "technique:inherited_inputs.items:6efa0d54ed472e60": "6efa0d54ed472e60",
             "technique:inherited_inputs.items:71f76cf5ed71517e": "71f76cf5ed71517e",
+            "technique:inherited_inputs.items:84e77a1f85ac2451": "84e77a1f85ac2451",
             "technique:inherited_inputs.items:8e3ac0ff455bafa3": "8e3ac0ff455bafa3",
             "technique:inherited_inputs.items:941c362eb3aebd44": "941c362eb3aebd44",
             "technique:inherited_inputs.items:a35996c29f63b697": "a35996c29f63b697",
@@ -1242,6 +1316,8 @@
             "technique:inherited_inputs:0c42b3ca699dba27": "0c42b3ca699dba27",
             "technique:inherited_inputs:28fcd155bb3c8dea": "28fcd155bb3c8dea",
             "technique:inherited_inputs:306afca2343e5ec6": "306afca2343e5ec6",
+            "technique:inherited_inputs:399bf482a6b30506": "399bf482a6b30506",
+            "technique:inherited_inputs:69480c88bf6fc6fe": "69480c88bf6fc6fe",
             "technique:inherited_inputs:837d99893a589d0b": "837d99893a589d0b",
             "technique:inherited_inputs:8ef5ff518c9eec99": "8ef5ff518c9eec99",
             "technique:inherited_inputs:a2afd51285d36756": "a2afd51285d36756",
@@ -1260,12 +1336,14 @@
             "technique:inherited_outputs:f18c84169d97bae8": "f18c84169d97bae8",
             "technique:manage-artifacts::write-artifact": "496469e8d0659fe7",
             "technique:manage-git::sync-branch": "9388605acf1d9abd",
+            "technique:manage-registers::append-deferred-item": "d3dae879c00810fc",
             "technique:plan-prepare::create-todos": "e321ca4b34ba2d7e",
             "technique:plan-prepare::plan": "3127d0ac66471fa6",
             "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
-            "technique:review-assumptions::collect": "2af755de9383a97b",
+            "technique:review-assumptions::assemble-open-set": "6fedde3ca4bac59b",
+            "technique:review-assumptions::collect": "e7faa09f70d6c55b",
             "technique:review-assumptions::reconcile": "331da652c5463716",
-            "technique:review-assumptions::record": "70e45d0abce1c01c",
+            "technique:review-assumptions::record": "2d9d40d39569355f",
             "technique:rules:0882d03319d085ba": "0882d03319d085ba",
             "technique:rules:2a5287e8435bca85": "2a5287e8435bca85",
             "technique:rules:368606981e0b1c63": "368606981e0b1c63",
@@ -1274,6 +1352,7 @@
             "technique:rules:5d597afaa07fd4dc": "5d597afaa07fd4dc",
             "technique:rules:91bed32b44939216": "91bed32b44939216",
             "technique:rules:9f6c9df8a62796c0": "9f6c9df8a62796c0",
+            "technique:rules:affeaa233b45115f": "affeaa233b45115f",
             "technique:rules:bd770d8359597898": "bd770d8359597898",
             "technique:rules:c235fcae6b546555": "c235fcae6b546555",
             "technique:rules:f14f4f37ba417fcf": "f14f4f37ba417fcf",
@@ -1281,7 +1360,7 @@
             "technique:update-pr::render": "19b59d3549374eb0"
           }
         },
-        "exit": "skip-optional-activities",
+        "exit": "done",
         "history": [
           {
             "timestamp": "2026-09-09T09:00:19.245Z",
@@ -5599,19 +5678,821 @@
             },
             "timestamp": "2026-09-09T09:50:58.058Z",
             "type": "resource_fetched"
+          },
+          {
+            "activity": "plan-prepare",
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "declaredType": "object",
+              "name": "assumptions_log",
+              "source": "variables_changed",
+              "typeMismatch": true,
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
+              "valueType": "string"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "body_conforms",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "body_findings",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "challenge_findings",
+              "source": "variables_changed",
+              "value": {
+                "evidence-strength": "ticket allows resume or refuse; plan selects resume",
+                "rejected-paths": "fill-merge, CDP rewrite, leftover-wizard refuse rejected",
+                "stakeholder-gap": "PL-3 leftover wizard resume vs refuse is stakeholder-confirmable"
+              }
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": true
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "open_assumptions",
+              "source": "variables_changed",
+              "value": [
+                {
+                  "id": "PL-3",
+                  "risk": "L",
+                  "title": "Leftover wizard is resumed"
+                }
+              ]
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "plan_document",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/06-work-package-plan.md"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "rendered_pr_body",
+              "source": "variables_changed",
+              "value": "initial template on PR #33"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "stakeholder_overview",
+              "source": "variables_changed",
+              "value": "Each of the seven traps gets a small, local fix in the tool that causes it: plot numbers are read from the right column, compiling a reusable library saves it without dropping it onto a live chart, publish notes go only into the notes field, Close buttons are told apart so a published library is not offered for deletion, unsaved editor text is kept unless the agent asks to reload, an already-open publish window is continued rather than opened twice, and a screenshot of the chart is refused when a menu is covering it.\n\nThat keeps a routine library update safe to run unattended: the agent sees the real plot values, does not pollute a production layout, and cannot overwrite or delete a published library by clicking the wrong Close or filling the wrong box."
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "name": "test_plan_document",
+              "source": "variables_changed",
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/06-test-plan.md"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "env-prerequisites"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "create-plan"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "create-test-plan"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "present-solution-overview"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "challenge-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "combine-assumption-challenges"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "create-todos"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "sync-branch"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "plan-prepare",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "update-pr"
+            },
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "timestamp": "2026-09-09T09:52:00.180Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 78809,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 5434,
+              "delivery": "full",
+              "stepId": "evaluate-open-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "evaluate-open-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 10030,
+              "delivery": "full",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4346,
+              "delivery": "full",
+              "stepId": "challenge-assumptions",
+              "techniqueId": "analyse-challenge::challenge"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "challenge-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4905,
+              "delivery": "full",
+              "stepId": "combine-assumption-challenges",
+              "techniqueId": "analyse-challenge::combine"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "combine-assumption-challenges"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4959,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4617,
+              "delivery": "full",
+              "stepId": "register-deferred-assumptions",
+              "techniqueId": "manage-registers::append-deferred-item"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "register-deferred-assumptions"
+            },
+            "timestamp": "2026-09-09T09:52:18.591Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 6349,
+              "delivery": "full",
+              "resourceId": "assumptions-review"
+            },
+            "timestamp": "2026-09-09T09:52:41.937Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4632,
+              "delivery": "full",
+              "resourceId": "assumption-reconciliation"
+            },
+            "timestamp": "2026-09-09T09:52:42.289Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 1986,
+              "delivery": "full",
+              "resourceId": "meta/writing-register"
+            },
+            "timestamp": "2026-09-09T09:53:43.564Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 5087,
+              "delivery": "full",
+              "stepId": "present-residual-assumptions",
+              "techniqueId": "review-assumptions::assemble-open-set"
+            },
+            "timestamp": "2026-09-09T09:54:25.734Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "present-residual-assumptions"
+            },
+            "timestamp": "2026-09-09T09:54:25.734Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "assumption_review_presentation",
+              "source": "yield_checkpoint",
+              "value": {
+                "entries": [
+                  {
+                    "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
+                    "assumption": "An already-open update wizard is continued rather than failed as blocked_dialog.",
+                    "category": "Scope Decisions",
+                    "decision_space": "Resume (no second Publish click) vs refuse like addToChart. Resume is less pattern-consistent; refuse is simpler. Both meet the leftover-wizard success criterion.",
+                    "id": "PL-3",
+                    "reversibility": "easily-reversible",
+                    "risk": "L",
+                    "technical_context": "addToChart refuses leftover dialogs; publishScript clicks Publish first; classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.",
+                    "title": "Leftover wizard is resumed",
+                    "why_not_code_resolvable": "Both paths satisfy the ticket; the choice is product preference."
+                  }
+                ],
+                "log": "https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
+                "markdown": "### PL-3: Leftover wizard is resumed (risk L)\n**Assumption:** An already-open update wizard is continued rather than failed as blocked_dialog.\n**Decision space:** Resume vs refuse. Resume is less pattern-consistent with addToChart leftover handling. Refuse forces close-and-restart. Both meet the success criterion.\n**Why not code-resolvable:** Product preference; the ticket names both paths.\n**Technical context:** addToChart returns blocked_dialog on any pre-existing dialog. publishScript clicks Publish script then classifies. classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.\n**Agent's position:** Resume — the wizard on screen is the walk in progress.\n**Reversibility:** easily-reversible\n\nLog: https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
+              }
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "declaredType": "object",
+              "name": "assumptions_log",
+              "source": "yield_checkpoint",
+              "typeMismatch": true,
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
+              "valueType": "string"
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "challenge_findings",
+              "source": "yield_checkpoint",
+              "value": {
+                "evidence-strength": {
+                  "PL-3": {
+                    "note": "Design philosophy leftover-wizard row names resume or refuse; no recorded user pick.",
+                    "status": "irreducible"
+                  }
+                },
+                "rejected-paths": {
+                  "PL-3": {
+                    "note": "Refuse matches addToChart leftover handling; resume is less pattern-consistent. Leftover publish wizard is the walk in progress, so refuse stays the non-selected path.",
+                    "status": "weakened"
+                  }
+                },
+                "stakeholder-gap": {
+                  "PL-3": {
+                    "note": "Success criterion allows resume or refuse; that is a stakeholder choice.",
+                    "status": "irreducible"
+                  }
+                }
+              }
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "yield_checkpoint",
+              "value": false
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "yield_checkpoint",
+              "value": true
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "yield_checkpoint",
+              "value": false
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "open_assumptions",
+              "source": "yield_checkpoint",
+              "value": [
+                {
+                  "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
+                  "category": "Scope Decisions",
+                  "id": "PL-3",
+                  "reversibility": "easily-reversible",
+                  "risk": "L",
+                  "statement": "An already-open update wizard is continued rather than failed as blocked_dialog.",
+                  "title": "Leftover wizard is resumed"
+                }
+              ]
+            },
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "checkpoint": "residual-assumption-batch",
+            "timestamp": "2026-09-09T09:55:34.568Z",
+            "type": "checkpoint_reached"
+          },
+          {
+            "activity": "assumptions-review",
+            "checkpoint": "residual-assumption-batch",
+            "data": {
+              "optionId": "accept-agent-positions"
+            },
+            "timestamp": "2026-09-09T10:11:11.000Z",
+            "type": "checkpoint_response"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "assumption_outcome",
+              "source": "setVariable",
+              "value": "confirmed"
+            },
+            "timestamp": "2026-09-09T10:11:11.000Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 15680,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 5434,
+              "delivery": "unchanged",
+              "stepId": "evaluate-open-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 10030,
+              "delivery": "unchanged",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4346,
+              "delivery": "unchanged",
+              "stepId": "challenge-assumptions",
+              "techniqueId": "analyse-challenge::challenge"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4905,
+              "delivery": "unchanged",
+              "stepId": "combine-assumption-challenges",
+              "techniqueId": "analyse-challenge::combine"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4959,
+              "delivery": "unchanged",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4617,
+              "delivery": "unchanged",
+              "stepId": "register-deferred-assumptions",
+              "techniqueId": "manage-registers::append-deferred-item"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 2654,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#assumptions-log-template"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 1038,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#probe-vocabulary"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 855,
+              "delivery": "unchanged",
+              "resourceId": "assumptions-review#classification-vocabulary"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 4443,
+              "delivery": "unchanged",
+              "resourceId": "codebase-comprehension#corpus-artifact-template"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 2735,
+              "delivery": "unchanged",
+              "resourceId": "assumption-reconciliation#resolvability-classification"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 202,
+              "delivery": "unchanged",
+              "resourceId": "assumption-reconciliation#scorecard"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 1337,
+              "delivery": "unchanged",
+              "resourceId": "assumption-reconciliation#integration-with-assumptions-log"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "bundled": true,
+              "chars": 316,
+              "delivery": "full",
+              "resourceId": "deferred-items#template"
+            },
+            "timestamp": "2026-09-09T10:11:49.585Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "chars": 4941,
+              "delivery": "full",
+              "stepId": "record-batch-decision",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T10:12:06.798Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "agentId": "wp-w2-codebase-comprehension",
+              "stepId": "record-batch-decision"
+            },
+            "timestamp": "2026-09-09T10:12:06.798Z",
+            "type": "step_started"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 36,
+        "seq": 47,
         "sessionIndex": "VQLOXI",
         "startedAt": "2026-09-09T09:00:19.245Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1788947458,
+        "ts": 1788948726,
         "variables": {
           "artifact_publish_ref": "",
-          "assumption_outcome": "",
+          "assumption_outcome": "confirmed",
+          "assumption_review_presentation": {
+            "entries": [
+              {
+                "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
+                "assumption": "An already-open update wizard is continued rather than failed as blocked_dialog.",
+                "category": "Scope Decisions",
+                "decision_space": "Resume (no second Publish click) vs refuse like addToChart. Resume is less pattern-consistent; refuse is simpler. Both meet the leftover-wizard success criterion.",
+                "id": "PL-3",
+                "reversibility": "easily-reversible",
+                "risk": "L",
+                "technical_context": "addToChart refuses leftover dialogs; publishScript clicks Publish first; classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.",
+                "title": "Leftover wizard is resumed",
+                "why_not_code_resolvable": "Both paths satisfy the ticket; the choice is product preference."
+              }
+            ],
+            "log": "https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
+            "markdown": "### PL-3: Leftover wizard is resumed (risk L)\n**Assumption:** An already-open update wizard is continued rather than failed as blocked_dialog.\n**Decision space:** Resume vs refuse. Resume is less pattern-consistent with addToChart leftover handling. Refuse forces close-and-restart. Both meet the success criterion.\n**Why not code-resolvable:** Product preference; the ticket names both paths.\n**Technical context:** addToChart returns blocked_dialog on any pre-existing dialog. publishScript clicks Publish script then classifies. classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.\n**Agent's position:** Resume — the wizard on screen is the walk in progress.\n**Reversibility:** easily-reversible\n\nLog: https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
+          },
           "assumptions_log": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
           "attestation_option": "certify",
           "awaiting_review": false,
@@ -5624,9 +6505,24 @@
           "broken_artifact_links": [],
           "build_dependent_artifacts_pending": false,
           "challenge_findings": {
-            "evidence-strength": "ticket allows resume or refuse; plan selects resume",
-            "rejected-paths": "fill-merge, CDP rewrite, leftover-wizard refuse rejected",
-            "stakeholder-gap": "PL-3 leftover wizard resume vs refuse is stakeholder-confirmable"
+            "evidence-strength": {
+              "PL-3": {
+                "note": "Design philosophy leftover-wizard row names resume or refuse; no recorded user pick.",
+                "status": "irreducible"
+              }
+            },
+            "rejected-paths": {
+              "PL-3": {
+                "note": "Refuse matches addToChart leftover handling; resume is less pattern-consistent. Leftover publish wizard is the walk in progress, so refuse stays the non-selected path.",
+                "status": "weakened"
+              }
+            },
+            "stakeholder-gap": {
+              "PL-3": {
+                "note": "Success criterion allows resume or refuse; that is a stakeholder choice.",
+                "status": "irreducible"
+              }
+            }
           },
           "change_block_index": "",
           "changed_files": [],
@@ -5714,8 +6610,12 @@
           "on_feature_branch": true,
           "open_assumptions": [
             {
+              "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
+              "category": "Scope Decisions",
               "id": "PL-3",
+              "reversibility": "easily-reversible",
               "risk": "L",
+              "statement": "An already-open update wizard is continued rather than failed as blocked_dialog.",
               "title": "Leftover wizard is resumed"
             }
           ],

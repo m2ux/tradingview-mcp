@@ -1,6 +1,6 @@
 # Pine live-edit loop: wrong plot values, compile adds the library, wizard writes the editor — September 2026
 
-> Bug-Fix · Created 2026-09-09 · **Status:** Planning
+> Bug-Fix · Created 2026-09-09 · **Status:** In Progress
 
 > **Note:** effort estimates are agentic (AI-assisted) development time plus separate human review time.
 
@@ -35,9 +35,9 @@ That keeps a routine library update safe to run unattended: the agent sees the r
 | 9 | [Test plan](06-test-plan.md) | Test cases, coverage strategy | 15-30m | ✅ |
 | 10 | [Deferred items](deferred-items.md) | Out-of-scope deferral register | 5-10m | ⬚ |
 | 11 | [Follow-ups](follow-ups.md) | In-task follow-ups register | 5-10m | ⬚ |
-| 12 | Assumptions review | Converge open assumptions | 20-40m | ⬚ |
-| 13 | Implementation | Code changes per plan | 1-4h | ⬚ |
-| 14 | [Provenance log](08-provenance-log.md) | Per-task AI-assistance provenance | 5-15m | ⬚ |
+| 12 | [Assumptions review](02-assumptions-log.md) | Converge open assumptions | 20-40m | ✅ |
+| 13 | Implementation | Code changes per plan | 1-4h | 🟡 |
+| 14 | [Provenance log](08-provenance-log.md) | Per-task AI-assistance provenance | 5-15m | 🟡 |
 | 15 | Lean-coding audit | Ponytail lean lens on the change | 15-30m | ⬚ |
 | 16 | [Code review](09-code-review.md) | Consolidated review findings home | 15-30m | ⬚ |
 | 17 | [Lean change](09-lean-change.md) | Applied lean simplifications record | 10-20m | ⬚ |
