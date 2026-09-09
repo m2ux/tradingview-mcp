@@ -1,0 +1,19 @@
+{
+  "target": "tradingview-mcp",
+  "markers": 1,
+  "no_trigger": 0,
+  "files": [
+    {
+      "path": "src/core/health.js",
+      "entries": [
+        {
+          "line": 173,
+          "simplified": "no dedicated close_controls array on tv_ui_state",
+          "ceiling": "Close classification lives on dialogs[].close_surface",
+          "upgrade": "a caller needs a compact Close map without scanning dialogs"
+        }
+      ]
+    }
+  ],
+  "gain": null
+}
