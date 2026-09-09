@@ -104,15 +104,35 @@ export async function captureScreenshot({
     if (region === 'chart') {
       const bounds = await evalFn(`
         (function() {
-          var el = document.querySelector('[data-name="pane-canvas"]')
-            || document.querySelector('[class*="chart-container"]')
-            || document.querySelector('canvas');
-          if (!el) return null;
+          var el = document.querySelector('[data-name="pane-canvas"]');
+          if (!el) return { error: 'no_pane' };
           var rect = el.getBoundingClientRect();
+          if (!rect.width || !rect.height) return { error: 'no_pane' };
+          function vis(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
+          var dialogs = document.querySelectorAll('[role="dialog"], [class~="js-dialog"], [class*="modal"]');
+          for (var i = 0; i < dialogs.length; i++) {
+            var d = dialogs[i];
+            if (!vis(d)) continue;
+            var dr = d.getBoundingClientRect();
+            if (!dr.width || !dr.height) continue;
+            var overlap = !(dr.right <= rect.left || dr.left >= rect.right || dr.bottom <= rect.top || dr.top >= rect.bottom);
+            if (overlap) return { error: 'occluded' };
+          }
+          var top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          if (top && top !== el && !el.contains(top)) return { error: 'occluded' };
           return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
         })()
       `);
-      if (bounds) clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
+      if (!bounds || bounds.error) {
+        throw tvError(
+          'TV_CHART_CLIP_BLOCKED',
+          bounds?.error === 'occluded'
+            ? 'Chart-region screenshot is covered by another UI surface.'
+            : 'Chart-region screenshot has no pane-canvas.',
+          { hint: 'Dismiss covering dialogs or menus, then retry capture_screenshot with region: "chart".' },
+        );
+      }
+      clip = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, scale: 1 };
     } else if (region === 'strategy_tester') {
       const bounds = await evalFn(`
         (function() {

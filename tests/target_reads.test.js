@@ -303,4 +303,28 @@ describe('captureScreenshot({ target })', () => {
       restore();
     }
   });
+
+  it('chart region fails when a covering dialog occludes pane-canvas', async () => {
+    const restore = stubFetchForTarget();
+    const png = Buffer.from('should-not-write').toString('base64');
+    const { client, calls } = makeScopedSpy(png);
+    client.Runtime.evaluate = async ({ expression }) => {
+      calls.evaluated.push(expression);
+      return { result: { value: { error: 'occluded' } } };
+    };
+    try {
+      await assert.rejects(
+        () => captureScreenshot({
+          region: 'chart', filename: `test_occluded_${Date.now()}`, target: 'od9I4OCz',
+          _deps: { skipCompositorActivate: true, makeScopedClient: async () => client },
+        }),
+        (err) => err.code === 'TV_CHART_CLIP_BLOCKED',
+      );
+      assert.equal(calls.shots.length, 0, 'no bitmap taken for an occluded pane');
+      assert.match(calls.evaluated[0], /pane-canvas/);
+      assert.doesNotMatch(calls.evaluated[0], /chart-container/);
+    } finally {
+      restore();
+    }
+  });
 });
