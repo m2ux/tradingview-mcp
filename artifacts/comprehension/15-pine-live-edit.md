@@ -234,6 +234,16 @@ Comments on [bindScript](https://github.com/m2ux/tradingview-mcp/blob/38fb58a37f
 
 A live library update is: read series → edit Monaco → persist (Save, not Add) → bind identity without clobbering dirty source → fill the update wizard → publish new version → screenshot the chart. Each named trap is one of those steps answering the wrong page surface.
 
+## Deep-Dive 1: Leftover wizard resolvability
+
+`addToChart` returns `blocked_dialog` when any dialog is already visible. `publishScript` clicks Publish script, then classifies. `classifyUiDialog` already tags `pine_publish_wizard` with mode, step, and sometimes a script title. GitNexus impact on `publishScript` is LOW. The leftover-wizard path is resume.
+
+### Open Questions
+
+| ID | Question | Status |
+|----|----------|--------|
+| PL-3 | Resume vs refuse an already-open update wizard | Confirmed — resume; see [assumptions log](../planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md) |
+
 ## References
 
 Coverage: Pine live-edit path (`data.js` series reader, `pine.js` / `pine_ui.js` compile-bind-publish, `ui.js` / `dom.js` fill and Close, `capture.js` chart clip, `health.js` uiState) at `38fb58a` (`fix/32-pine-live-edit-loop-wrong-plot-values`). Sibling corpus covers transport and the rest of the server.
