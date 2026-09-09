@@ -16,7 +16,9 @@ Those failures make a library update unsafe: the agent debugs the wrong values, 
 
 ## Solution Overview
 
-*Placeholder — a later step replaces it.*
+Each of the seven traps gets a small, local fix in the tool that causes it: plot numbers are read from the right column, compiling a reusable library saves it without dropping it onto a live chart, publish notes go only into the notes field, Close buttons are told apart so a published library is not offered for deletion, unsaved editor text is kept unless the agent asks to reload, an already-open publish window is continued rather than opened twice, and a screenshot of the chart is refused when a menu is covering it.
+
+That keeps a routine library update safe to run unattended: the agent sees the real plot values, does not pollute a production layout, and cannot overwrite or delete a published library by clicking the wrong Close or filling the wrong box.
 
 ## 📊 Progress
 
@@ -29,8 +31,8 @@ Those failures make a library update unsafe: the agent debugs the wrong values, 
 | 5 | Requirements elicitation | Scope, success criteria, boundaries | 30-60m | ⊘ |
 | 6 | KB research | Knowledge-base and web synthesis | 20-45m | ⊘ |
 | 7 | Implementation analysis | Baselines, gaps, measurement | 20-45m | ⊘ |
-| 8 | [Work package plan](06-work-package-plan.md) | Tasks, estimates, dependencies | 20-45m | ⬚ |
-| 9 | [Test plan](06-test-plan.md) | Test cases, coverage strategy | 15-30m | ⬚ |
+| 8 | [Work package plan](06-work-package-plan.md) | Tasks, estimates, dependencies | 20-45m | ✅ |
+| 9 | [Test plan](06-test-plan.md) | Test cases, coverage strategy | 15-30m | ✅ |
 | 10 | [Deferred items](deferred-items.md) | Out-of-scope deferral register | 5-10m | ⬚ |
 | 11 | [Follow-ups](follow-ups.md) | In-task follow-ups register | 5-10m | ⬚ |
 | 12 | Assumptions review | Converge open assumptions | 20-40m | ⬚ |
