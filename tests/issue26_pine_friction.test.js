@@ -289,6 +289,14 @@ describe('publishScript — Update-existing evidence (issue #26.1)', () => {
     assert.equal(r.published_version_before, '1.0');
     assert.equal(r.pubId, 'PUB;72abc');
   });
+
+  it('does not click Publish script again when an update wizard is already open', async () => {
+    const { _deps, clickLog } = publishDeps({ publishedBefore: '1.0', publishedAfter: '2.0' });
+    const r = await publishScript({ privacy: 'private', _deps });
+    assert.equal(clickLog.includes('publish'), false);
+    assert.ok(clickLog.includes('update'));
+    assert.equal(r.success, true);
+  });
 });
 
 describe('readScript / listLibraryExports published scope (issue #26.6)', () => {

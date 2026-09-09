@@ -1262,29 +1262,35 @@ export async function publishScript({ name, id, privacy = 'private', description
   const before = await publishedEntryFor({ name: scriptName, id }, listFn);
   let mode = before.version != null ? 'update' : 'create';
 
-  let publishClicked = await clickFn(/publish script/i);
-  if (!publishClicked) throw new Error('Publish script button not found.');
-  await sleepFn(800);
+  const preDialogs = (await dialogsFn()).map(classifyUiDialog);
+  const leftoverWizard = preDialogs.find((d) => d.kind === 'pine_publish_wizard');
 
-  const notOnChart = await evalFn(`
-    (function() {
-      var body = document.body ? document.body.innerText : '';
-      return /not on the chart|add to chart/i.test(body)
-        && !!document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
-    })()
-  `);
-  if (notOnChart) {
-    const interstitialAdd = await clickFn(/add to chart/i, { withinDialog: true });
-    if (!interstitialAdd) {
-      try { await addFn(); } catch { /* continue */ }
-    }
-    await sleepFn(1000);
+  let publishClicked = leftoverWizard ? 'resumed' : null;
+  if (!leftoverWizard) {
     publishClicked = await clickFn(/publish script/i);
-    if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
+    if (!publishClicked) throw new Error('Publish script button not found.');
     await sleepFn(800);
+
+    const notOnChart = await evalFn(`
+      (function() {
+        var body = document.body ? document.body.innerText : '';
+        return /not on the chart|add to chart/i.test(body)
+          && !!document.querySelector('[role="dialog"], [class*="dialog"], [class*="modal"]');
+      })()
+    `);
+    if (notOnChart) {
+      const interstitialAdd = await clickFn(/add to chart/i, { withinDialog: true });
+      if (!interstitialAdd) {
+        try { await addFn(); } catch { /* continue */ }
+      }
+      await sleepFn(1000);
+      publishClicked = await clickFn(/publish script/i);
+      if (!publishClicked) throw new Error('Publish script button not found after Add to chart.');
+      await sleepFn(800);
+    }
   }
 
-  const wizardDialogs = (await dialogsFn()).map(classifyUiDialog);
+  const wizardDialogs = leftoverWizard ? preDialogs : (await dialogsFn()).map(classifyUiDialog);
   const wizard = wizardDialogs.find((d) => d.kind === 'pine_publish_wizard');
   if (wizard?.mode === 'update' || /update existing/i.test(`${wizard?.text || ''} ${(wizard?.buttons || []).join(' ')}`)) {
     mode = 'update';
