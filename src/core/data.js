@@ -642,10 +642,14 @@ export async function getStudySeries({ study, entity_id, count, plots, include_p
         var it = items[i];
         if (!it || !it.value) continue;
         var time = it.value[0];
+        // value[1..] aligns with metaInfo().plots[] order. wantPlots keys a
+        // subset after that lookup so a filtered id keeps its unfiltered slot.
         var plotsOut = {};
-        for (var vi = 0; vi < plotIds.length; vi++) {
+        for (var vi = 0; vi < plotMeta.length; vi++) {
+          var pid = plotMeta[vi].id;
+          if (wantPlots && wantPlots.length && wantPlots.indexOf(pid) === -1) continue;
           var raw = it.value[vi + 1];
-          plotsOut[plotIds[vi]] = (typeof raw === 'number' && isFinite(raw)) ? raw : null;
+          plotsOut[pid] = (typeof raw === 'number' && isFinite(raw)) ? raw : null;
         }
         bars.push({ time: time, plots: plotsOut });
       }

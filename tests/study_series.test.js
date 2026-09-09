@@ -99,3 +99,58 @@ describe('getStudySeries() — result shaping', () => {
     assert.ok(evaluate.calls[0].includes('["plot_1"]'), 'wantPlots serialized into JS');
   });
 });
+
+function manyPlotStudy() {
+  const plots = [];
+  const value = [1000];
+  for (let i = 0; i < 10; i++) {
+    plots.push({ id: `plot_${i}` });
+    value.push(i * 10);
+  }
+  return {
+    metaInfo() {
+      return { description: 'Many Plots', plots };
+    },
+    id() { return 'ent1'; },
+    _data: { _items: [{ value }] },
+  };
+}
+
+function evalPageJs(study) {
+  const evaluate = async (expr) => {
+    const window = {
+      TradingViewApi: {
+        _activeChartWidgetWV: {
+          value() {
+            return {
+              _chartWidget: {
+                model() {
+                  return { model() { return { dataSources() { return [study]; } }; } };
+                },
+              },
+            };
+          },
+        },
+      },
+    };
+    return eval(expr);
+  };
+  return { evaluate };
+}
+
+describe('getStudySeries() — in-page plot slot map', () => {
+  it('filtered plot_9 matches the unfiltered slot, not subset index 0', async () => {
+    const study = manyPlotStudy();
+    const unfiltered = await getStudySeries({ study: 'Many', _deps: evalPageJs(study) });
+    const filtered = await getStudySeries({
+      study: 'Many',
+      plots: ['plot_9'],
+      _deps: evalPageJs(study),
+    });
+    assert.equal(unfiltered.bars[0].plots.plot_9, 90);
+    assert.equal(filtered.bars[0].plots.plot_9, unfiltered.bars[0].plots.plot_9);
+    assert.equal(filtered.bars[0].plots.plot_9, 90);
+    assert.ok(!('plot_0' in filtered.bars[0].plots));
+    assert.notEqual(filtered.bars[0].plots.plot_9, unfiltered.bars[0].plots.plot_0);
+  });
+});
