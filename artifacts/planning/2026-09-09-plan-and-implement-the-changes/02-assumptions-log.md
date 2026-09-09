@@ -16,7 +16,14 @@ One row per assumption, updated in place. IDs: two-letter phase prefix + sequenc
 | PL-1 | Planning | Design Approach | M | An open library is detectable from `library(` in the Monaco buffer or facade `kind`, so `smartCompile` can choose Pine Save without a new API — `scriptKind()` and the `library` new-script template already exist | Code: `src/core/pine.js:1387-1389` `scriptKind()`; `src/core/pine.js:945` library template; `getEditorBufferInfo` reads Monaco source | Validated |
 | PL-2 | Planning | Test Strategy | L | Injected-`evaluate` unit tests are enough to lock slot-map, click-order, fill, bind, publish, and clip; live Desktop is visual confirm only — matches the design-philosophy dependency row | Code: `tests/study_series.test.js` `mockDeps`; `tests/ui_verbs.test.js`; `tests/pine_workflow.test.js`; `tests/pine_write_path.test.js` already inject evaluate | Validated |
 | PL-3 | Planning | Scope Decisions | L | Resume (not refuse) is the leftover-wizard path — ticket allows either; resume keeps the publish walk the agent already started | User (residual-assumption-batch: accept-agent-positions) | Confirmed |
+| 1.1 | Task 1 | Test Strategy | L | Executing the generated getStudySeries IIFE in Node against a stub TradingViewApi locks the slot map — the expression is the same page JS, so extracting a helper would duplicate it | Code: `tests/study_series.test.js` in-page plot slot map; commit `8a91c50` | Validated |
+| 2.1 | Task 2 | Behavioral | L | Monaco's editor textarea is identified by class `inputarea` — that is the class the ticket names for the accidental fill target | Code: `src/core/ui.js` `isMonaco`; commit `035a3f7` | Validated |
+| 3.1 | Task 3 | Behavioral | L | An overlapping dialog or `elementFromPoint` miss at the pane centre is enough to refuse a chart clip — overlay menus that cover the pane fail rather than clipping chrome | Code: `src/core/capture.js` chart-region bounds; commit `0a5a41c` | Validated |
+| 4.1 | Task 4 | Interface | L | Unscoped Close prefers wizard then overlay and never the delete-confirm X; `surface: delete_confirm` resolves Cancel — that matches the ticket's three-way distinguish | Code: `src/core/dom.js` `pickClose`; commit `d70e25f` | Validated |
+| — | Task 5 | — | — | No significant assumptions (library detection from `library(` / facade kind is PL-1) | — | — |
+| 6.1 | Task 6 | Behavioral | L | A dirty buffer is any current Monaco source that is not newline-equal to the fetched facade — `pineSourcesEqual` is the same comparison save already uses | Code: `src/core/pine.js` `bindScript` dirty check; commit `25f3e17` | Validated |
+| — | Task 7 | — | — | No significant assumptions (leftover-wizard resume is PL-3) | — | — |
 
 ## Wrap-Up
 
-7 assumptions — all validated/confirmed.
+12 assumptions — all validated/confirmed.

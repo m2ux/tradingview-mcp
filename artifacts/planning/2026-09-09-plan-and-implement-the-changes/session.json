@@ -1106,10 +1106,11 @@
           "start-work-package",
           "design-philosophy",
           "codebase-comprehension",
-          "plan-prepare"
+          "plan-prepare",
+          "assumptions-review"
         ],
-        "currentActivity": "assumptions-review",
-        "currentTechnique": "review-assumptions::record",
+        "currentActivity": "implement",
+        "currentTechnique": "analyse-challenge::combine",
         "declaredArtifacts": [
           {
             "id": "created_readme",
@@ -1358,9 +1359,57 @@
             "technique:rules:f14f4f37ba417fcf": "f14f4f37ba417fcf",
             "technique:stakeholder-overview": "f67e8d462ed31eb3",
             "technique:update-pr::render": "19b59d3549374eb0"
+          },
+          "wp-w3-implement": {
+            "bundle:agent-conduct": "9cf9756649880f04",
+            "bundle:rules:9b7225f0ee63c0b8": "9b7225f0ee63c0b8",
+            "bundle:scatter-gather": "432914c463bca514",
+            "bundle:variable-binding": "ba92cef59e3d49ac",
+            "bundle:worker-conduct": "2f658c2399e3ea8c",
+            "bundle:workflow-engine::activity-worker": "a1cf2b3b1c6c04c1",
+            "bundle:workflow-engine::finalize-activity": "6c3409693275c7e0",
+            "bundle:workflow-engine::resume-from-checkpoint": "b64a82e406ffbef6",
+            "bundle:workflow-engine::yield-checkpoint": "19bd3b7f355aab3e",
+            "resource:assumptions-review": "d0d770d4b3707585",
+            "resource:provenance-log": "d18402cca6367fe3",
+            "technique:analyse-challenge::challenge": "74c803c9c3767f4d",
+            "technique:analyse-challenge::combine": "e5274c2c6b16bdd0",
+            "technique:dco-provenance::append-task-row": "4c1cb325164daee4",
+            "technique:implement-task": "4a359777af104a80",
+            "technique:inherited_inputs.items:11e3a60eef2459b1": "11e3a60eef2459b1",
+            "technique:inherited_inputs.items:1c6314a7c6a86aef": "1c6314a7c6a86aef",
+            "technique:inherited_inputs.items:2aad4e4a37ba344a": "2aad4e4a37ba344a",
+            "technique:inherited_inputs.items:7ccdd2b8490efc62": "7ccdd2b8490efc62",
+            "technique:inherited_inputs.items:b3638faebcf6f383": "b3638faebcf6f383",
+            "technique:inherited_inputs.items:ee608fa5706f5835": "ee608fa5706f5835",
+            "technique:inherited_inputs.note:53cf3c4bb4d10067": "53cf3c4bb4d10067",
+            "technique:inherited_inputs:4091943e5c9dbb9a": "4091943e5c9dbb9a",
+            "technique:inherited_inputs:837d99893a589d0b": "837d99893a589d0b",
+            "technique:inherited_inputs:8d58bc193a67996b": "8d58bc193a67996b",
+            "technique:inherited_inputs:8ef5ff518c9eec99": "8ef5ff518c9eec99",
+            "technique:inherited_inputs:c71c1a9642620bc8": "c71c1a9642620bc8",
+            "technique:inherited_inputs:da613641d41ce917": "da613641d41ce917",
+            "technique:inherited_outputs.items:0398c75b430f2248": "0398c75b430f2248",
+            "technique:inherited_outputs.note:7d3aa0aac25a19b0": "7d3aa0aac25a19b0",
+            "technique:inherited_outputs:f9171c889165ee68": "f9171c889165ee68",
+            "technique:manage-git::commit-paths": "59900419b10d235e",
+            "technique:provenance_note:10b5dee320dee4be": "10b5dee320dee4be",
+            "technique:review-assumptions::assemble-open-set": "86fa990002a82128",
+            "technique:review-assumptions::collect": "e7faa09f70d6c55b",
+            "technique:review-assumptions::reconcile": "331da652c5463716",
+            "technique:review-assumptions::record": "6e9240f6f048fd1b",
+            "technique:rules:2a5287e8435bca85": "2a5287e8435bca85",
+            "technique:rules:4db963dc0348734e": "4db963dc0348734e",
+            "technique:rules:500e4e23526e97e6": "500e4e23526e97e6",
+            "technique:rules:5b0419c85ffdfbe8": "5b0419c85ffdfbe8",
+            "technique:rules:9c2514007c73551b": "9c2514007c73551b",
+            "technique:rules:9f6c9df8a62796c0": "9f6c9df8a62796c0",
+            "technique:rules:bd770d8359597898": "bd770d8359597898",
+            "technique:rules:f14f4f37ba417fcf": "f14f4f37ba417fcf",
+            "technique:task-completion-review": "f5ff16e422e47381"
           }
         },
-        "exit": "done",
+        "exit": "assumptions-approved",
         "history": [
           {
             "timestamp": "2026-09-09T09:00:19.245Z",
@@ -6462,16 +6511,639 @@
             },
             "timestamp": "2026-09-09T10:12:06.798Z",
             "type": "step_started"
+          },
+          {
+            "activity": "assumptions-review",
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "activity_exited"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "assumption_outcome",
+              "source": "variables_changed",
+              "value": "confirmed"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "assumption_review_presentation",
+              "source": "variables_changed",
+              "value": {
+                "entries": [
+                  {
+                    "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
+                    "id": "PL-3",
+                    "title": "Leftover wizard is resumed"
+                  }
+                ],
+                "log": "https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
+              }
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "declaredType": "object",
+              "name": "assumptions_log",
+              "source": "variables_changed",
+              "typeMismatch": true,
+              "value": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
+              "valueType": "string"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "challenge_findings",
+              "source": "variables_changed",
+              "value": {
+                "evidence-strength": {
+                  "PL-3": {
+                    "note": "Design philosophy leftover-wizard row names resume or refuse; no recorded user pick.",
+                    "status": "irreducible"
+                  }
+                },
+                "rejected-paths": {
+                  "PL-3": {
+                    "note": "Refuse matches addToChart leftover handling; resume is less pattern-consistent.",
+                    "status": "weakened"
+                  }
+                },
+                "stakeholder-gap": {
+                  "PL-3": {
+                    "note": "Success criterion allows resume or refuse; that is a stakeholder choice.",
+                    "status": "irreducible"
+                  }
+                }
+              }
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "deferred_items_register",
+              "source": "variables_changed",
+              "value": ""
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_deferred_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_open_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "has_resolvable_assumptions",
+              "source": "variables_changed",
+              "value": false
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "name": "open_assumptions",
+              "source": "variables_changed",
+              "value": []
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "variable_set"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "evaluate-open-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "challenge-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "combine-assumption-challenges"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "present-residual-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "record-batch-decision"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "assumptions-review",
+            "data": {
+              "stepId": "register-deferred-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "step_completed"
+          },
+          {
+            "activity": "implement",
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "activity_entered"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "published": true
+            },
+            "timestamp": "2026-09-09T11:15:19.817Z",
+            "type": "progress_published"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 96438,
+              "dispatch": "fresh"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5830,
+              "delivery": "full",
+              "stepId": "implement-task",
+              "techniqueId": "implement-task"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "implement-task"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5845,
+              "delivery": "full",
+              "stepId": "commit",
+              "techniqueId": "manage-git::commit-paths"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "commit"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4604,
+              "delivery": "full",
+              "stepId": "log-provenance",
+              "techniqueId": "dco-provenance::append-task-row"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "log-provenance"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4811,
+              "delivery": "full",
+              "stepId": "self-review",
+              "techniqueId": "task-completion-review"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "self-review"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5434,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "collect-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 10030,
+              "delivery": "full",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "reconcile-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4337,
+              "delivery": "full",
+              "stepId": "challenge-assumptions",
+              "techniqueId": "analyse-challenge::challenge"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "challenge-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4887,
+              "delivery": "full",
+              "stepId": "combine-assumption-challenges",
+              "techniqueId": "analyse-challenge::combine"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "combine-assumption-challenges"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5078,
+              "delivery": "full",
+              "stepId": "present-resolved-assumptions",
+              "techniqueId": "review-assumptions::assemble-open-set"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "present-resolved-assumptions"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4965,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "stepId": "update-assumptions-log"
+            },
+            "timestamp": "2026-09-09T11:15:42.250Z",
+            "type": "step_started"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 1197,
+              "delivery": "full",
+              "resourceId": "provenance-log"
+            },
+            "timestamp": "2026-09-09T11:16:08.276Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 6349,
+              "delivery": "full",
+              "resourceId": "assumptions-review"
+            },
+            "timestamp": "2026-09-09T11:18:15.050Z",
+            "type": "resource_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4965,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T11:27:07.551Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 10030,
+              "delivery": "full",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-09-09T11:27:12.691Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4337,
+              "delivery": "full",
+              "stepId": "challenge-assumptions",
+              "techniqueId": "analyse-challenge::challenge"
+            },
+            "timestamp": "2026-09-09T11:27:17.259Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4887,
+              "delivery": "full",
+              "stepId": "combine-assumption-challenges",
+              "techniqueId": "analyse-challenge::combine"
+            },
+            "timestamp": "2026-09-09T11:27:17.636Z",
+            "type": "technique_fetched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 96438,
+              "dispatch": "resume"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "activity_dispatched"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5830,
+              "delivery": "full",
+              "stepId": "implement-task",
+              "techniqueId": "implement-task"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5845,
+              "delivery": "full",
+              "stepId": "commit",
+              "techniqueId": "manage-git::commit-paths"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4604,
+              "delivery": "full",
+              "stepId": "log-provenance",
+              "techniqueId": "dco-provenance::append-task-row"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4811,
+              "delivery": "full",
+              "stepId": "self-review",
+              "techniqueId": "task-completion-review"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5434,
+              "delivery": "full",
+              "stepId": "collect-assumptions",
+              "techniqueId": "review-assumptions::collect"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 10030,
+              "delivery": "full",
+              "stepId": "reconcile-assumptions",
+              "techniqueId": "review-assumptions::reconcile"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4337,
+              "delivery": "full",
+              "stepId": "challenge-assumptions",
+              "techniqueId": "analyse-challenge::challenge"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4887,
+              "delivery": "full",
+              "stepId": "combine-assumption-challenges",
+              "techniqueId": "analyse-challenge::combine"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 5078,
+              "delivery": "full",
+              "stepId": "present-resolved-assumptions",
+              "techniqueId": "review-assumptions::assemble-open-set"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
+          },
+          {
+            "activity": "implement",
+            "data": {
+              "agentId": "wp-w3-implement",
+              "chars": 4965,
+              "delivery": "full",
+              "stepId": "update-assumptions-log",
+              "techniqueId": "review-assumptions::record"
+            },
+            "timestamp": "2026-09-09T11:27:33.620Z",
+            "type": "technique_bundled"
           }
         ],
         "repo": "m2ux/tradingview-mcp",
         "schemaVersion": 1,
-        "seq": 47,
+        "seq": 56,
         "sessionIndex": "VQLOXI",
         "startedAt": "2026-09-09T09:00:19.245Z",
         "status": "running",
         "triggeredWorkflows": [],
-        "ts": 1788948726,
+        "ts": 1788953253,
         "variables": {
           "artifact_publish_ref": "",
           "assumption_outcome": "confirmed",
@@ -6479,19 +7151,11 @@
             "entries": [
               {
                 "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
-                "assumption": "An already-open update wizard is continued rather than failed as blocked_dialog.",
-                "category": "Scope Decisions",
-                "decision_space": "Resume (no second Publish click) vs refuse like addToChart. Resume is less pattern-consistent; refuse is simpler. Both meet the leftover-wizard success criterion.",
                 "id": "PL-3",
-                "reversibility": "easily-reversible",
-                "risk": "L",
-                "technical_context": "addToChart refuses leftover dialogs; publishScript clicks Publish first; classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.",
-                "title": "Leftover wizard is resumed",
-                "why_not_code_resolvable": "Both paths satisfy the ticket; the choice is product preference."
+                "title": "Leftover wizard is resumed"
               }
             ],
-            "log": "https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
-            "markdown": "### PL-3: Leftover wizard is resumed (risk L)\n**Assumption:** An already-open update wizard is continued rather than failed as blocked_dialog.\n**Decision space:** Resume vs refuse. Resume is less pattern-consistent with addToChart leftover handling. Refuse forces close-and-restart. Both meet the success criterion.\n**Why not code-resolvable:** Product preference; the ticket names both paths.\n**Technical context:** addToChart returns blocked_dialog on any pre-existing dialog. publishScript clicks Publish script then classifies. classifyUiDialog already tags pine_publish_wizard. GitNexus impact on publishScript is LOW.\n**Agent's position:** Resume — the wizard on screen is the walk in progress.\n**Reversibility:** easily-reversible\n\nLog: https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
+            "log": "https://github.com/m2ux/tradingview-mcp/blob/engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md"
           },
           "assumptions_log": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/02-assumptions-log.md",
           "attestation_option": "certify",
@@ -6513,7 +7177,7 @@
             },
             "rejected-paths": {
               "PL-3": {
-                "note": "Refuse matches addToChart leftover handling; resume is less pattern-consistent. Leftover publish wizard is the walk in progress, so refuse stays the non-selected path.",
+                "note": "Refuse matches addToChart leftover handling; resume is less pattern-consistent.",
                 "status": "weakened"
               }
             },
@@ -6568,7 +7232,7 @@
           "has_debt_markers": false,
           "has_deferred_assumptions": false,
           "has_flagged_blocks": false,
-          "has_open_assumptions": true,
+          "has_open_assumptions": false,
           "has_open_questions": false,
           "has_reconcilable_research": false,
           "has_resolvable_assumptions": false,
@@ -6608,17 +7272,7 @@
           "needs_research": false,
           "needs_simplification": false,
           "on_feature_branch": true,
-          "open_assumptions": [
-            {
-              "agent_position": "Resume — a leftover publish wizard is the walk in progress, not an unexpected interceptor.",
-              "category": "Scope Decisions",
-              "id": "PL-3",
-              "reversibility": "easily-reversible",
-              "risk": "L",
-              "statement": "An already-open update wizard is continued rather than failed as blocked_dialog.",
-              "title": "Leftover wizard is resumed"
-            }
-          ],
+          "open_assumptions": [],
           "open_deferred_items": [],
           "path_rationale": "skip-optional / direct to planning. Elicitation and research skipped. Comprehension still runs. At simple complexity the design framework warrants problem definition, conventional solutions, and synthesis. Original classify moderate vs this path's simple is recorded, not re-opened.",
           "plan_document": "/home/mike1/projects/dev/tradingview-mcp/.engineering/artifacts/planning/2026-09-09-plan-and-implement-the-changes/06-work-package-plan.md",
