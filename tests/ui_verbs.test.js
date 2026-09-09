@@ -7,7 +7,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { findElementExpression, clickAt } from '../src/core/dom.js';
-import { netRequest, waitFor } from '../src/core/ui.js';
+import { netRequest, waitFor, setInput } from '../src/core/ui.js';
 import { clickVisibleButton, fetchFacadeList, fillDialogInput } from '../src/core/pine_ui.js';
 import { GATED_TOOLS, isAllowed } from '../src/capabilities.js';
 
@@ -60,6 +60,68 @@ describe('clickAt() — trusted CDP click payload', () => {
     await clickAt(1, 2, { button: 'right' }, { getClient: stubClient(calls) });
     assert.equal(calls[1].button, 'right');
     assert.equal(calls[1].buttons, 2);
+  });
+});
+
+describe('setInput() — match only, skip Monaco', () => {
+  it('errors when match misses and does not report a fallback fill', async () => {
+    const evaluate = async () => ({ set: false });
+    await assert.rejects(
+      () => setInput({ value: 'notes', match: 'zzz' }, { evaluate }),
+      /No visible input matched "zzz"/,
+    );
+  });
+
+  it('default match includes the library change-description phrasing', async () => {
+    let expr;
+    const evaluate = async (value) => { expr = value; return { set: true, matched: 'changes' }; };
+    await setInput({ value: 'notes' }, { evaluate });
+    assert.match(expr, /changes you made/);
+    assert.match(expr, /isMonaco/);
+    assert.match(expr, /inputarea/);
+    assert.doesNotMatch(expr, /fallback/);
+  });
+
+  it('does not commit Monaco textarea.inputarea when it is the only visible field', async () => {
+    const monaco = {
+      tagName: 'TEXTAREA',
+      classList: { contains: (c) => c === 'inputarea' },
+      placeholder: '',
+      name: '',
+      type: undefined,
+      offsetParent: {},
+      getClientRects: () => [{}],
+      getAttribute: () => '',
+      focus() { this.focused = true; },
+      _v: 'library source',
+      events: [],
+      dispatchEvent(e) { this.events.push(e.type); },
+    };
+    const evaluate = async (expr) => {
+      const document = {
+        querySelector: () => null,
+        querySelectorAll: () => [monaco],
+      };
+      global.HTMLTextAreaElement = function () {};
+      Object.defineProperty(global.HTMLTextAreaElement.prototype, 'value', {
+        configurable: true,
+        get() { return this._v; },
+        set(v) { this._v = v; },
+      });
+      global.Event = class { constructor(type) { this.type = type; this.bubbles = true; } };
+      try {
+        return eval(expr);
+      } finally {
+        delete global.HTMLTextAreaElement;
+        delete global.Event;
+      }
+    };
+    await assert.rejects(
+      () => setInput({ value: 'wizard notes', within_dialog: false }, { evaluate }),
+      /No visible input matched/,
+    );
+    assert.equal(monaco._v, 'library source');
+    assert.equal(monaco.focused, undefined);
   });
 });
 

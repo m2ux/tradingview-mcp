@@ -14,7 +14,7 @@ export function registerUiTools(server) {
 
   server.tool('ui_set_input', 'Set a React-controlled input/textarea value (bypasses the value tracker so React registers it). Resolves the input by placeholder/aria-label/name regex.', {
     value: z.string().describe('Text to set'),
-    match: z.string().optional().describe('Regex matched against placeholder/aria-label/name (default: name|script|title|search|description)'),
+    match: z.string().optional().describe('Regex matched against placeholder/aria-label/name (default: name|script|title|search|description|changes you made)'),
     within_dialog: z.coerce.boolean().optional().describe('Scope to the open dialog (default true)'),
   }, async ({ value, match, within_dialog }) => {
     try { return jsonResult(await core.setInput({ value, match, within_dialog })); }

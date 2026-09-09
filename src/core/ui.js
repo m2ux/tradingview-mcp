@@ -54,12 +54,13 @@ export async function click({ by, value, trusted = false } = {}) {
 /**
  * Set a React-controlled input/textarea value via the native setter so React
  * registers the change. Resolves the input by placeholder/aria-label/name
- * (regex `match`), optionally scoped to the open dialog. Generic form of the
- * Pine dialog-fill idiom.
+ * (regex `match`), optionally scoped to the open dialog. A missed match
+ * errors; Monaco `textarea.inputarea` is skipped so the editor is never the
+ * fill target.
  */
 export async function setInput({ value, match, within_dialog = true } = {}, _deps = {}) {
   const evalFn = _deps.evaluate || evaluate;
-  const re = match instanceof RegExp ? match.source : String(match || 'name|script|title|search|description');
+  const re = match instanceof RegExp ? match.source : String(match || 'name|script|title|search|description|changes you made');
   const result = await evalFn(`
     (function() {
       var re = new RegExp(${JSON.stringify(re)}, 'i');
@@ -68,27 +69,22 @@ export async function setInput({ value, match, within_dialog = true } = {}, _dep
         : document;
       var inputs = scope.querySelectorAll('input, textarea');
       function vis(e) { return e && (e.offsetParent !== null || e.getClientRects().length > 0); }
-      function commit(inp, matched, fallback) {
+      function isMonaco(inp) {
+        return inp.classList && inp.classList.contains('inputarea');
+      }
+      function commit(inp, matched) {
         inp.focus();
         var proto = inp.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         Object.getOwnPropertyDescriptor(proto, 'value').set.call(inp, ${JSON.stringify(String(value))});
         inp.dispatchEvent(new Event('input', { bubbles: true }));
         inp.dispatchEvent(new Event('change', { bubbles: true }));
-        var r = { set: true, matched: String(matched).substring(0, 80) };
-        if (fallback) r.fallback = true;
-        return r;
+        return { set: true, matched: String(matched).substring(0, 80) };
       }
       for (var i = 0; i < inputs.length; i++) {
         var inp = inputs[i];
-        if (!vis(inp)) continue;
+        if (!vis(inp) || isMonaco(inp)) continue;
         var meta = (inp.placeholder || '') + ' ' + (inp.getAttribute('aria-label') || '') + ' ' + (inp.name || '');
-        if (re.test(meta)) return commit(inp, meta.trim(), false);
-      }
-      for (var j = 0; j < inputs.length; j++) {
-        var inp2 = inputs[j];
-        if (!vis(inp2)) continue;
-        if (inp2.type && inp2.type !== 'text' && inp2.type !== 'search' && inp2.tagName !== 'TEXTAREA') continue;
-        return commit(inp2, inp2.placeholder || inp2.name || 'input', true);
+        if (re.test(meta)) return commit(inp, meta.trim());
       }
       return { set: false };
     })()
